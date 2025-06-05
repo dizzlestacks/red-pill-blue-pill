@@ -21,6 +21,10 @@
     }
     h1 {
       font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+    .counter {
+      font-size: 1.2rem;
       margin-bottom: 20px;
     }
     .pill-container {
@@ -53,14 +57,30 @@
 </head>
 <body>
   <h1>WHICH PILL DO YOU CHOOSE?</h1>
+  <div class="counter" style="position: absolute; bottom: 20px;">
+    How many people have left the matrix: <span id="matrixCounter">...</span>
+  </div>
   <div class="pill-container">
     <img src="final_combined_original_size.jpg" alt="Pill Choice">
     <a href="#" class="hotzone left" onclick="
-      window.open('extra.html', '_blank');
-      window.location.href='https://youtu.be/PdsJs0UIm7s?si=0Tmacr0ldpjZq2LZ';
+      fetch('https://api.countapi.xyz/hit/matrixpillsite/redpillclicks')
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('matrixCounter').textContent = data.value;
+          window.open('extra.html', '_blank');
+          window.location.href='https://youtu.be/PdsJs0UIm7s?si=0Tmacr0ldpjZq2LZ';
+        });
       return false;
     "></a>
-    <a href="https://google.com" class="hotzone right"></a>
+    <a href='https://google.com' class='hotzone right'></a>
   </div>
+
+  <script>
+    fetch('https://api.countapi.xyz/get/matrixpillsite/redpillclicks')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("matrixCounter").textContent = data.value;
+      });
+  </script>
 </body>
 </html>
