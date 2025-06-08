@@ -22,6 +22,7 @@
     h1 {
       font-size: 1.5rem;
       margin-bottom: 20px;
+      text-shadow: 0 0 5px #00FF41;
     }
     .pill-container {
       position: relative;
@@ -53,13 +54,14 @@
 </head>
 <body>
   <h1>WHICH PILL DO YOU CHOOSE?</h1>
+
   <div class="pill-container">
     <img src="final_combined_original_size.jpg" alt="Pill Choice">
-    <a href="#" class="hotzone left" onclick="
-      window.open('extra.html', '_blank');
-      window.location.href='https://youtu.be/PdsJs0UIm7s?si=0Tmacr0ldpjZq2LZ';
-      return false;
-    "></a>
+    
+    <!-- Red pill (left) goes to extra.html -->
+    <a href="extra.html" class="hotzone left"></a>
+
+    <!-- Blue pill (right) goes to Google -->
     <a href="https://google.com" class="hotzone right"></a>
   </div>
 </body>
