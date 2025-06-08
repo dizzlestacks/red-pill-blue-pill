@@ -1,52 +1,103 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Video JSON Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Editor</title>
   <style>
     body {
-      background-color: #111;
+      background: #000;
       color: #00ff41;
       font-family: monospace;
       padding: 20px;
     }
-    input, button, textarea {
-      display: block;
+    input, textarea {
       width: 100%;
-      margin: 10px 0;
-      padding: 10px;
-      background: #000;
+      background: #111;
       color: #00ff41;
       border: 1px solid #00ff41;
+      margin: 10px 0;
+      padding: 8px;
+    }
+    button {
+      background: #00ff41;
+      color: black;
+      padding: 10px 20px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+    .section {
+      margin-bottom: 30px;
     }
   </style>
 </head>
 <body>
 
-  <h1>Create New Video JSON</h1>
-  <input id="title" placeholder="Title">
-  <input id="video_id" placeholder="Cloudflare Video ID (optional)">
-  <input id="url" placeholder="Direct URL (optional)">
-  <input id="category" placeholder="Category">
-  <input id="tags" placeholder="Comma-separated tags">
-  <button onclick="generate()">Generate</button>
-  <textarea id="output" rows="10" readonly></textarea>
+  <h1>Add New Video</h1>
+
+  <div class="section">
+    <label>Title:</label>
+    <input type="text" id="title" placeholder="Ex: Truth Revealed">
+
+    <label>Cloudflare Video ID (optional):</label>
+    <input type="text" id="video_id" placeholder="Ex: ca53f3a766e01764d750d02186803f74">
+
+    <label>YouTube Video ID (optional):</label>
+    <input type="text" id="youtube_id" placeholder="Ex: dQw4w9WgXcQ">
+
+    <label>Dropbox URL (optional):</label>
+    <input type="text" id="dropbox_url" placeholder="Ex: https://www.dropbox.com/s/xyz/video.mp4?raw=1">
+
+    <label>Direct Video URL (optional):</label>
+    <input type="text" id="url" placeholder="Ex: /videos/video1.mp4">
+
+    <label>Category:</label>
+    <input type="text" id="category" placeholder="Ex: Matrix">
+
+    <label>Tags (comma-separated):</label>
+    <input type="text" id="tags" placeholder="Ex: truth, awakening, redpill">
+
+    <label>Featured:</label>
+    <select id="featured">
+      <option value="false">No</option>
+      <option value="true">Yes</option>
+    </select>
+
+    <button onclick="generateJSON()">Generate JSON Snippet</button>
+  </div>
+
+  <div class="section">
+    <label>Result:</label>
+    <textarea id="output" rows="10" readonly></textarea>
+  </div>
 
   <script>
-    function generate() {
-      const title = document.getElementById("title").value;
-      const video_id = document.getElementById("video_id").value;
-      const url = document.getElementById("url").value;
-      const category = document.getElementById("category").value;
-      const tags = document.getElementById("tags").value.split(',').map(t => t.trim()).filter(Boolean);
-      const added = new Date().toISOString();
+    function generateJSON() {
+      const obj = {
+        title: document.getElementById("title").value,
+        video_id: document.getElementById("video_id").value || undefined,
+        youtube_id: document.getElementById("youtube_id").value || undefined,
+        dropbox_url: document.getElementById("dropbox_url").value || undefined,
+        url: document.getElementById("url").value || undefined,
+        category: document.getElementById("category").value,
+        tags: document.getElementById("tags").value.split(',').map(t => t.trim()),
+        added: new Date().toISOString(),
+        featured: document.getElementById("featured").value === "true"
+      };
 
-      const block = { title, category, tags, added };
-      if (video_id) block.video_id = video_id;
-      if (url) block.url = url;
+      // Remove empty keys
+      Object.keys(obj).forEach(k => {
+        if (obj[k] === "" || obj[k] === undefined) delete obj[k];
+      });
 
-      document.getElementById("output").value = JSON.stringify(block, null, 2);
+      const jsonSnippet = JSON.stringify(obj, null, 2);
+      document.getElementById("output").value = jsonSnippet;
     }
   </script>
 
