@@ -15,20 +15,5 @@
     "added": "2025-06-06T00:00:00Z",
     "featured": false
   },
-  {
-    "title": "Local Hosted",
-    "url": "videos/last_days.mp4",
-    "category": "Matrix",
-    "tags": ["offline", "truth"],
-    "added": "2025-06-05T00:00:00Z",
-    "featured": false
-  },
-  {
-    "title": "Dropbox Hosted",
-    "dropbox_url": "https://www.dropbox.com/s/xyz123/yourvideo.mp4?raw=1",
-    "category": "Matrix",
-    "tags": ["dropbox", "hosted"],
-    "added": "2025-06-04T00:00:00Z",
-    "featured": false
-  }
+ 
 ]
