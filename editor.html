@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Video JSON Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      background-color: #111;
+      color: #00ff41;
+      font-family: monospace;
+      padding: 20px;
+    }
+    input, button, textarea {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      background: #000;
+      color: #00ff41;
+      border: 1px solid #00ff41;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Create New Video JSON</h1>
+  <input id="title" placeholder="Title">
+  <input id="video_id" placeholder="Cloudflare Video ID (optional)">
+  <input id="url" placeholder="Direct URL (optional)">
+  <input id="category" placeholder="Category">
+  <input id="tags" placeholder="Comma-separated tags">
+  <button onclick="generate()">Generate</button>
+  <textarea id="output" rows="10" readonly></textarea>
+
+  <script>
+    function generate() {
+      const title = document.getElementById("title").value;
+      const video_id = document.getElementById("video_id").value;
+      const url = document.getElementById("url").value;
+      const category = document.getElementById("category").value;
+      const tags = document.getElementById("tags").value.split(',').map(t => t.trim()).filter(Boolean);
+      const added = new Date().toISOString();
+
+      const block = { title, category, tags, added };
+      if (video_id) block.video_id = video_id;
+      if (url) block.url = url;
+
+      document.getElementById("output").value = JSON.stringify(block, null, 2);
+    }
+  </script>
+
+</body>
+</html>
