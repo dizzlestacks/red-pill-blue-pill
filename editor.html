@@ -3,103 +3,117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Video Editor</title>
+  <title>Video JSON Editor</title>
   <style>
     body {
-      background: #000;
-      color: #00ff41;
       font-family: monospace;
+      background: #000;
+      color: #00FF41;
       padding: 20px;
     }
-    input, textarea {
+    label, input, textarea, select, button {
+      display: block;
       width: 100%;
+      margin-bottom: 10px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    input, textarea, select {
       background: #111;
-      color: #00ff41;
-      border: 1px solid #00ff41;
-      margin: 10px 0;
+      color: #00FF41;
+      border: 1px solid #00FF41;
       padding: 8px;
     }
+    textarea {
+      height: 120px;
+    }
+    .output {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background: #111;
+      padding: 15px;
+      border: 1px solid #00FF41;
+    }
     button {
-      background: #00ff41;
-      color: black;
-      padding: 10px 20px;
-      border: none;
-      font-weight: bold;
       cursor: pointer;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 15px;
-    }
-    .section {
-      margin-bottom: 30px;
+      background: #00FF41;
+      color: black;
+      padding: 10px;
+      border: none;
     }
   </style>
 </head>
 <body>
+  <h2>Video JSON Editor</h2>
 
-  <h1>Add New Video</h1>
+  <label>Title:</label>
+  <input type="text" id="title" placeholder="e.g. UNPLUG FROM THE MATRIX" />
 
-  <div class="section">
-    <label>Title:</label>
-    <input type="text" id="title" placeholder="Ex: Truth Revealed">
+  <label>YouTube ID (optional):</label>
+  <input type="text" id="youtube_id" placeholder="e.g. 7Eeo-82Eac8" />
 
-    <label>Cloudflare Video ID (optional):</label>
-    <input type="text" id="video_id" placeholder="Ex: ca53f3a766e01764d750d02186803f74">
+  <label>Cloudflare video_id (optional):</label>
+  <input type="text" id="video_id" placeholder="e.g. ca53f3a766e01764d750d02186803f74" />
 
-    <label>YouTube Video ID (optional):</label>
-    <input type="text" id="youtube_id" placeholder="Ex: dQw4w9WgXcQ">
+  <label>Dropbox URL (optional, add ?raw=1):</label>
+  <input type="text" id="dropbox_url" placeholder="https://www.dropbox.com/s/abc/video.mp4?raw=1" />
 
-    <label>Dropbox URL (optional):</label>
-    <input type="text" id="dropbox_url" placeholder="Ex: https://www.dropbox.com/s/xyz/video.mp4?raw=1">
+  <label>Category:</label>
+  <input type="text" id="category" placeholder="e.g. Conspiracy, Faith, Reality" />
 
-    <label>Direct Video URL (optional):</label>
-    <input type="text" id="url" placeholder="Ex: /videos/video1.mp4">
+  <label>Tags (comma-separated):</label>
+  <input type="text" id="tags" placeholder="e.g. matrix,truth,wake up,government" />
 
-    <label>Category:</label>
-    <input type="text" id="category" placeholder="Ex: Matrix">
+  <label>Featured?</label>
+  <select id="featured">
+    <option value="false">No</option>
+    <option value="true">Yes</option>
+  </select>
 
-    <label>Tags (comma-separated):</label>
-    <input type="text" id="tags" placeholder="Ex: truth, awakening, redpill">
+  <button onclick="generateJSON()">Generate JSON</button>
 
-    <label>Featured:</label>
-    <select id="featured">
-      <option value="false">No</option>
-      <option value="true">Yes</option>
-    </select>
+  <div class="output" id="jsonOutput"></div>
 
-    <button onclick="generateJSON()">Generate JSON Snippet</button>
-  </div>
-
-  <div class="section">
-    <label>Result:</label>
-    <textarea id="output" rows="10" readonly></textarea>
-  </div>
+  <button onclick="copyJSON()">Copy JSON</button>
+  <button onclick="downloadJSON()">Download JSON File</button>
 
   <script>
     function generateJSON() {
-      const obj = {
-        title: document.getElementById("title").value,
-        video_id: document.getElementById("video_id").value || undefined,
-        youtube_id: document.getElementById("youtube_id").value || undefined,
-        dropbox_url: document.getElementById("dropbox_url").value || undefined,
-        url: document.getElementById("url").value || undefined,
-        category: document.getElementById("category").value,
-        tags: document.getElementById("tags").value.split(',').map(t => t.trim()),
-        added: new Date().toISOString(),
-        featured: document.getElementById("featured").value === "true"
-      };
+      const title = document.getElementById('title').value.trim();
+      const youtube_id = document.getElementById('youtube_id').value.trim();
+      const video_id = document.getElementById('video_id').value.trim();
+      const dropbox_url = document.getElementById('dropbox_url').value.trim();
+      const category = document.getElementById('category').value.trim();
+      const tags = document.getElementById('tags').value.split(',').map(t => t.trim()).filter(Boolean);
+      const featured = document.getElementById('featured').value === "true";
+      const added = new Date().toISOString();
 
-      // Remove empty keys
-      Object.keys(obj).forEach(k => {
-        if (obj[k] === "" || obj[k] === undefined) delete obj[k];
-      });
+      const entry = { title, category, tags, added, featured };
 
-      const jsonSnippet = JSON.stringify(obj, null, 2);
-      document.getElementById("output").value = jsonSnippet;
+      if (youtube_id) entry.youtube_id = youtube_id;
+      else if (video_id) entry.video_id = video_id;
+      else if (dropbox_url) entry.url = dropbox_url;
+
+      const jsonOutput = JSON.stringify(entry, null, 2);
+      document.getElementById('jsonOutput').textContent = jsonOutput;
+    }
+
+    function copyJSON() {
+      const output = document.getElementById('jsonOutput').textContent;
+      if (!output) return alert("Generate JSON first");
+      navigator.clipboard.writeText(output).then(() => alert("Copied to clipboard"));
+    }
+
+    function downloadJSON() {
+      const content = document.getElementById('jsonOutput').textContent;
+      if (!content) return alert("Generate JSON first");
+
+      const blob = new Blob([content], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'video_entry.json';
+      link.click();
     }
   </script>
-
 </body>
 </html>
