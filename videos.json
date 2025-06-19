@@ -2,15 +2,15 @@
   {
     "title": "Featured YouTube Video",
     "youtube_id": "PdsJs0UIm7s",
-    "category": "History",
-    "tags": ["truth", "youtube"],
+    "category": "HISTORY",
+    "tags": ["history", "youtube", "religion"],
     "added": "2025-06-07T00:00:00Z",
     "featured": true
   },
   {
-    "title": "Alien Invasion",
+    "title": "ALIEN INVASION",
     "video_id": "ca53f3a766e01764d750d02186803f74",
-    "category": "Matrix",
+    "category": "MATRIX",
     "tags": ["alien", "invation", "truth"],
     "added": "2025-06-06T00:00:00Z",
     "featured": false
