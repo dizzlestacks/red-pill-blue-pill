@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,16 +13,16 @@
       background: black;
       color: #00FF41;
       height: 100%;
+      font-family: 'Share Tech Mono', monospace;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
-      font-family: 'Share Tech Mono', monospace;
+      justify-content: center;
       text-align: center;
     }
     h1 {
       font-size: 1.5rem;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       text-shadow: 0 0 5px #00FF41;
     }
     .pill-container {
@@ -43,12 +44,10 @@
     }
     .left { left: 0; }
     .right { right: 0; }
-    .hotzone:active {
-      animation: clickFlash 0.2s;
-    }
-    @keyframes clickFlash {
-      from { background-color: rgba(255,255,255,0.1); }
-      to { background-color: transparent; }
+    .countdown {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #00ff99;
     }
   </style>
 </head>
@@ -57,12 +56,27 @@
 
   <div class="pill-container">
     <img src="final_combined_original_size.jpg" alt="Pill Choice">
-    
-    <!-- Red pill (left) goes to extra.html -->
-    <a href="extra.html" class="hotzone left"></a>
-
-    <!-- Blue pill (right) goes to Google -->
-    <a href="https://google.com" class="hotzone right"></a>
+    <a href="videos.html" class="hotzone left" id="redPill"></a>
+    <a href="https://google.com" class="hotzone right" id="bluePill"></a>
   </div>
+
+  <div class="countdown" id="timer" style="display:none;">Auto-selecting Blue Pill in 30 seconds...</div>
+
+  <script>
+    let countdown = 30;
+    const timerEl = document.getElementById("timer");
+    const interval = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(interval);
+        window.location.href = "https://google.com";
+      } else {
+        timerEl.textContent = "Auto-selecting Blue Pill in " + countdown + " seconds...";
+      }
+    }, 1000);
+
+    document.getElementById("redPill").onclick = () => clearInterval(interval);
+    document.getElementById("bluePill").onclick = () => clearInterval(interval);
+  </script>
 </body>
 </html>
