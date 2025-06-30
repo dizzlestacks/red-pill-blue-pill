@@ -1,241 +1,315 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Video Hub</title>
+  <title>Videos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #000;
       --fg: #00ff41;
-      --card-bg: #111;
-      --border: #00ff41;
+      --card: #111;
+      --accent: #00ff41;
     }
-    [data-theme='light'] {
-      --bg: #fff;
-      --fg: #000;
-      --card-bg: #eee;
-      --border: #000;
+    [data-theme="light"] {
+      --bg: #f4f4f4;
+      --fg: #111;
+      --card: #fff;
+      --accent: #007acc;
+    }
+    [data-theme="pink"] {
+      --bg: #3a001e;
+      --fg: #ff80c0;
+      --card: #4a002a;
+      --accent: #ff4ebf;
+    }
+    [data-theme="blue"] {
+      --bg: #001f3f;
+      --fg: #66ccff;
+      --card: #002b5c;
+      --accent: #3399ff;
+    }
+    [data-theme="grey"] {
+      --bg: #111;
+      --fg: #ccc;
+      --card: #222;
+      --accent: #888;
+    }
+    [data-theme="vaporwave"] {
+      --bg: #2d0039;
+      --fg: #ffb3ec;
+      --card: #39004d;
+      --accent: #00f6ff;
     }
     body {
-      background-color: var(--bg);
-      color: var(--fg);
-      font-family: monospace;
       margin: 0;
-      padding: 20px;
-      transition: background 0.4s, color 0.4s;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Share Tech Mono', monospace;
+      padding: 1rem;
+    }
+    h1, h2 {
+      text-align: center;
+      text-shadow: 0 0 5px var(--accent);
     }
     input, select, button {
-      background-color: var(--card-bg);
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.5rem;
+      background: var(--card);
       color: var(--fg);
-      border: 1px solid var(--border);
-      padding: 8px;
-      font-family: monospace;
-      font-size: 14px;
+      border: 1px solid var(--accent);
       margin: 5px 0;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
+      width: 100%;
     }
     .video-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
     }
     .video-card {
-      background: var(--card-bg);
-      padding: 10px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--accent);
+      padding: 0.5rem;
+      background: var(--card);
+      position: relative;
     }
     .tag {
-      display: inline-block;
-      background: var(--fg);
+      background: var(--accent);
       color: var(--bg);
+      display: inline-block;
       padding: 2px 6px;
       margin: 2px;
-      font-size: 12px;
+      font-size: 0.8rem;
       cursor: pointer;
       border-radius: 4px;
     }
-    .tag:hover {
-      opacity: 0.8;
-    }
-    .featured {
-      margin-bottom: 40px;
-      border: 2px solid var(--border);
-      padding: 10px;
-      background: var(--card-bg);
-    }
-    .featured h2 {
-      margin-top: 0;
-    }
     .watched {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      font-size: 0.7rem;
       color: grey;
-      font-size: 12px;
     }
     .theme-toggle {
+      width: auto;
+      height: auto;
       position: fixed;
       top: 10px;
       right: 10px;
-      z-index: 999;
+      z-index: 1000;
       padding: 6px 10px;
-      background: var(--card-bg);
+      font-size: 14px;
+      background: var(--card);
+      color: var(--fg);
+      border: 1px solid var(--accent);
+      cursor: pointer;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: var(--card);
+      border: 1px solid var(--accent);
+      padding: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    .share-btn {
+      font-size: 0.8rem;
+      margin-top: 4px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px dashed var(--accent);
+      cursor: pointer;
+    }
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: var(--accent);
+      border-top: 1px solid var(--accent);
+      padding-top: 0.5rem;
     }
   </style>
 </head>
 <body data-theme="dark">
 
-  <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
 
-  <div class="featured" id="featuredSection">
-    <h2>Featured Video</h2>
-    <div id="featuredContainer">Loading...</div>
-  </div>
+  <h2>📺 Featured Video</h2>
+  <div class="video-grid" id="featuredGrid"></div>
 
-  <div class="controls">
-    <input type="text" id="tagFilter" placeholder="Search by tag..." />
-    <select id="categoryFilter" onchange="renderVideos()">
+  <div style="height: 20px;"></div>
+
+  <input type="text" id="searchInput" placeholder="Search by title or tag..." />
+
+  <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+    <select id="categoryFilter" onchange="renderVideos()" style="flex: 1;">
       <option value="">All Categories</option>
     </select>
-    <select id="sortOrder" onchange="renderVideos()">
+    <select id="sortFilter" onchange="renderVideos()" style="flex: 1;">
       <option value="newest">Newest First</option>
       <option value="oldest">Oldest First</option>
+      <option value="az">Title A–Z</option>
+      <option value="za">Title Z–A</option>
     </select>
-    <button onclick="resetFilters()">Reset</button>
   </div>
 
-  <h1>Video Archive</h1>
-  <div class="video-grid" id="videoGrid">Loading...</div>
+
+  <div class="video-grid" id="pinnedGrid"></div>
+  <div class="video-grid" id="videoGrid"></div>
+
+  <footer id="terminalFooter"></footer>
 
   <script>
-    let videos = [];
-    let activeTag = "";
-    let searchInput = "";
+    const themes = ["dark", "light", "pink", "blue", "grey", "vaporwave"];
+    let currentTheme = 0;
 
     function toggleTheme() {
-      const body = document.body;
-      body.dataset.theme = body.dataset.theme === "light" ? "dark" : "light";
+      currentTheme = (currentTheme + 1) % themes.length;
+      document.body.dataset.theme = themes[currentTheme];
     }
 
-    document.getElementById("tagFilter").addEventListener("input", () => {
-      searchInput = document.getElementById("tagFilter").value.toLowerCase().trim();
-      renderVideos();
-    });
-
-    function resetFilters() {
-      document.getElementById("tagFilter").value = "";
-      document.getElementById("categoryFilter").value = "";
-      document.getElementById("sortOrder").value = "newest";
-      searchInput = "";
-      activeTag = "";
-      renderVideos();
+    function getDeviceType() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes("iphone")) return "iPhone";
+      if (ua.includes("ipad")) return "iPad";
+      if (ua.includes("android")) return "Android";
+      if (ua.includes("mac")) return "Mac";
+      if (ua.includes("windows")) return "Windows";
+      if (ua.includes("linux")) return "Linux";
+      return "Device";
     }
 
-    function filterByTag(tag) {
-      activeTag = (activeTag === tag) ? "" : tag;
-      renderVideos();
+    function formatTime() {
+      return new Date().toLocaleTimeString();
     }
+
+    function updateFooter() {
+      document.getElementById("terminalFooter").textContent =
+        `${formatTime()} | ${getDeviceType()}`;
+    }
+
+    setInterval(updateFooter, 1000);
+    updateFooter();
 
     function markWatched(title) {
-      const watched = JSON.parse(localStorage.getItem("watched") || "[]");
+      let watched = JSON.parse(localStorage.getItem("watched") || "[]");
       if (!watched.includes(title)) {
-        watched.push(title);
-        localStorage.setItem("watched", JSON.stringify(watched));
+        watched.unshift(title);
+        localStorage.setItem("watched", JSON.stringify(watched.slice(0, 15)));
       }
     }
 
-    function isWatched(title) {
-      const watched = JSON.parse(localStorage.getItem("watched") || "[]");
-      return watched.includes(title);
+    function shareVideo(title) {
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const url = `${location.origin}${location.pathname}#${slug}`;
+      navigator.clipboard.writeText(url);
+      alert("Video link copied!");
+    }
+
+    function renderVideoCard(video) {
+      const card = document.createElement("div");
+      card.className = "video-card";
+      const slug = video.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      card.id = slug;
+      let embed = "";
+
+      if (video.video_id) {
+        embed = `<iframe src="https://iframe.videodelivery.net/${video.video_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen></iframe>`;
+      } else if (video.youtube_id) {
+        embed = `<iframe src="https://www.youtube.com/embed/${video.youtube_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen></iframe>`;
+      } else if (video.url) {
+        embed = `<video src="${video.url}" width="100%" controls onplay="markWatched('${video.title}')"></video>`;
+      }
+
+      const tags = video.tags.map(t => `<span class="tag" onclick="filterByTag('${t}')">${t.replace(/^#/, '')}</span>`).join("");
+
+      const watched = JSON.parse(localStorage.getItem("watched") || "[]").includes(video.title)
+        ? '<div class="watched">Watched</div>' : '';
+
+      card.innerHTML = `
+        ${watched}
+        <h3>${video.title}</h3>
+        ${embed}
+        <p>Category: ${video.category || "Uncategorized"}</p>
+        <div>Tags: ${tags}</div>
+        <button class="share-btn" onclick="shareVideo('${video.title}')">🔗 Share</button>
+      `;
+
+      return card;
+    }
+
+    function filterByTag(tag) {
+      document.getElementById("searchInput").value = tag;
+      renderVideos();
     }
 
     function renderVideos() {
-      const grid = document.getElementById("videoGrid");
       const catFilter = document.getElementById("categoryFilter").value;
-      const sortOrder = document.getElementById("sortOrder").value;
+      const sort = document.getElementById("sortFilter").value;
+      const grid = document.getElementById("videoGrid");
+      const pinned = document.getElementById("pinnedGrid");
+      const featured = document.getElementById("featuredGrid");
+      const q = document.getElementById("searchInput").value.toLowerCase();
+
       grid.innerHTML = "";
+      pinned.innerHTML = "";
+      featured.innerHTML = "";
 
-      let filtered = videos.filter(v => {
-        if (v.featured) return false; // ✅ EXCLUDE featured from archive
-        const tagMatch = searchInput === "" || v.tags.some(tag => tag.toLowerCase().includes(searchInput));
-        const tagActive = activeTag === "" || v.tags.includes(activeTag);
-        const catMatch = catFilter === "" || v.category === catFilter;
-        return tagMatch && tagActive && catMatch;
+      let sorted = videos.filter(v => {
+        const match = !q || v.title.toLowerCase().includes(q) || v.tags.some(tag => tag.toLowerCase().includes(q));
+        const catMatch = !catFilter || (v.category && v.category === catFilter);
+        return match && catMatch;
       });
 
-      filtered.sort((a, b) => {
-        return (sortOrder === "newest")
-          ? new Date(b.added) - new Date(a.added)
-          : new Date(a.added) - new Date(b.added);
+      sorted.sort((a, b) => {
+        if (sort === "newest") return new Date(b.added) - new Date(a.added);
+        if (sort === "oldest") return new Date(a.added) - new Date(b.added);
+        if (sort === "az") return a.title.localeCompare(b.title);
+        if (sort === "za") return b.title.localeCompare(a.title);
+        return 0;
       });
 
-      filtered.forEach(v => {
-        const card = document.createElement("div");
-        card.className = "video-card";
-
-        let embedHTML = "";
-        if (v.video_id) {
-          embedHTML = `<iframe src="https://iframe.videodelivery.net/${v.video_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen></iframe>`;
-        } else if (v.youtube_id) {
-          embedHTML = `<iframe width="100%" height="315" src="https://www.youtube.com/embed/${v.youtube_id}" frameborder="0" allowfullscreen></iframe>`;
-        } else if (v.dropbox_url) {
-          embedHTML = `<video src="${v.dropbox_url}" controls width="100%" onplay="markWatched('${v.title}')"></video>`;
-        } else if (v.url) {
-          embedHTML = `<video src="${v.url}" controls width="100%" onplay="markWatched('${v.title}')"></video>`;
+      sorted.forEach(v => {
+        const match = !q || v.title.toLowerCase().includes(q) || v.tags.some(tag => tag.toLowerCase().includes(q));
+        const card = renderVideoCard(v);
+        if (v.featured && match) {
+          featured.appendChild(card);
+        } else if (v.pinned && match) {
+          pinned.appendChild(card);
+        } else if (!v.pinned && !v.featured && match) {
+          grid.appendChild(card);
         }
-
-        const tagsHTML = v.tags.map(tag =>
-          `<span class="tag" onclick="filterByTag('${tag}')">${tag}</span>`
-        ).join(" ");
-
-        const watchedNote = isWatched(v.title) ? "<div class='watched'>Watched</div>" : "";
-
-        card.innerHTML = `
-          <h3>${v.title}</h3>
-          ${embedHTML}
-          <p>Category: ${v.category}</p>
-          <div>Tags: ${tagsHTML}</div>
-          ${watchedNote}
-        `;
-        grid.appendChild(card);
       });
     }
 
+    let videos = [];
     fetch("videos.json")
-      .then(res => res.json())
+      .then(r => r.json())
       .then(data => {
         videos = data;
-
-        const featured = videos.find(v => v.featured);
-        const featuredContainer = document.getElementById("featuredContainer");
-        if (featured) {
-          let embed = "";
-          if (featured.video_id) {
-            embed = `<iframe src="https://iframe.videodelivery.net/${featured.video_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen></iframe>`;
-          } else if (featured.youtube_id) {
-            embed = `<iframe width="100%" height="315" src="https://www.youtube.com/embed/${featured.youtube_id}" frameborder="0" allowfullscreen></iframe>`;
-          } else if (featured.dropbox_url) {
-            embed = `<video src="${featured.dropbox_url}" controls autoplay style="width:100%;"></video>`;
-          } else if (featured.url) {
-            embed = `<video src="${featured.url}" controls autoplay style="width:100%;"></video>`;
-          }
-          featuredContainer.innerHTML = embed;
-        }
-
-        const catSet = new Set(data.map(v => v.category));
-        const catSelect = document.getElementById("categoryFilter");
-        catSet.forEach(cat => {
-          const opt = document.createElement("option");
-          opt.value = cat;
-          opt.textContent = cat;
-          catSelect.appendChild(opt);
-        });
-
+        populateCategories();
         renderVideos();
+        if (location.hash) {
+          const anchor = document.getElementById(location.hash.substring(1));
+          if (anchor) anchor.scrollIntoView();
+        }
       });
   </script>
 </body>
 </html>
+
+<script>
+function populateCategories() {
+  const sel = document.getElementById("categoryFilter");
+  const cats = Array.from(new Set(videos.map(v => v.category).filter(Boolean)));
+  cats.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat;
+    opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+}
+</script>
