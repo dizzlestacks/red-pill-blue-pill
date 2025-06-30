@@ -16,17 +16,26 @@
       width: 100vw;
       height: 100vh;
       object-fit: cover;
+      position: fixed;
+      top: 0;
+      left: 0;
     }
   </style>
 </head>
 <body>
-  <video id="introVideo" autoplay muted playsinline controls>
+
+  <video id="introVideo" autoplay muted playsinline>
     <source src="The-Matrix-Blue-Pill-or-Red-Pill.mov" type="video/mp4">
     <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
     Your browser does not support the video tag.
   </video>
 
   <script>
+    // Skip splash if user has seen it
+    if (localStorage.getItem("splashSeen") === "true") {
+      window.location.href = "videos.html";
+    }
+
     const video = document.getElementById("introVideo");
     const redirectURL = "choice.html";
     let redirected = false;
@@ -34,22 +43,24 @@
     const goToChoice = () => {
       if (!redirected) {
         redirected = true;
+        localStorage.setItem("splashSeen", "true");
         window.location.href = redirectURL;
       }
     };
 
-    // Redirect after 1:56
+    // Redirect after 2:34 (154 seconds)
     setTimeout(goToChoice, 154000);
 
     // Redirect when video ends
     video.onended = goToChoice;
 
-    // Redirect if the page is hidden (user exits or switches tab)
+    // Redirect if user leaves or switches tab
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
         goToChoice();
       }
     });
   </script>
+
 </body>
 </html>
