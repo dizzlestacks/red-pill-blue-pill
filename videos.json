@@ -1,8 +1,8 @@
 [
   {
-    "title": "Featured YouTube Video",
+    "title": "THE TRUE HISTORY OF RELIGION",
     "youtube_id": "PdsJs0UIm7s",
-    "tags": ["history", "youtube", "religion"],
+    "tags": ["history", "of", "religion"],
     "added": "2025-06-07T00:00:00Z",
     "featured": true
   },
@@ -193,6 +193,211 @@
     "demonic"
   ],
   "added": "2025-07-06T01:55:51.836Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "EVERYTHING YOU NEED TO KNOW ABOUT BAPTISM",
+  "youtube_id": "nPwtJlwuXfg",
+  "category": "TRUTH",
+  "tags": [
+    "baptism",
+    "truth",
+    "bible",
+    "scripture",
+    "the",
+    "true",
+    "names"
+  ],
+  "added": "2025-07-09T07:31:36.995Z",
+  "featured": false,
+  "pinned": false
+  },{
+  "title": "ARE YOU PRAYING THE RIGHT WAY?",
+  "youtube_id": "HUbyexU2ImY",
+  "category": "LEARNING",
+  "tags": [
+    "prayer",
+    "direction",
+    "how",
+    "to",
+    "Most",
+    "High",
+    "heard",
+    "bible",
+    "scripture",
+    "truth"
+  ],
+  "added": "2025-07-09T07:34:51.106Z",
+  "featured": false,
+  "pinned": false
+  },{
+  "title": "EVERYTHING YOU NEED TO KNOW ABOUT TITHING",
+  "youtube_id": "QsN5yKOItrQ",
+  "category": "LEARNING",
+  "tags": [
+    "tithes",
+    "church",
+    "scripture",
+    "truth",
+    "bible",
+    "tithing"
+  ],
+  "added": "2025-07-09T07:37:30.251Z",
+  "featured": false,
+  "pinned": false
+  },{
+  "title": "EVERYTHING YOU NEED TO KNOW ABOUT THE 144,000 IN THE SCRIPTURES",
+  "youtube_id": "M05Tn2tjMyM",
+  "category": "LEARNING",
+  "tags": [
+    "144",
+    "000",
+    "sealed",
+    "tribes",
+    "12",
+    "scripture",
+    "bible",
+    "truth",
+    "revelations"
+  ],
+  "added": "2025-07-09T07:41:36.553Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "WHY SO MANY BIBLES ARE FALSE",
+  "youtube_id": "TxIH9YM8izQ",
+  "category": "HISTORY",
+  "tags": [
+    "bible",
+    "false",
+    "scripture",
+    "truth",
+    "cypher",
+    "NIV",
+    "KVJ"
+  ],
+  "added": "2025-07-09T07:49:01.555Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "HOW TO TELL BETWEEN GOD & JESUS SPEAKING IN THE BIBLE",
+  "youtube_id": "QAmeqO2qnDA",
+  "category": "LEARNING",
+  "tags": [
+    "speaking",
+    "God",
+    "jesus",
+    "old",
+    "testament",
+    "new",
+    "testament",
+    "bible",
+    "scripture",
+    "truth"
+  ],
+  "added": "2025-07-09T07:54:53.799Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "THE TRUTH OF THE EARTHS SHAPE ACCORDING TO THE BIBLE",
+  "youtube_id": "AOdPEsCiHI4",
+  "category": "HISTORY",
+  "tags": [
+    "world",
+    "shape",
+    "earth",
+    "bible",
+    "scripture",
+    "truth"
+  ],
+  "added": "2025-07-09T07:59:26.629Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "WHO WAS REALLY IN AMERICA FIRST ACCORDING TO THE SCRIPTURES?",
+  "youtube_id": "hx-XkINw7Uk",
+  "category": "HISTORY",
+  "tags": [
+    "america",
+    "natives",
+    "bible",
+    "truth",
+    "first",
+    "scriptures",
+    "land"
+  ],
+  "added": "2025-07-09T08:03:53.574Z",
+  "featured": false,
+  "pinned": false
+  },{
+  "title": "WHAT TRULY HAPPENS WHEN YOU DIE ACCORDING TO THE SCRIPTURES?",
+  "youtube_id": "iTtfF5-uGC0",
+  "category": "TRUTH",
+  "tags": [
+    "spirit",
+    "bible",
+    "soul",
+    "truth",
+    "die",
+    "scripture",
+    "real",
+    "death"
+  ],
+  "added": "2025-07-09T08:07:19.806Z",
+  "featured": false,
+  "pinned": true
+  },
+  {
+  "title": "DO YOU ENTERTAIN STRANGERS?",
+  "youtube_id": "8ILcImrt61w",
+  "category": "LEARNING",
+  "tags": [
+    "strangers",
+    "angels",
+    "entertain",
+    "scripture",
+    "bible",
+    "truth"
+  ],
+  "added": "2025-07-09T08:12:12.605Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "ALL THE ROLES WOMEN CAN PLAY IN CHURCH ACCORDING TO THE SCRIPTURES",
+  "youtube_id": "bPTvnGLUh4U",
+  "category": "WOMEN",
+  "tags": [
+    "women",
+    "church",
+    "role",
+    "scripture",
+    "truth",
+    "bible"
+  ],
+  "added": "2025-07-09T08:14:55.311Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "WHAT IT MEANS TO BE \"GRAFTED IN\" WITH THE CHILDREN OF ISREAL",
+  "youtube_id": "CnuFnkLS_tI",
+  "category": "LEARNING",
+  "tags": [
+    "grafted",
+    "isreal",
+    "children",
+    "in",
+    "bible",
+    "scripture",
+    "truth"
+  ],
+  "added": "2025-07-09T08:18:32.040Z",
   "featured": false,
   "pinned": false
   }
