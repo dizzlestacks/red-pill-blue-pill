@@ -20,49 +20,35 @@
   </style>
 </head>
 <body>
-  <video id="introVideo" autoplay playsinline muted>
+  <video id="introVideo" autoplay muted playsinline controls>
     <source src="The-Matrix-Blue-Pill-or-Red-Pill.mov" type="video/mp4">
+    <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
     Your browser does not support the video tag.
   </video>
 
   <script>
-    const redirectURL = "choice.html";
+  // Skip splash if user has visited before
+  if (localStorage.getItem("splashSeen") === "true") {
+    window.location.href = "videos.html";
+      }
     const video = document.getElementById("introVideo");
-
-    // If already watched, redirect to videos.html immediately
-    if (localStorage.getItem("introWatched") === "true") {
-      window.location.href = "videos.html";
-    }
-
-    // Unmute + autoplay logic for mobile
-    video.addEventListener("canplay", () => {
-      video.muted = false;
-      video.play();
-      requestFullScreen(video);
-    });
-
-    function requestFullScreen(element) {
-      const request = element.requestFullscreen || element.webkitRequestFullscreen || element.msRequestFullscreen;
-      if (request) request.call(element);
-    }
-
-    // Redirect logic
+    const redirectURL = "choice.html";
     let redirected = false;
+
     const goToChoice = () => {
       if (!redirected) {
         redirected = true;
-        localStorage.setItem("introWatched", "true");
         window.location.href = redirectURL;
       }
     };
 
-    // Redirect after 2:34 (154 seconds)
+    // Redirect after 1:56
     setTimeout(goToChoice, 154000);
 
     // Redirect when video ends
     video.onended = goToChoice;
 
-    // Redirect if user leaves the tab
+    // Redirect if the page is hidden (user exits or switches tab)
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
         goToChoice();
