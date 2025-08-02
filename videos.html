@@ -1,315 +1,374 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Videos</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #000;
-      --fg: #00ff41;
-      --card: #111;
-      --accent: #00ff41;
-    }
-    [data-theme="light"] {
-      --bg: #f4f4f4;
-      --fg: #111;
-      --card: #fff;
-      --accent: #007acc;
-    }
-    [data-theme="pink"] {
-      --bg: #3a001e;
-      --fg: #ff80c0;
-      --card: #4a002a;
-      --accent: #ff4ebf;
-    }
-    [data-theme="blue"] {
-      --bg: #001f3f;
-      --fg: #66ccff;
-      --card: #002b5c;
-      --accent: #3399ff;
-    }
-    [data-theme="grey"] {
-      --bg: #111;
-      --fg: #ccc;
-      --card: #222;
-      --accent: #888;
-    }
-    [data-theme="vaporwave"] {
-      --bg: #2d0039;
-      --fg: #ffb3ec;
-      --card: #39004d;
-      --accent: #00f6ff;
-    }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--fg);
-      font-family: 'Share Tech Mono', monospace;
-      padding: 1rem;
-    }
-    h1, h2 {
-      text-align: center;
-      text-shadow: 0 0 5px var(--accent);
-    }
-    input, select, button {
-      font-family: inherit;
-      font-size: 1rem;
-      padding: 0.5rem;
-      background: var(--card);
-      color: var(--fg);
-      border: 1px solid var(--accent);
-      margin: 5px 0;
-      width: 100%;
-    }
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-    }
-    .video-card {
-      border: 1px solid var(--accent);
-      padding: 0.5rem;
-      background: var(--card);
-      position: relative;
-    }
-    .tag {
-      background: var(--accent);
-      color: var(--bg);
-      display: inline-block;
-      padding: 2px 6px;
-      margin: 2px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    .watched {
-      position: absolute;
-      top: 5px;
-      right: 10px;
-      font-size: 0.7rem;
-      color: grey;
-    }
-    .theme-toggle {
-      width: auto;
-      height: auto;
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 1000;
-      padding: 6px 10px;
-      font-size: 14px;
-      background: var(--card);
-      color: var(--fg);
-      border: 1px solid var(--accent);
-      cursor: pointer;
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background: var(--card);
-      border: 1px solid var(--accent);
-      padding: 5px;
-      font-size: 14px;
-      cursor: pointer;
-      z-index: 1000;
-    }
-    .share-btn {
-      font-size: 0.8rem;
-      margin-top: 4px;
-      background: transparent;
-      color: var(--accent);
-      border: 1px dashed var(--accent);
-      cursor: pointer;
-    }
-    footer {
-      text-align: center;
-      margin-top: 2rem;
-      font-size: 0.75rem;
-      color: var(--accent);
-      border-top: 1px solid var(--accent);
-      padding-top: 0.5rem;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Videos</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  /* ========= THEME SYSTEM (easy to tweak) ========= */
+  :root {
+    --bg: #000; --fg: #e6ffe6; --card:#111; --accent:#00ff41; --muted:#7bd58a;
+    --font: 'Share Tech Mono', monospace;
+    --tag-bg:#00331a; --tag-fg:#caffcf; --border:#0a8f3a; --shadow: 0 0 10px rgba(0,255,65,.25);
+  }
+  body { background:var(--bg); color:var(--fg); margin:0; font-family: var(--font), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+  /* LIGHT */
+  body.light { --bg:#ffffff; --fg:#111; --card:#fff; --accent:#007BFF; --muted:#3b82f6; --font:'Inter',sans-serif; --tag-bg:#eef2ff; --tag-fg:#111; --border:#cbd5e1; --shadow: 0 0 8px rgba(0,123,255,.15); }
+  /* GREY */
+  body.grey  { --bg:#111; --fg:#ddd; --card:#1c1c1c; --accent:#888; --muted:#aaa; --font:'Inter',sans-serif; --tag-bg:#222; --tag-fg:#e7e7e7; --border:#2b2b2b; --shadow:0 0 8px rgba(200,200,200,.12); }
+  /* PINK */
+  body.pink  { --bg:#3a001e; --fg:#ffd6ec; --card:#4a002a; --accent:#ff4ebf; --muted:#ffa1d8; --font:'Inter',sans-serif; --tag-bg:#60003b; --tag-fg:#ffd6ec; --border:#ff4ebf; --shadow:0 0 10px rgba(255,78,191,.2); }
+  /* BLUE / NAVY */
+  body.blue  { --bg:#001f3f; --fg:#d8efff; --card:#002b5c; --accent:#3399ff; --muted:#66ccff; --font:'Inter',sans-serif; --tag-bg:#003b7a; --tag-fg:#e6f5ff; --border:#1f75d6; --shadow:0 0 10px rgba(51,153,255,.18); }
+  /* VAPORWAVE */
+  body.vaporwave { --bg:#2d0039; --fg:#ffb3ec; --card:#39004d; --accent:#00f6ff; --muted:#ffd166; --font:'Inter',sans-serif; --tag-bg:#4c0066; --tag-fg:#e8d7ff; --border:#00f6ff; --shadow:0 0 10px rgba(0,246,255,.2); }
+
+  /* Solarized Dark */
+  body["solarized-dark"], body.solarized-dark { --bg:#002b36; --fg:#93a1a1; --card:#073642; --accent:#268bd2; --muted:#b58900; --font:'Inter',sans-serif; --tag-bg:#073642; --tag-fg:#eee8d5; --border:#586e75; --shadow:0 0 10px rgba(38,139,210,.2); }
+  /* Dracula */
+  body.dracula { --bg:#282a36; --fg:#f8f8f2; --card:#44475a; --accent:#bd93f9; --muted:#50fa7b; --font:'Inter',sans-serif; --tag-bg:#3b3e56; --tag-fg:#f8f8f2; --border:#6272a4; --shadow:0 0 10px rgba(189,147,249,.22); }
+  /* Cyberpunk Neon */
+  body.cyberpunk { --bg:#0f0f0f; --fg:#eafffb; --card:#1a1a1a; --accent:#ff007c; --muted:#00ffe7; --font:'Share Tech Mono', monospace; --tag-bg:#262626; --tag-fg:#eafffb; --border:#00ffe7; --shadow:0 0 12px rgba(0,255,231,.22); }
+  /* Sepia / Earth tones */
+  body.sepia { --bg:#f4ecd8; --fg:#5c3e2b; --card:#e6d3b3; --accent:#a67c52; --muted:#7b5a3c; --font:'Inter',sans-serif; --tag-bg:#dbc6a1; --tag-fg:#4a3425; --border:#bfa07a; --shadow:0 0 8px rgba(166,124,82,.18); }
+  /* Midnight Purple */
+  body.midnight { --bg:#1e0033; --fg:#e0d7ff; --card:#2c0e4a; --accent:#8e44ad; --muted:#a66dd6; --font:'Inter',sans-serif; --tag-bg:#3e1f5c; --tag-fg:#f0eaff; --border:#5b2b7a; --shadow:0 0 10px rgba(142,68,173,.18); }
+
+  /* ====== LAYOUT ====== */
+  .wrap { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  .topbar { position: sticky; top:0; background: linear-gradient(to bottom, var(--bg), color-mix(in srgb, var(--bg) 80%, transparent)); z-index: 5; padding-top: 8px; }
+
+  .theme-btn {
+    position: fixed; top:10px; right:10px; z-index:999;
+    background: var(--card); color: var(--fg); border:1px solid var(--border);
+    padding:6px 10px; border-radius:6px; cursor:pointer; box-shadow: var(--shadow);
+  }
+
+  .social-strip { display:flex; justify-content:center; gap:22px; padding:8px 0 6px; }
+  .social-strip img { height: 40px; width:auto; filter: drop-shadow(0 0 4px rgba(0,0,0,.25)); }
+
+  .featured { margin-top: 10px; border:1px solid var(--border); background:var(--card); padding:10px; border-radius:8px; box-shadow: var(--shadow); }
+  .featured h2 { margin: 0 0 10px 0; font-size:1.1rem; color: var(--muted); font-weight:600; }
+
+  .filters { margin-top:16px; }
+  .search { display:flex; justify-content:center; }
+  .search input {
+    width:100%; max-width:860px;
+    padding:12px 14px; font-size:1.05rem;
+    border:1px solid var(--accent); border-radius:8px; background:var(--card); color:var(--fg);
+    box-shadow: 0 0 0px rgba(0,0,0,0), 0 0 18px rgba(0,0,0,0);
+    outline: none;
+  }
+  .search input::placeholder { color: color-mix(in srgb, var(--fg) 70%, transparent); font-weight:600; }
+  .search input:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+  .row { display:flex; gap:10px; margin:12px auto 6px; max-width:860px; }
+  .row select { flex:1; padding:10px; border:1px solid var(--border); background:var(--card); color:var(--fg); border-radius:8px; }
+
+  .section-gap { height: 14px; }
+
+  .video-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:8px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px; box-shadow: var(--shadow); position: relative; }
+  .card h3 { margin:10px 0 8px; font-size: 1rem; line-height:1.3; }
+  .tags { margin-top:4px; }
+  .tag { display:inline-block; background:var(--tag-bg); color:var(--tag-fg); font-size:.8rem; padding:2px 6px; margin: 2px 4px 0 0; border-radius:4px; cursor:pointer; }
+
+  .meta { font-size:.85rem; color: color-mix(in srgb, var(--fg) 70%, transparent); margin-top:6px; }
+
+  .btn-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .btn { border:1px dashed var(--accent); background:transparent; color:var(--fg); padding:6px 10px; border-radius:6px; cursor:pointer; }
+  .btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+  /* Comments (collapsed by default) */
+  .comment-wrap { margin-top:10px; border-top:1px dashed var(--border); padding-top:8px; display:none; }
+  .comment-wrap form input, .comment-wrap form textarea {
+    width:100%; border:1px solid var(--border); background:var(--bg); color:var(--fg); border-radius:6px; padding:8px; margin:6px 0;
+  }
+
+  footer { text-align:center; padding:12px 0 24px; font-size:.85rem; color: color-mix(in srgb, var(--fg) 75%, transparent); }
+
+  /* Small screens tweaks */
+  @media (max-width: 520px) {
+    .social-strip img { height: 34px; }
+  }
+</style>
 </head>
-<body data-theme="dark">
+<body class="dark">
+  <button class="theme-btn" id="themeBtn" title="Switch theme">🌓 Theme</button>
 
-  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  <div class="topbar">
+    <div class="wrap">
+      <!-- Social media strip -->
+      <div class="social-strip">
+        <a href="#" title="TikTok"><img src="assets/tiktok.png" alt="TikTok"></a>
+        <a href="#" title="Instagram"><img src="assets/instagram.png" alt="Instagram"></a>
+        <a href="#" title="Twitter / X"><img src="assets/twitter.png" alt="Twitter"></a>
+      </div>
 
-  <h2>📺 Featured Video</h2>
-  <div class="video-grid" id="featuredGrid"></div>
+      <!-- Featured video (kept) -->
+      <div id="featured" class="featured" style="display:none;">
+        <h2>Featured</h2>
+        <div id="featuredContainer">Loading...</div>
+      </div>
 
-  <div style="height: 20px;"></div>
+      <!-- Spacing -->
+      <div class="section-gap"></div>
 
-  <input type="text" id="searchInput" placeholder="Search by title or tag..." />
+      <!-- Search -->
+      <div class="filters">
+        <div class="search">
+          <input id="searchInput" type="text" placeholder="Search by title or tag..." />
+        </div>
+        <div class="row">
+          <select id="categoryFilter">
+            <option value="">All Categories</option>
+          </select>
+          <select id="sortFilter">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="az">Title A–Z</option>
+            <option value="za">Title Z–A</option>
+          </select>
+        </div>
+      </div>
 
-  <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-    <select id="categoryFilter" onchange="renderVideos()" style="flex: 1;">
-      <option value="">All Categories</option>
-    </select>
-    <select id="sortFilter" onchange="renderVideos()" style="flex: 1;">
-      <option value="newest">Newest First</option>
-      <option value="oldest">Oldest First</option>
-      <option value="az">Title A–Z</option>
-      <option value="za">Title Z–A</option>
-    </select>
+      <!-- Pinned first, then others -->
+      <div id="pinnedGrid" class="video-grid"></div>
+      <div id="videoGrid" class="video-grid"></div>
+    </div>
   </div>
 
-
-  <div class="video-grid" id="pinnedGrid"></div>
-  <div class="video-grid" id="videoGrid"></div>
-
-  <footer id="terminalFooter"></footer>
-
-  <script>
-    const themes = ["dark", "light", "pink", "blue", "grey", "vaporwave"];
-    let currentTheme = 0;
-
-    function toggleTheme() {
-      currentTheme = (currentTheme + 1) % themes.length;
-      document.body.dataset.theme = themes[currentTheme];
-    }
-
-    function getDeviceType() {
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes("iphone")) return "iPhone";
-      if (ua.includes("ipad")) return "iPad";
-      if (ua.includes("android")) return "Android";
-      if (ua.includes("mac")) return "Mac";
-      if (ua.includes("windows")) return "Windows";
-      if (ua.includes("linux")) return "Linux";
-      return "Device";
-    }
-
-    function formatTime() {
-      return new Date().toLocaleTimeString();
-    }
-
-    function updateFooter() {
-      document.getElementById("terminalFooter").textContent =
-        `${formatTime()} | ${getDeviceType()}`;
-    }
-
-    setInterval(updateFooter, 1000);
-    updateFooter();
-
-    function markWatched(title) {
-      let watched = JSON.parse(localStorage.getItem("watched") || "[]");
-      if (!watched.includes(title)) {
-        watched.unshift(title);
-        localStorage.setItem("watched", JSON.stringify(watched.slice(0, 15)));
-      }
-    }
-
-    function shareVideo(title) {
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      const url = `${location.origin}${location.pathname}#${slug}`;
-      navigator.clipboard.writeText(url);
-      alert("Video link copied!");
-    }
-
-    function renderVideoCard(video) {
-      const card = document.createElement("div");
-      card.className = "video-card";
-      const slug = video.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      card.id = slug;
-      let embed = "";
-
-      if (video.video_id) {
-        embed = `<iframe src="https://iframe.videodelivery.net/${video.video_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen></iframe>`;
-      } else if (video.youtube_id) {
-        embed = `<iframe src="https://www.youtube.com/embed/${video.youtube_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen></iframe>`;
-      } else if (video.url) {
-        embed = `<video src="${video.url}" width="100%" controls onplay="markWatched('${video.title}')"></video>`;
-      }
-
-      const tags = video.tags.map(t => `<span class="tag" onclick="filterByTag('${t}')">${t.replace(/^#/, '')}</span>`).join("");
-
-      const watched = JSON.parse(localStorage.getItem("watched") || "[]").includes(video.title)
-        ? '<div class="watched">Watched</div>' : '';
-
-      card.innerHTML = `
-        ${watched}
-        <h3>${video.title}</h3>
-        ${embed}
-        <p>Category: ${video.category || "Uncategorized"}</p>
-        <div>Tags: ${tags}</div>
-        <button class="share-btn" onclick="shareVideo('${video.title}')">🔗 Share</button>
-      `;
-
-      return card;
-    }
-
-    function filterByTag(tag) {
-      document.getElementById("searchInput").value = tag;
-      renderVideos();
-    }
-
-    function renderVideos() {
-      const catFilter = document.getElementById("categoryFilter").value;
-      const sort = document.getElementById("sortFilter").value;
-      const grid = document.getElementById("videoGrid");
-      const pinned = document.getElementById("pinnedGrid");
-      const featured = document.getElementById("featuredGrid");
-      const q = document.getElementById("searchInput").value.toLowerCase();
-
-      grid.innerHTML = "";
-      pinned.innerHTML = "";
-      featured.innerHTML = "";
-
-      let sorted = videos.filter(v => {
-        const match = !q || v.title.toLowerCase().includes(q) || v.tags.some(tag => tag.toLowerCase().includes(q));
-        const catMatch = !catFilter || (v.category && v.category === catFilter);
-        return match && catMatch;
-      });
-
-      sorted.sort((a, b) => {
-        if (sort === "newest") return new Date(b.added) - new Date(a.added);
-        if (sort === "oldest") return new Date(a.added) - new Date(b.added);
-        if (sort === "az") return a.title.localeCompare(b.title);
-        if (sort === "za") return b.title.localeCompare(a.title);
-        return 0;
-      });
-
-      sorted.forEach(v => {
-        const match = !q || v.title.toLowerCase().includes(q) || v.tags.some(tag => tag.toLowerCase().includes(q));
-        const card = renderVideoCard(v);
-        if (v.featured && match) {
-          featured.appendChild(card);
-        } else if (v.pinned && match) {
-          pinned.appendChild(card);
-        } else if (!v.pinned && !v.featured && match) {
-          grid.appendChild(card);
-        }
-      });
-    }
-
-    let videos = [];
-    fetch("videos.json")
-      .then(r => r.json())
-      .then(data => {
-        videos = data;
-        populateCategories();
-        renderVideos();
-        if (location.hash) {
-          const anchor = document.getElementById(location.hash.substring(1));
-          if (anchor) anchor.scrollIntoView();
-        }
-      });
-  </script>
-</body>
-</html>
+  <div class="wrap">
+    <footer id="footInfo"></footer>
+  </div>
 
 <script>
-function populateCategories() {
-  const sel = document.getElementById("categoryFilter");
-  const cats = Array.from(new Set(videos.map(v => v.category).filter(Boolean)));
-  cats.forEach(cat => {
-    const opt = document.createElement("option");
-    opt.value = cat;
-    opt.textContent = cat;
-    sel.appendChild(opt);
+  /* ================= PREFERRED THEME (auto load) ================= */
+  const themes = [
+    "dark","light","grey","pink","blue","vaporwave",
+    "solarized-dark","dracula","cyberpunk","sepia","midnight"
+  ];
+  const themeBtn = document.getElementById('themeBtn');
+
+  function setTheme(t) {
+    document.body.className = t;
+    localStorage.setItem('preferredTheme', t);
+  }
+  // Load saved or default theme
+  (function() {
+    const saved = localStorage.getItem('preferredTheme');
+    setTheme(saved || 'dark');
+  })();
+
+  themeBtn.addEventListener('click', () => {
+    const current = document.body.className || 'dark';
+    const idx = themes.indexOf(current);
+    const next = themes[(idx + 1) % themes.length];
+    setTheme(next);
   });
-}
+
+  /* ================= FOOTER: time + device ================= */
+  function getDevice() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("iphone")) return "iPhone";
+    if (ua.includes("ipad")) return "iPad";
+    if (ua.includes("android")) return "Android";
+    if (ua.includes("mac")) return "Mac";
+    if (ua.includes("windows")) return "PC";
+    if (ua.includes("linux")) return "Linux";
+    return "Device";
+  }
+  function tickFooter() {
+    document.getElementById('footInfo').textContent =
+      new Date().toLocaleTimeString() + " | " + getDevice();
+  }
+  setInterval(tickFooter, 1000); tickFooter();
+
+  /* ================= STATE (search & filters persist) ================= */
+  const SKEY = "videos-ui-state";
+  function saveUIState() {
+    const state = {
+      q: document.getElementById('searchInput').value,
+      cat: document.getElementById('categoryFilter').value,
+      sort: document.getElementById('sortFilter').value
+    };
+    localStorage.setItem(SKEY, JSON.stringify(state));
+  }
+  function loadUIState() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SKEY) || "{}");
+      if (s.q !== undefined) document.getElementById('searchInput').value = s.q;
+      if (s.cat !== undefined) document.getElementById('categoryFilter').value = s.cat;
+      if (s.sort !== undefined) document.getElementById('sortFilter').value = s.sort;
+    } catch {}
+  }
+
+  /* ================= RENDER ================= */
+  let videos = [];
+  const pinnedGrid = document.getElementById('pinnedGrid');
+  const videoGrid = document.getElementById('videoGrid');
+  const featuredBox = document.getElementById('featured');
+  const featuredContainer = document.getElementById('featuredContainer');
+
+  function tagHTML(tag) {
+    const clean = tag.replace(/^#/, '');
+    return `<span class="tag" data-tag="${clean}">#${clean}</span>`;
+  }
+
+  function videoEmbedHTML(v) {
+    if (v.youtube_id) {
+      return `<iframe src="https://www.youtube.com/embed/${v.youtube_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen loading="lazy"></iframe>`;
+    }
+    if (v.video_id) {
+      return `<iframe src="https://iframe.videodelivery.net/${v.video_id}" style="width:100%;aspect-ratio:16/9;" allowfullscreen loading="lazy"></iframe>`;
+    }
+    if (v.dropbox_url || v.url) {
+      const src = v.dropbox_url || v.url;
+      return `<video src="${src}" controls style="width:100%;height:auto;"></video>`;
+    }
+    return `<div class="meta">No source found.</div>`;
+  }
+
+  function shareVideo(v) {
+    const slug = v.title.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    const url = `${location.origin}${location.pathname}#${slug}`;
+    navigator.clipboard.writeText(url).then(() => alert("Video link copied!"));
+  }
+
+  function toggleComment(id) {
+    const el = document.getElementById('cwrap-' + id);
+    if (!el) return;
+    el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+  }
+
+  function commentFormHTML(v, idx) {
+    /* Formspree: replace FORM_ENDPOINT with your endpoint like:
+       https://formspree.io/f/xxxxabcd  */
+    const FORM_ENDPOINT = "https://formspree.io/f/REPLACE_ME";
+    const title = v.title || '';
+    return `
+      <div class="comment-wrap" id="cwrap-${idx}">
+        <form action="${FORM_ENDPOINT}" method="POST">
+          <input type="hidden" name="video_title" value="${title}">
+          <input type="text" name="name" placeholder="Your name (optional)" />
+          <input type="email" name="email" placeholder="Email (optional)" />
+          <textarea name="comment" rows="4" placeholder="Write your comment..."></textarea>
+          <button class="btn" type="submit">Submit Comment</button>
+          <div class="meta">Comments are sent via Formspree (Netlify-friendly). Set your endpoint in the code.</div>
+        </form>
+      </div>
+    `;
+  }
+
+  function cardHTML(v, idx) {
+    const tags = (v.tags || []).map(tagHTML).join('');
+    const embed = videoEmbedHTML(v);
+    const slug = v.title ? v.title.toLowerCase().replace(/[^a-z0-9]+/g,'-') : ('v'+idx);
+    return `
+      <div class="card" id="${slug}">
+        <h3>${v.title || 'Untitled'}</h3>
+        ${embed}
+        <div class="meta">Category: ${v.category || '—'}</div>
+        <div class="tags">${tags}</div>
+        <div class="btn-row">
+          <button class="btn" data-share="${idx}">🔗 Share</button>
+          <button class="btn" data-comment="${idx}">💬 Comment</button>
+        </div>
+        ${commentFormHTML(v, idx)}
+      </div>
+    `;
+  }
+
+  function render() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    const cat = document.getElementById('categoryFilter').value;
+    const sort = document.getElementById('sortFilter').value;
+
+    // Featured
+    const f = videos.find(v => v.featured);
+    if (f) {
+      featuredBox.style.display = '';
+      featuredContainer.innerHTML = videoEmbedHTML(f);
+    } else {
+      featuredBox.style.display = 'none';
+      featuredContainer.innerHTML = '';
+    }
+
+    // Filter
+    let list = videos.filter(v => {
+      const matchesQ = !q || (v.title && v.title.toLowerCase().includes(q)) ||
+                       ((v.tags||[]).some(t => (t||'').toLowerCase().includes(q.replace('#',''))));
+      const matchesC = !cat || (v.category === cat);
+      return matchesQ && matchesC;
+    });
+
+    // Sort
+    list.sort((a,b) => {
+      if (sort === 'newest') return new Date(b.added||0) - new Date(a.added||0);
+      if (sort === 'oldest') return new Date(a.added||0) - new Date(b.added||0);
+      if (sort === 'az') return (a.title||'').localeCompare(b.title||'');
+      if (sort === 'za') return (b.title||'').localeCompare(a.title||'');
+      return 0;
+    });
+
+    // Split pinned first (skip featured to avoid duplication)
+    const pinned = list.filter(v => v.pinned && !v.featured);
+    const others = list.filter(v => !v.pinned && !v.featured);
+
+    pinnedGrid.innerHTML = pinned.map(cardHTML).join('');
+    videoGrid.innerHTML  = others.map(cardHTML).join('');
+
+    // Wire tag clicks, share, comment toggles
+    document.querySelectorAll('.tag').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('searchInput').value = el.dataset.tag || '';
+        saveUIState(); render();
+      });
+    });
+    document.querySelectorAll('[data-share]').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = +el.getAttribute('data-share');
+        shareVideo(videos[idx]);
+      });
+    });
+    document.querySelectorAll('[data-comment]').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = el.getAttribute('data-comment');
+        toggleComment(idx);
+      });
+    });
+  }
+
+  // Load data
+  fetch('videos.json')
+    .then(r => r.json())
+    .then(data => {
+      videos = data || [];
+      // Populate categories
+      const cats = Array.from(new Set(videos.map(v => v.category).filter(Boolean))).sort();
+      const sel = document.getElementById('categoryFilter');
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        sel.appendChild(opt);
+      });
+      // Restore UI state, then render
+      loadUIState();
+      render();
+
+      // If hash present, scroll to that card
+      if (location.hash) {
+        const target = document.getElementById(location.hash.slice(1));
+        if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    });
+
+  // Events & persistence
+  document.getElementById('searchInput').addEventListener('input', () => { saveUIState(); render(); });
+  document.getElementById('categoryFilter').addEventListener('change', () => { saveUIState(); render(); });
+  document.getElementById('sortFilter').addEventListener('change', () => { saveUIState(); render(); });
 </script>
+</body>
+</html>
