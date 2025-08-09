@@ -199,7 +199,7 @@
   {
   "title": "EVERYTHING YOU NEED TO KNOW ABOUT BAPTISM",
   "youtube_id": "nPwtJlwuXfg",
-  "category": "TRUTH",
+  "category": "EVERYTHING YOU NEED TO KNOW",
   "tags": [
     "baptism",
     "truth",
@@ -234,7 +234,7 @@
   },{
   "title": "EVERYTHING YOU NEED TO KNOW ABOUT TITHING",
   "youtube_id": "QsN5yKOItrQ",
-  "category": "LEARNING",
+  "category": "EVERYTHING YOU NEED TO KNOW",
   "tags": [
     "tithes",
     "church",
@@ -249,7 +249,7 @@
   },{
   "title": "EVERYTHING YOU NEED TO KNOW ABOUT THE 144,000 IN THE SCRIPTURES",
   "youtube_id": "M05Tn2tjMyM",
-  "category": "LEARNING",
+  "category": "EVERYTHING YOU NEED TO KNOW",
   "tags": [
     "144",
     "000",
@@ -350,7 +350,7 @@
   ],
   "added": "2025-07-09T08:07:19.806Z",
   "featured": false,
-  "pinned": true
+  "pinned": false
   },
   {
   "title": "DO YOU ENTERTAIN STRANGERS?",
@@ -499,7 +499,131 @@
   "added": "2025-08-02T07:07:45.425Z",
   "featured": false,
   "pinned": false
-  }
+  },
+  {
+  "title": "THE BIBLE EXPLAINED IN 12 MINUTES",
+  "youtube_id": "Yu5qHcVA8J8",
+  "category": "HISTORY",
+  "tags": [
+    "bible",
+    "explained",
+    "12",
+    "scripture",
+    "truth"
+  ],
+  "added": "2025-08-09T07:34:54.595Z",
+  "featured": false,
+  "pinned": true
+  },
+  {
+  "title": "EVERYTHING YOU NEED TO KNOW ABOUT TITHING PT2",
+  "youtube_id": "GQtmMwxfJv0",
+  "category": "EVERYTHING YOU NEED TO KNOW",
+  "tags": [
+    "law",
+    "tithe",
+    "scripture",
+    "truth",
+    "everything",
+    "information",
+    "need",
+    "to",
+    "know"
+  ],
+  "added": "2025-08-09T09:05:09.351Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "ARE YOU READY FOR THE 2ND EXODUS?",
+  "youtube_id": "vB_UHpzu-pU",
+  "category": "LAST DAYS",
+  "tags": [
+    "2nd",
+    "exodus",
+    "bible",
+    "scripture",
+    "truth",
+    "leave",
+    "flee"
+  ],
+  "added": "2025-08-09T09:19:26.711Z",
+  "featured": false,
+  "pinned": false
+    },
+    {
+  "title": "DELIVERANCE SERVICES ARE NOT WHAT YOU THINK, HERE'S THE TRUTH",
+  "youtube_id": "RxlNHe_DTAE",
+  "category": "TRUTH",
+  "tags": [
+    "deliverance",
+    "church",
+    "christianity",
+    "truth",
+    "bible",
+    "word",
+    "services",
+    "read"
+  ],
+  "added": "2025-08-09T09:22:19.245Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "WHAT DOES THE BIBLE SAY ABOUT CREMATION?",
+  "youtube_id": "bHg-tYUOaHM",
+  "category": "LEARNING",
+  "tags": [
+    "cremation",
+    "bible",
+    "scripture",
+    "truth",
+    "word",
+    "against",
+    "body",
+    "burn",
+    "spirit"
+  ],
+  "added": "2025-08-09T09:25:46.415Z",
+  "featured": false,
+  "pinned": false
+    },
+    {
+  "title": "IS IT YOUR SPIRIT TALKING TO YOU? OR SOMETHING ELSE?",
+  "youtube_id": "s4Y4uHUGiS4",
+  "category": "LEARNING",
+  "tags": [
+    "spirit",
+    "talking",
+    "mind",
+    "you",
+    "truth",
+    "bible",
+    "scripture",
+    "holy",
+    "body"
+  ],
+  "added": "2025-08-09T09:31:07.288Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "HOW MANY YEARS DO WE HAVE BEFORE THE TRIBULATION STARTS?",
+  "youtube_id": "yp3IR8-Ppzs",
+  "category": "LAST DAYS",
+  "tags": [
+    "tribulation",
+    "bible",
+    "scripture",
+    "truth",
+    "5",
+    "years",
+    "2030"
+  ],
+  "added": "2025-08-09T09:34:45.723Z",
+  "featured": false,
+  "pinned": false
+}
 
 
 ]
