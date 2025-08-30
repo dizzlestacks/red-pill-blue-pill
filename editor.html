@@ -1,149 +1,87 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Video JSON Generator</title>
-  <style>
-    body {
-      background: #000;
-      color: #00FF41;
-      font-family: monospace;
-      padding: 20px;
-    }
-    label {
-      display: block;
-      margin-top: 12px;
-      font-weight: bold;
-    }
-    input, textarea, select, button {
-      width: 100%;
-      font-family: monospace;
-      font-size: 14px;
-      margin-top: 5px;
-      padding: 8px;
-      background: #111;
-      color: #00FF41;
-      border: 1px solid #00FF41;
-    }
-    button {
-      background: #00FF41;
-      color: black;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .hint {
-      font-size: 0.8em;
-      color: #88ff88;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Video Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#000;--fg:#e6ffe6;--card:#111;--accent:#00ff41;--muted:#7bd58a;
+    --font:'Share Tech Mono',monospace;--border:#0a8f3a;
+  }
+  body{background:var(--bg);color:var(--fg);margin:0;padding:20px;font-family:var(--font),system-ui,sans-serif;transition:.25s;}
+  h1{text-align:center;margin-bottom:20px;}
+  .theme-btn{position:fixed;top:10px;right:10px;z-index:99;background:var(--card);color:var(--fg);border:1px solid var(--border);padding:6px 10px;border-radius:6px;cursor:pointer;}
+  form{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+  input,textarea,select{padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-size:1rem;}
+  textarea{resize:vertical;}
+  .btn-row{display:flex;gap:10px;margin-top:10px;}
+  button{padding:10px;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
+  .gen{background:var(--accent);color:#000;}
+  .reset{background:#f44336;color:#fff;}
+  pre{background:var(--card);padding:15px;border-radius:8px;white-space:pre-wrap;word-wrap:break-word;border:1px solid var(--border);}
+</style>
 </head>
-<body>
+<body class="dark">
+  <button class="theme-btn" id="themeBtn">🌓 Theme</button>
+  <h1>📼 Video JSON Generator</h1>
+  <form id="videoForm">
+    <input id="title" placeholder="Title (e.g. WANT TO BREAK OUT THE MATRIX?)" required />
+    <input id="youtube_id" placeholder="YouTube ID (e.g. 7Eeo-82Eac8)" />
+    <input id="url" placeholder="Direct video URL (optional)" />
+    <input id="category1" placeholder="Category 1 (e.g. Hidden Truth)" list="savedCategories" />
+    <input id="category2" placeholder="Category 2 (optional)" list="savedCategories" />
+    <datalist id="savedCategories"></datalist>
+    <input id="tags" placeholder="Tags (#matrix, #truth, #hidden)" />
+    <label><input type="checkbox" id="featured"> Featured Video</label>
+    <label><input type="checkbox" id="pinned"> Pinned Video</label>
+    <div class="btn-row">
+      <button type="button" class="gen" onclick="generate()">Generate JSON</button>
+      <button type="button" class="reset" onclick="resetForm()">Reset</button>
+    </div>
+  </form>
+  <h2 style="text-align:center;margin-top:20px;">Generated JSON</h2>
+  <pre id="output">Fill the form and click Generate...</pre>
+  <div style="text-align:center;margin-top:10px;">
+    <button class="gen" onclick="copyJSON()">Copy JSON</button>
+  </div>
+<script>
+/* Themes */
+const themes=["dark","light","grey","pink","blue","vaporwave","solarized-dark","dracula","cyberpunk","sepia","midnight","facebook","mcdonalds","walmart","office"];
+const themeBtn=document.getElementById('themeBtn');
+function setTheme(t){document.body.className=t;localStorage.setItem('editorTheme',t);}
+(function(){setTheme(localStorage.getItem('editorTheme')||'dark')})();
+themeBtn.addEventListener('click',()=>{const idx=themes.indexOf(document.body.className)||0;setTheme(themes[(idx+1)%themes.length]);});
 
-  <h1>Create New Video JSON Entry</h1>
+/* Categories recall */
+function loadCategories(){
+  const datalist=document.getElementById('savedCategories');
+  datalist.innerHTML="";
+  const cats=JSON.parse(localStorage.getItem('categories')||"[]");
+  cats.forEach(c=>{const opt=document.createElement('option');opt.value=c;datalist.appendChild(opt);});
+}
+function saveCategory(c){if(!c)return;let cats=JSON.parse(localStorage.getItem('categories')||"[]");if(!cats.includes(c)){cats.push(c);localStorage.setItem('categories',JSON.stringify(cats));loadCategories();}}
+loadCategories();
 
-  <label>Title:</label>
-  <input id="title" placeholder="e.g. WAKE UP TO THE TRUTH" />
-
-  <label>YouTube ID (optional):</label>
-  <input id="youtube_id" placeholder="e.g. dQw4w9WgXcQ" />
-
-  <label>Cloudflare Video ID (optional):</label>
-  <input id="video_id" placeholder="e.g. ca53f3a766e01764d750d02186803f74" />
-
-  <label>Dropbox URL (optional):</label>
-  <input id="dropbox_url" placeholder="https://www.dropbox.com/s/xyz/video.mp4?raw=1" />
-
-  <label>Local URL (optional):</label>
-  <input id="url" placeholder="e.g. /videos/video.mp4" />
-
-  <label>Category:</label>
-  <input id="category" list="categoryOptions" placeholder="e.g. LAST DAYS" />
-  <datalist id="categoryOptions"></datalist>
-
-  <label>Tags (comma-separated, hashtags allowed):</label>
-  <input id="tags" placeholder="e.g. #matrix, #truth, bible, scripture" />
-
-  <label>Featured?</label>
-  <select id="featured">
-    <option value="false">No</option>
-    <option value="true">Yes</option>
-  </select>
-
-  <label>Pinned?</label>
-  <select id="pinned">
-    <option value="false">No</option>
-    <option value="true">Yes</option>
-  </select>
-
-  <button onclick="generateJSON()">Generate JSON</button>
-  <button onclick="resetForm()">Reset</button>
-
-  <label>Generated JSON:</label>
-  <textarea id="output" readonly></textarea>
-  <button onclick="copyJSON()">Copy</button>
-  <button onclick="downloadJSON()">Download</button>
-
-  <script>
-    function generateJSON() {
-      const entry = {
-        title: document.getElementById("title").value.trim(),
-        youtube_id: document.getElementById("youtube_id").value.trim() || undefined,
-        video_id: document.getElementById("video_id").value.trim() || undefined,
-        dropbox_url: document.getElementById("dropbox_url").value.trim() || undefined,
-        url: document.getElementById("url").value.trim() || undefined,
-        category: document.getElementById("category").value.trim(),
-        tags: document.getElementById("tags").value.split(',').map(t => t.trim().replace(/^#/, "")).filter(Boolean),
-        added: new Date().toISOString(),
-        featured: document.getElementById("featured").value === "true",
-        pinned: document.getElementById("pinned").value === "true"
-      };
-
-      Object.keys(entry).forEach(k => {
-        if (entry[k] === "" || entry[k] === undefined) delete entry[k];
-      });
-
-      const categories = JSON.parse(localStorage.getItem("categories") || "[]");
-      if (!categories.includes(entry.category)) {
-        categories.push(entry.category);
-        localStorage.setItem("categories", JSON.stringify(categories));
-        populateCategoryOptions();
-      }
-
-      document.getElementById("output").value = JSON.stringify(entry, null, 2);
-    }
-
-    function copyJSON() {
-      navigator.clipboard.writeText(document.getElementById("output").value)
-        .then(() => alert("Copied!"));
-    }
-
-    function downloadJSON() {
-      const blob = new Blob([document.getElementById("output").value], {type: "application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "video.json";
-      a.click();
-    }
-
-    function resetForm() {
-      document.querySelectorAll("input, select, textarea").forEach(el => el.value = "");
-      document.getElementById("output").value = "";
-    }
-
-    function populateCategoryOptions() {
-      const datalist = document.getElementById("categoryOptions");
-      datalist.innerHTML = "";
-      const stored = JSON.parse(localStorage.getItem("categories") || "[]");
-      stored.forEach(cat => {
-        const opt = document.createElement("option");
-        opt.value = cat;
-        datalist.appendChild(opt);
-      });
-    }
-
-    populateCategoryOptions();
-  </script>
-
+/* Generator */
+function generate(){
+  const obj={
+    title:document.getElementById('title').value,
+    youtube_id:document.getElementById('youtube_id').value||undefined,
+    url:document.getElementById('url').value||undefined,
+    category:[document.getElementById('category1').value,document.getElementById('category2').value].filter(Boolean),
+    tags:document.getElementById('tags').value.split(",").map(t=>t.trim()).filter(Boolean),
+    added:new Date().toISOString(),
+    featured:document.getElementById('featured').checked,
+    pinned:document.getElementById('pinned').checked
+  };
+  saveCategory(document.getElementById('category1').value);
+  saveCategory(document.getElementById('category2').value);
+  document.getElementById('output').textContent=JSON.stringify(obj,null,2);
+}
+function resetForm(){document.getElementById('videoForm').reset();document.getElementById('output').textContent="Fill the form and click Generate...";}
+function copyJSON(){const out=document.getElementById('output').textContent;navigator.clipboard.writeText(out);alert("JSON copied!");resetForm();}
+</script>
 </body>
 </html>
