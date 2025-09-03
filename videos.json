@@ -50,7 +50,8 @@
       "elite"
     ],
     "added": "2025-06-09T02:38:27.917Z",
-    "featured": false
+    "featured": false,
+  "pinned": true
   },
   {
   "title": "THIS IS WHAT BEING AN ACTOR IS REALLY ABOUT!",
@@ -1286,6 +1287,98 @@
   "added": "2025-08-31T06:26:09.459Z",
   "featured": false,
   "pinned": false
+  },
+  {
+  "title": "THE GOAL OF AI & WHY IT IS DANGEROUS",
+  "youtube_id": "vsAFsWfIsiU",
+  "category": [
+    "HIDDEN IN PLAIN SIGHT",
+    "TRUTH"
+  ],
+  "tags": [
+    "ai",
+    "demons",
+    "life",
+    "tech",
+    "truth"
+  ],
+  "added": "2025-09-03T11:07:55.349Z",
+  "featured": false,
+  "pinned": false
+  },
+
+  {
+  "title": "WHAT IS ABRAHAMS BOSOM",
+  "youtube_id": "CsXS909-L_0",
+  "category": [
+    "LEARNING",
+    "TRUTH"
+  ],
+  "tags": [
+    "Abraham",
+    "bosom",
+    "bible",
+    "truth"
+  ],
+  "added": "2025-09-03T11:13:34.061Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "WHY WE MUST FLEE THE MIDST OF BABYLON",
+  "youtube_id": "-cusdQjKc-A",
+  "category": [
+    "TRUTH",
+    "LAST DAYS"
+  ],
+  "tags": [
+    "Babylon",
+    "bible",
+    "truth",
+    "scripture"
+  ],
+  "added": "2025-09-03T11:15:55.084Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "HOW TO LEARN AND UNDERSTAND PRECEPTS",
+  "youtube_id": "PLO9BbnXsNn6JXpjjZWHyqrjPUNhGB9MPM",
+  "category": [
+    "EVERYTHING YOU NEED TO KNOW",
+    "LEARNING"
+  ],
+  "tags": [
+    "precepts",
+    "truth",
+    "bible",
+    "scripture",
+    "breakdown"
+  ],
+  "added": "2025-09-03T11:22:40.815Z",
+  "featured": false,
+  "pinned": false
+  },
+  {
+  "title": "HOW TO PREPARE FOR TRIBULATION!",
+  "youtube_id": "PLO9BbnXsNn6Lnb--S_W9x7uZROAcxFjfI",
+  "category": [
+    "EVERYTHING YOU NEED TO KNOW",
+    "LEARNING"
+  ],
+  "tags": [
+    "tribulation",
+    "truth",
+    "bible",
+    "scripture",
+    "prepare",
+    "last",
+    "days"
+  ],
+  "added": "2025-09-03T11:24:31.583Z",
+  "featured": false,
+  "pinned": false
   }
+  
 ]
 }
