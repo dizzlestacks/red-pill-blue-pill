@@ -1,0 +1,104 @@
+/* ================= BASE ================= */
+:root {
+  --bg:#000;
+  --fg:#e6ffe6;
+  --card:#111;
+  --accent:#00ff41;
+  --muted:#7bd58a;
+  --tag-bg:#00331a;
+  --tag-fg:#caffcf;
+  --border:#0a8f3a;
+  --shadow: 0 0 10px rgba(0,255,65,.25);
+}
+
+/* ================= THEMES (30) ================= */
+
+/* 1. Dark */
+body.dark { --bg:#000; --fg:#e6ffe6; --card:#111; --accent:#00ff41; --muted:#7bd58a; --tag-bg:#00331a; --tag-fg:#caffcf; --border:#0a8f3a; --shadow:0 0 10px rgba(0,255,65,.25); }
+
+/* 2. Light */
+body.light { --bg:#fff; --fg:#111; --card:#f8f9fa; --accent:#007BFF; --muted:#3b82f6; --tag-bg:#eef2ff; --tag-fg:#111; --border:#cbd5e1; --shadow:0 0 8px rgba(0,123,255,.15); }
+
+/* 3. Grey */
+body.grey { --bg:#111; --fg:#ddd; --card:#1c1c1c; --accent:#888; --muted:#aaa; --tag-bg:#222; --tag-fg:#e7e7e7; --border:#2b2b2b; --shadow:0 0 8px rgba(200,200,200,.12); }
+
+/* 4. Pink */
+body.pink { --bg:#3a001e; --fg:#ffd6ec; --card:#4a002a; --accent:#ff4ebf; --muted:#ffa1d8; --tag-bg:#60003b; --tag-fg:#ffd6ec; --border:#ff4ebf; --shadow:0 0 10px rgba(255,78,191,.2); }
+
+/* 5. Blue */
+body.blue { --bg:#001f3f; --fg:#d8efff; --card:#002b5c; --accent:#3399ff; --muted:#66ccff; --tag-bg:#003b7a; --tag-fg:#e6f5ff; --border:#1f75d6; --shadow:0 0 10px rgba(51,153,255,.18); }
+
+/* 6. Vaporwave */
+body.vaporwave { --bg:#2d0039; --fg:#ffb3ec; --card:#39004d; --accent:#00f6ff; --muted:#ffd166; --tag-bg:#4c0066; --tag-fg:#e8d7ff; --border:#00f6ff; --shadow:0 0 10px rgba(0,246,255,.2); }
+
+/* 7. Solarized Dark */
+body.solarized-dark { --bg:#002b36; --fg:#93a1a1; --card:#073642; --accent:#268bd2; --muted:#b58900; --tag-bg:#073642; --tag-fg:#eee8d5; --border:#586e75; --shadow:0 0 10px rgba(38,139,210,.2); }
+
+/* 8. Dracula */
+body.dracula { --bg:#282a36; --fg:#f8f8f2; --card:#44475a; --accent:#bd93f9; --muted:#50fa7b; --tag-bg:#3b3e56; --tag-fg:#f8f8f2; --border:#6272a4; --shadow:0 0 10px rgba(189,147,249,.22); }
+
+/* 9. Cyberpunk */
+body.cyberpunk { --bg:#0f0f0f; --fg:#eafffb; --card:#1a1a1a; --accent:#ff007c; --muted:#00ffe7; --tag-bg:#262626; --tag-fg:#eafffb; --border:#00ffe7; --shadow:0 0 12px rgba(0,255,231,.22); }
+
+/* 10. Sepia */
+body.sepia { --bg:#f4ecd8; --fg:#5c3e2b; --card:#e6d3b3; --accent:#a67c52; --muted:#7b5a3c; --tag-bg:#dbc6a1; --tag-fg:#4a3425; --border:#bfa07a; --shadow:0 0 8px rgba(166,124,82,.18); }
+
+/* 11. Midnight Purple */
+body.midnight { --bg:#1e0033; --fg:#e0d7ff; --card:#2c0e4a; --accent:#8e44ad; --muted:#a66dd6; --tag-bg:#3e1f5c; --tag-fg:#f0eaff; --border:#5b2b7a; --shadow:0 0 10px rgba(142,68,173,.18); }
+
+/* 12. Facebook */
+body.facebook { --bg:#f0f2f5; --fg:#050505; --card:#fff; --accent:#1877f2; --muted:#42b72a; --tag-bg:#e7f3ff; --tag-fg:#1c1e21; --border:#ccd0d5; --shadow:0 0 8px rgba(24,119,242,.15); }
+
+/* 13. McDonalds */
+body.mcdonalds { --bg:#ffc72c; --fg:#111; --card:#fff1c1; --accent:#da291c; --muted:#0066b2; --tag-bg:#ffdf80; --tag-fg:#111; --border:#da291c; --shadow:0 0 8px rgba(218,41,28,.25); }
+
+/* 14. Walmart */
+body.walmart { --bg:#0071ce; --fg:#fff; --card:#005a9c; --accent:#ffc220; --muted:#ffe600; --tag-bg:#00457c; --tag-fg:#fff; --border:#ffc220; --shadow:0 0 10px rgba(255,194,32,.22); }
+
+/* 15. Office */
+body.office { --bg:#f3f2f1; --fg:#201f1e; --card:#fff; --accent:#d83b01; --muted:#107c10; --tag-bg:#edebe9; --tag-fg:#201f1e; --border:#d83b01; --shadow:0 0 8px rgba(216,59,1,.18); }
+
+/* 16. Discord */
+body.discord { --bg:#36393f; --fg:#dcddde; --card:#2f3136; --accent:#5865f2; --muted:#57f287; --tag-bg:#23272a; --tag-fg:#fff; --border:#5865f2; --shadow:0 0 10px rgba(88,101,242,.2); }
+
+/* 17. Netflix */
+body.netflix { --bg:#141414; --fg:#fff; --card:#1f1f1f; --accent:#e50914; --muted:#b81d24; --tag-bg:#333; --tag-fg:#fff; --border:#e50914; --shadow:0 0 12px rgba(229,9,20,.25); }
+
+/* 18. Apple */
+body.apple { --bg:#f5f5f7; --fg:#1d1d1f; --card:#fff; --accent:#0071e3; --muted:#34c759; --tag-bg:#e0e0e5; --tag-fg:#1d1d1f; --border:#d2d2d7; --shadow:0 0 8px rgba(0,113,227,.18); }
+
+/* 19. Google */
+body.google { --bg:#fff; --fg:#202124; --card:#f8f9fa; --accent:#4285f4; --muted:#ea4335; --tag-bg:#e8f0fe; --tag-fg:#202124; --border:#dadce0; --shadow:0 0 8px rgba(66,133,244,.18); }
+
+/* 20. Amazon */
+body.amazon { --bg:#232f3e; --fg:#fff; --card:#37475a; --accent:#ff9900; --muted:#146eb4; --tag-bg:#131a22; --tag-fg:#fff; --border:#ff9900; --shadow:0 0 12px rgba(255,153,0,.25); }
+
+/* 21. Spotify */
+body.spotify { --bg:#191414; --fg:#fff; --card:#121212; --accent:#1db954; --muted:#535353; --tag-bg:#1db954; --tag-fg:#000; --border:#1db954; --shadow:0 0 10px rgba(29,185,84,.25); }
+
+/* 22. Twitch */
+body.twitch { --bg:#0e0e10; --fg:#efeff1; --card:#18181b; --accent:#9146ff; --muted:#ff38ac; --tag-bg:#26262c; --tag-fg:#fff; --border:#9146ff; --shadow:0 0 12px rgba(145,70,255,.25); }
+
+/* 23. YouTube */
+body.youtube { --bg:#fff; --fg:#0f0f0f; --card:#f9f9f9; --accent:#ff0000; --muted:#282828; --tag-bg:#ffe6e6; --tag-fg:#111; --border:#ff0000; --shadow:0 0 10px rgba(255,0,0,.22); }
+
+/* 24. Terminal */
+body.terminal { --bg:#000; --fg:#33ff33; --card:#0d0d0d; --accent:#00ff00; --muted:#00cc00; --tag-bg:#003300; --tag-fg:#66ff66; --border:#00ff00; --shadow:0 0 10px rgba(0,255,0,.25); }
+
+/* 25. Desert */
+body.desert { --bg:#edc9af; --fg:#3b2f2f; --card:#f5deb3; --accent:#c19a6b; --muted:#8b4513; --tag-bg:#deb887; --tag-fg:#3b2f2f; --border:#c19a6b; --shadow:0 0 8px rgba(193,154,107,.2); }
+
+/* 26. Ocean */
+body.ocean { --bg:#001f3f; --fg:#e0f7fa; --card:#003f5c; --accent:#00bcd4; --muted:#4dd0e1; --tag-bg:#004d60; --tag-fg:#e0f7fa; --border:#00bcd4; --shadow:0 0 10px rgba(0,188,212,.22); }
+
+/* 27. Forest */
+body.forest { --bg:#013220; --fg:#e0ffe0; --card:#024d2a; --accent:#00cc66; --muted:#4caf50; --tag-bg:#026440; --tag-fg:#e0ffe0; --border:#00cc66; --shadow:0 0 10px rgba(0,204,102,.22); }
+
+/* 28. Blood */
+body.blood { --bg:#330000; --fg:#ffcccc; --card:#4d0000; --accent:#cc0000; --muted:#990000; --tag-bg:#660000; --tag-fg:#ffcccc; --border:#cc0000; --shadow:0 0 12px rgba(204,0,0,.3); }
+
+/* 29. Gold */
+body.gold { --bg:#1a1a00; --fg:#fff8dc; --card:#333300; --accent:#ffd700; --muted:#daa520; --tag-bg:#4d4d00; --tag-fg:#fff8dc; --border:#ffd700; --shadow:0 0 12px rgba(255,215,0,.25); }
+
+/* 30. Ice */
+body.ice { --bg:#e0f7ff; --fg:#003344; --card:#f0fcff; --accent:#00ccff; --muted:#3399cc; --tag-bg:#cceeff; --tag-fg:#003344; --border:#00ccff; --shadow:0 0 10px rgba(0,204,255,.22); }
