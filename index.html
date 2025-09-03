@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>The Choice</title>
+  <title>MOST IMPORTANT CHOICE OF YOUR LIFE</title>
   <style>
     html, body {
       margin: 0;
@@ -20,39 +20,42 @@
   </style>
 </head>
 <body>
-  <video id="introVideo" autoplay muted playsinline controls>
+  <video id="introVideo" autoplay muted playsinline>
     <source src="The-Matrix-Blue-Pill-or-Red-Pill.mov" type="video/mp4">
+    <source src="The-Matrix-Blue-Pill-or-Red-Pill.mp4" type="video/mp4">
+    <source src="The-Matrix-Blue-Pill-or-Red-Pill.webm" type="video/webm">
     <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
     Your browser does not support the video tag.
   </video>
 
   <script>
-  // Skip splash if user has visited before
-  if (localStorage.getItem("splashSeen") === "true") {
-    window.location.href = "videos.html";
-      }
+    if (localStorage.getItem("splashSeen") === "true") {
+      window.location.href = "videos.html";
+    }
+
     const video = document.getElementById("introVideo");
     const redirectURL = "choice.html";
     let redirected = false;
+    let timeout;
 
-    const goToChoice = () => {
+    function goToChoice() {
       if (!redirected) {
         redirected = true;
+        clearTimeout(timeout);
+        localStorage.setItem("splashSeen", "true");
         window.location.href = redirectURL;
       }
-    };
+    }
 
-    // Redirect after 1:56
-    setTimeout(goToChoice, 154000);
+    video.addEventListener("canplay", () => {
+      video.muted = false;
+      video.play().catch(() => {});
+    });
 
-    // Redirect when video ends
+    timeout = setTimeout(goToChoice, 154000);
     video.onended = goToChoice;
-
-    // Redirect if the page is hidden (user exits or switches tab)
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
-        goToChoice();
-      }
+      if (document.visibilityState === "hidden") goToChoice();
     });
   </script>
 </body>
