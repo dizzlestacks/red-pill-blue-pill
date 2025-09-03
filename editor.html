@@ -1,87 +1,292 @@
+<!-- /editor.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Video Editor</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg:#000;--fg:#e6ffe6;--card:#111;--accent:#00ff41;--muted:#7bd58a;
-    --font:'Share Tech Mono',monospace;--border:#0a8f3a;
-  }
-  body{background:var(--bg);color:var(--fg);margin:0;padding:20px;font-family:var(--font),system-ui,sans-serif;transition:.25s;}
-  h1{text-align:center;margin-bottom:20px;}
-  .theme-btn{position:fixed;top:10px;right:10px;z-index:99;background:var(--card);color:var(--fg);border:1px solid var(--border);padding:6px 10px;border-radius:6px;cursor:pointer;}
-  form{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
-  input,textarea,select{padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-size:1rem;}
-  textarea{resize:vertical;}
-  .btn-row{display:flex;gap:10px;margin-top:10px;}
-  button{padding:10px;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
-  .gen{background:var(--accent);color:#000;}
-  .reset{background:#f44336;color:#fff;}
-  pre{background:var(--card);padding:15px;border-radius:8px;white-space:pre-wrap;word-wrap:break-word;border:1px solid var(--border);}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Video JSON Editor</title>
+  <link rel="stylesheet" href="themes.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root { box-sizing: border-box; }
+    *,*::before,*::after { box-sizing: inherit; }
+    html,body { margin:0; padding:0; overflow-x:hidden; }
+    body { background:var(--bg); color:var(--fg); font-family:'Share Tech Mono',monospace; }
+
+    .wrap { max-width:860px; margin:0 auto; padding:16px 14px 60px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+
+    .row-top { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; }
+    label.small { font-size:.9rem; opacity:.85; }
+    #themeSelect {
+      background:var(--card); color:var(--fg); border:1px solid var(--border);
+      border-radius:8px; padding:6px 10px; min-width:160px; max-width:60vw; box-shadow:var(--shadow);
+    }
+
+    .card { width:100%; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:14px; }
+    h1,h2,h3 { margin:0 0 10px 0; text-align:center; }
+    h1 { font-size:1.3rem; color:var(--muted); }
+    h2 { font-size:1.05rem; color:var(--muted); }
+
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
+
+    input,textarea,select,button {
+      width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+      background:var(--card); color:var(--fg); font-family:inherit; font-size:1rem;
+    }
+    textarea { resize:vertical; min-height:110px; }
+
+    .row { display:flex; gap:6px; justify-content:center; margin-top:6px; align-items:center; }
+    .row label { display:flex; align-items:center; gap:6px; margin:0; }
+    .row input[type="checkbox"] { width:auto; height:auto; }
+
+    .btns { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:6px; }
+    .btn { cursor:pointer; border:1px solid var(--border); background:color-mix(in srgb, var(--accent) 10%, var(--card)); color:var(--fg); font-weight:600; }
+    .btn.primary { border:1px solid var(--accent); }
+    .btn.danger { border:1px solid #a33; }
+
+    details { width:100%; border:1px dashed var(--border); border-radius:10px; padding:10px; background:color-mix(in srgb,var(--card)92%,var(--bg)); }
+    summary { cursor:pointer; list-style:none; font-weight:600; display:flex; align-items:center; gap:8px; }
+    summary::-webkit-details-marker { display:none; }
+
+    pre { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--fg); padding:14px; border-radius:10px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+    .hint { text-align:center; font-size:.9rem; color:color-mix(in srgb,var(--fg)70%,transparent); }
+  </style>
 </head>
 <body class="dark">
-  <button class="theme-btn" id="themeBtn">🌓 Theme</button>
-  <h1>📼 Video JSON Generator</h1>
-  <form id="videoForm">
-    <input id="title" placeholder="Title (e.g. WANT TO BREAK OUT THE MATRIX?)" required />
-    <input id="youtube_id" placeholder="YouTube ID (e.g. 7Eeo-82Eac8)" />
-    <input id="url" placeholder="Direct video URL (optional)" />
-    <input id="category1" placeholder="Category 1 (e.g. Hidden Truth)" list="savedCategories" />
-    <input id="category2" placeholder="Category 2 (optional)" list="savedCategories" />
-    <datalist id="savedCategories"></datalist>
-    <input id="tags" placeholder="Tags (#matrix, #truth, #hidden)" />
-    <label><input type="checkbox" id="featured"> Featured Video</label>
-    <label><input type="checkbox" id="pinned"> Pinned Video</label>
-    <div class="btn-row">
-      <button type="button" class="gen" onclick="generate()">Generate JSON</button>
-      <button type="button" class="reset" onclick="resetForm()">Reset</button>
+  <div class="wrap">
+    <div class="row-top">
+      <label class="small" for="themeSelect">Themes</label>
+      <select id="themeSelect">
+        <option value="dark">Dark</option><option value="light">Light</option>
+        <option value="grey">Grey</option><option value="pink">Pink</option>
+        <option value="blue">Blue</option><option value="vaporwave">Vaporwave</option>
+        <option value="solarized-dark">Solarized Dark</option><option value="dracula">Dracula</option>
+        <option value="cyberpunk">Cyberpunk</option><option value="sepia">Sepia</option>
+        <option value="midnight">Midnight</option><option value="facebook">Facebook</option>
+        <option value="mcdonalds">McDonalds</option><option value="walmart">Walmart</option>
+        <option value="office">Office</option><option value="discord">Discord</option>
+        <option value="netflix">Netflix</option><option value="apple">Apple</option>
+        <option value="google">Google</option><option value="amazon">Amazon</option>
+        <option value="spotify">Spotify</option><option value="twitch">Twitch</option>
+        <option value="youtube">YouTube</option><option value="terminal">Terminal</option>
+        <option value="desert">Desert</option><option value="ocean">Ocean</option>
+        <option value="forest">Forest</option><option value="blood">Blood</option>
+        <option value="gold">Gold</option><option value="ice">Ice</option>
+      </select>
     </div>
-  </form>
-  <h2 style="text-align:center;margin-top:20px;">Generated JSON</h2>
-  <pre id="output">Fill the form and click Generate...</pre>
-  <div style="text-align:center;margin-top:10px;">
-    <button class="gen" onclick="copyJSON()">Copy JSON</button>
-  </div>
-<script>
-/* Themes */
-const themes=["dark","light","grey","pink","blue","vaporwave","solarized-dark","dracula","cyberpunk","sepia","midnight","facebook","mcdonalds","walmart","office"];
-const themeBtn=document.getElementById('themeBtn');
-function setTheme(t){document.body.className=t;localStorage.setItem('editorTheme',t);}
-(function(){setTheme(localStorage.getItem('editorTheme')||'dark')})();
-themeBtn.addEventListener('click',()=>{const idx=themes.indexOf(document.body.className)||0;setTheme(themes[(idx+1)%themes.length]);});
 
-/* Categories recall */
+    <!-- Single JSON -->
+    <div class="card">
+      <h1>Video JSON Builder</h1>
+      <div class="grid">
+        <input id="title" placeholder="Title"/>
+        <input id="yt" placeholder="YouTube link or ID (video/playlist)"/>
+        <input id="url" placeholder="Direct video URL (optional)"/>
+        <input id="category1" placeholder="Category 1" list="savedCategories"/>
+        <input id="category2" placeholder="Category 2 (optional)" list="savedCategories"/>
+        <input id="tags" placeholder="Tags (comma-separated)"/>
+      </div>
+      <datalist id="savedCategories"></datalist>
+
+      <div class="row">
+        <label><input type="checkbox" id="featured"> Featured</label>
+        <label><input type="checkbox" id="pinned"> Pinned</label>
+      </div>
+
+      <div class="btns">
+        <button class="btn primary" id="genOne">Generate JSON</button>
+        <button class="btn" id="copyOne">Copy JSON</button>
+        <button class="btn danger" id="clearForm">Clear Form</button>
+      </div>
+
+      <pre id="output">Fill the form then Generate…</pre>
+      <div class="hint">Single item ends with a trailing comma for fast paste.</div>
+    </div>
+
+    <!-- Batch panel -->
+    <details id="batchPanel">
+      <summary>📦 Batch Builder</summary>
+      <div class="btns">
+        <button class="btn primary" id="addBatch">Add to Batch</button>
+        <button class="btn" id="genBatch">Generate Batch JSON</button>
+        <button class="btn" id="copyBatch">Copy Batch JSON</button>
+        <button class="btn danger" id="clearBatch">Clear Batch</button>
+      </div>
+      <pre id="batchList">No items in batch yet.</pre>
+    </details>
+
+    <!-- Popup panel -->
+    <details id="popupPanel">
+      <summary>🔔 Popup Settings</summary>
+      <div class="row">
+        <label><input type="checkbox" id="popupEnabled"> Enabled</label>
+      </div>
+      <textarea id="popupMsg" placeholder="Popup message (only included in batch export when Enabled)"></textarea>
+      <div class="hint">This does not affect single-item JSON.</div>
+    </details>
+  </div>
+
+<script>
+/* ============ Theme ============ */
+const themeSelect = document.getElementById('themeSelect');
+function setTheme(t){ document.body.className = t; localStorage.setItem('editorTheme', t); }
+(function initTheme(){
+  const saved = localStorage.getItem('editorTheme') || 'dark';
+  setTheme(saved);
+  themeSelect.value = saved;
+})();
+themeSelect.addEventListener('change', () => setTheme(themeSelect.value));
+
+/* ============ Category recall ============ */
+const CKEY = 'categories';
 function loadCategories(){
-  const datalist=document.getElementById('savedCategories');
-  datalist.innerHTML="";
-  const cats=JSON.parse(localStorage.getItem('categories')||"[]");
-  cats.forEach(c=>{const opt=document.createElement('option');opt.value=c;datalist.appendChild(opt);});
+  const datalist = document.getElementById('savedCategories');
+  datalist.innerHTML = '';
+  const cats = JSON.parse(localStorage.getItem(CKEY) || '[]');
+  cats.forEach(c => {
+    const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt);
+  });
 }
-function saveCategory(c){if(!c)return;let cats=JSON.parse(localStorage.getItem('categories')||"[]");if(!cats.includes(c)){cats.push(c);localStorage.setItem('categories',JSON.stringify(cats));loadCategories();}}
+function saveCategory(name){
+  const c = (name || '').trim();
+  if(!c) return;
+  const cats = new Set(JSON.parse(localStorage.getItem(CKEY) || '[]'));
+  cats.add(c);
+  localStorage.setItem(CKEY, JSON.stringify([...cats]));
+  loadCategories();
+}
 loadCategories();
 
-/* Generator */
-function generate(){
-  const obj={
-    title:document.getElementById('title').value,
-    youtube_id:document.getElementById('youtube_id').value||undefined,
-    url:document.getElementById('url').value||undefined,
-    category:[document.getElementById('category1').value,document.getElementById('category2').value].filter(Boolean),
-    tags:document.getElementById('tags').value.split(",").map(t=>t.trim()).filter(Boolean),
-    added:new Date().toISOString(),
-    featured:document.getElementById('featured').checked,
-    pinned:document.getElementById('pinned').checked
-  };
-  saveCategory(document.getElementById('category1').value);
-  saveCategory(document.getElementById('category2').value);
-  document.getElementById('output').textContent=JSON.stringify(obj,null,2);
+/* ============ Helpers ============ */
+const el = id => document.getElementById(id);
+
+function parseYouTube(input){
+  const raw = (input || '').trim();
+  if(!raw) return { id:'', isPlaylist:false };
+  if(/^PL[A-Za-z0-9_\-]+$/.test(raw)) return { id: raw, isPlaylist:true };
+  if(/^[A-Za-z0-9_\-]{11}$/.test(raw)) return { id: raw, isPlaylist:false };
+  try {
+    const u = new URL(raw);
+    const list = u.searchParams.get('list');
+    if(list) return { id:list, isPlaylist:true };
+    const v = u.searchParams.get('v');
+    if(v) return { id:v, isPlaylist:false };
+    if(u.hostname.includes('youtu.be')) {
+      const p = u.pathname.replace(/^\/+/,'');
+      if(p) return { id:p, isPlaylist:false };
+    }
+  } catch {}
+  return { id: raw, isPlaylist: raw.startsWith('PL') };
 }
-function resetForm(){document.getElementById('videoForm').reset();document.getElementById('output').textContent="Fill the form and click Generate...";}
-function copyJSON(){const out=document.getElementById('output').textContent;navigator.clipboard.writeText(out);alert("JSON copied!");resetForm();}
+
+function buildVideoObject(){
+  const title = el('title').value.trim();
+  const yt = parseYouTube(el('yt').value);
+  const direct = el('url').value.trim();
+  const c1 = el('category1').value.trim();
+  const c2 = el('category2').value.trim();
+  const tags = el('tags').value.split(',').map(t=>t.trim().replace(/^#/,'')).filter(Boolean);
+  const featured = el('featured').checked;
+  const pinned = el('pinned').checked;
+
+  // save categories for recall
+  saveCategory(c1); saveCategory(c2);
+
+  const obj = { title };
+  if(yt.id) obj.youtube_id = yt.id;
+  if(!yt.id && direct) obj.url = direct;
+
+  const cats = [c1, c2].filter(Boolean);
+  if(cats.length === 1) obj.category = cats[0];
+  if(cats.length >= 2) obj.category = cats;
+
+  if(tags.length) obj.tags = tags;
+  obj.added = new Date().toISOString();
+  obj.featured = featured;
+  obj.pinned = pinned;
+
+  return obj;
+}
+
+function clearForm(){
+  ['title','yt','url','category1','category2','tags'].forEach(id => el(id).value = '');
+  el('featured').checked = false;
+  el('pinned').checked = false;
+  el('title').focus();
+}
+
+/* ============ Single ============ */
+el('genOne').addEventListener('click', () => {
+  const obj = buildVideoObject();
+  // Starts from {, ends with comma for paste-into-array workflows
+  el('output').textContent = JSON.stringify(obj, null, 2) + ',';
+  // collapse aux panels so output is visible
+  el('batchPanel').open = false;
+  el('popupPanel').open = false;
+});
+
+el('copyOne').addEventListener('click', async () => {
+  await navigator.clipboard.writeText(el('output').textContent);
+  alert('Copied!');
+});
+
+el('clearForm').addEventListener('click', clearForm);
+
+/* ============ Batch ============ */
+const batch = [];
+let lastBatchJSON = '';
+
+function renderBatchList(){
+  if(batch.length === 0){
+    el('batchList').textContent = 'No items in batch yet.';
+    return;
+  }
+  el('batchList').textContent = batch.map((v,i)=>{
+    const cat = Array.isArray(v.category) ? v.category.join(', ') : (v.category || '—');
+    const id = v.youtube_id || v.url || '—';
+    return `${i+1}. ${v.title} | ${id} | ${cat}${v.pinned?' [pinned]':''}${v.featured?' [featured]':''}`;
+  }).join('\n');
+}
+
+el('addBatch').addEventListener('click', () => {
+  const obj = buildVideoObject();
+  batch.push(obj);
+  renderBatchList();
+  clearForm(); // ready for next entry
+});
+
+el('genBatch').addEventListener('click', () => {
+  const includePopup = el('popupEnabled').checked;
+
+  if (!includePopup) {
+    // Output a stack of objects, each starting with "{" and ending with "},"
+    // (no top-level wrapper)
+    lastBatchJSON = batch.map(o => JSON.stringify(o, null, 2) + ',').join('\n\n');
+  } else {
+    // Full top-level with popup + videos array (no trailing commas inside array)
+    const top = {
+      popup: { enabled: true, message: el('popupMsg').value },
+      videos: batch.slice()
+    };
+    lastBatchJSON = JSON.stringify(top, null, 2);
+  }
+
+  el('output').textContent = lastBatchJSON;
+  el('batchPanel').open = false;
+  el('popupPanel').open = false;
+});
+
+el('copyBatch').addEventListener('click', async () => {
+  const text = lastBatchJSON || el('output').textContent;
+  await navigator.clipboard.writeText(text);
+  alert('Copied!');
+});
+
+el('clearBatch').addEventListener('click', () => {
+  batch.length = 0;
+  renderBatchList();
+});
 </script>
 </body>
 </html>
