@@ -8,46 +8,76 @@
     :root { box-sizing: border-box; }
     *,*::before,*::after { box-sizing: inherit; }
     html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      height: 100%;
-      overflow: hidden;            /* keep page static */
-      touch-action: manipulation;  /* reduce accidental zoom/scroll */
+      margin: 0; padding: 0;
+      height: 100%; background: #000;
+      overflow: hidden;                 /* keep page static */
+      touch-action: manipulation;
     }
-    .modal {
+
+    /* Backdrop */
+    .backdrop {
       position: fixed; inset: 0;
       display: grid; place-items: center;
-      background: #000;            /* solid black backdrop */
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px);
     }
-    video {
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
+
+    /* Centered modal */
+    .modal {
+      position: relative;
+      width: min(90vw, 900px);
+      aspect-ratio: 16 / 9;             /* keeps a nice shape */
       background: #000;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08) inset;
+      overflow: hidden;
     }
-    .controls {
-      position: fixed;
-      top: 12px; right: 12px;
-      display: flex; gap: 8px;
-      z-index: 3;
+
+    /* Fit video fully (no cropping) */
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;              /* key change: no cut-offs */
+      background: #000;                 /* letterbox */
+      display: block;
     }
-    .btn {
-      appearance: none; border: 1px solid rgba(255,255,255,.35);
-      background: rgba(0,0,0,.45); color: #fff;
-      padding: 8px 12px; border-radius: 10px; cursor: pointer;
-      font: 600 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+
+    /* Minimal icon buttons */
+    .icon-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 36px; height: 36px;
+      display: grid; place-items: center;
+      border: 1px solid rgba(255,255,255,.35);
+      background: rgba(0,0,0,.45);
+      color: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      z-index: 2;
       backdrop-filter: blur(6px);
+      font: 700 16px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
-    .btn:hover { background: rgba(255,255,255,.12); }
-    .hint {
-      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-      color: #ddd; font: 500 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.2);
-      padding: 8px 12px; border-radius: 10px; z-index: 2;
-      text-align: center;
+    .icon-btn:hover { background: rgba(255,255,255,.12); }
+
+    /* Unmute chip (small, bottom-left) */
+    .chip {
+      position: absolute;
+      left: 10px; bottom: 10px;
+      display: inline-flex; gap: 6px; align-items: center;
+      padding: 8px 10px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.28);
+      background: rgba(0,0,0,.45); color: #fff;
+      cursor: pointer; z-index: 2; backdrop-filter: blur(6px);
+      font: 600 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
     .hidden { display: none !important; }
+
+    @media (max-width: 420px) {
+      .modal { width: 94vw; }
+      .icon-btn { width: 34px; height: 34px; font-size: 15px; }
+      .chip { font-size: 11px; padding: 7px 9px; }
+    }
   </style>
 </head>
 <body>
@@ -58,29 +88,27 @@
     }
   </script>
 
-  <div class="modal" id="splash">
-    <video id="introVideo" autoplay muted playsinline preload="metadata" crossorigin="anonymous">
-      <!-- Primary .mp4, then fallbacks for max support -->
-      <source src="The-Matrix-Blue-Pill-or-Red-Pill.mp4" type="video/mp4">
-      <source src="The-Matrix-Blue-Pill-or-Red-Pill.webm" type="video/webm">
-      <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
-      Your browser does not support the video tag.
-    </video>
+  <div class="backdrop" id="backdrop">
+    <div class="modal">
+      <button class="icon-btn" id="exitBtn" aria-label="Exit">✕</button>
 
-    <!-- UI -->
-    <div class="controls">
-      <button class="btn" id="unmuteBtn">🔊 Unmute</button>
-      <button class="btn" id="exitBtn">✕ Exit</button>
+      <video id="introVideo" autoplay muted playsinline preload="metadata">
+        <!-- Primary MP4, then fallbacks -->
+        <source src="The-Matrix-Blue-Pill-or-Red-Pill.mp4" type="video/mp4">
+        <source src="The-Matrix-Blue-Pill-or-Red-Pill.webm" type="video/webm">
+        <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
+        Your browser does not support the video tag.
+      </video>
+
+      <button class="chip" id="unmuteChip" aria-label="Enable sound">🔊 Tap to unmute</button>
     </div>
-    <div class="hint" id="hint">Video will auto-play. Tap 🔊 to enable sound. Tap ✕ to choose your pill.</div>
   </div>
 
   <script>
     (function(){
       const video = document.getElementById("introVideo");
-      const unmuteBtn = document.getElementById("unmuteBtn");
       const exitBtn = document.getElementById("exitBtn");
-      const hint = document.getElementById("hint");
+      const unmuteChip = document.getElementById("unmuteChip");
       const redirectURL = "choice.html";
       let redirected = false;
       let timeout;
@@ -93,47 +121,38 @@
         window.location.replace(redirectURL);
       }
 
-      // Ensure autoplay kicks in on mobile (muted + playsinline)
-      const ensurePlay = () => video.play().catch(() => {/* ignore */});
+      // Autoplay kick
+      const ensurePlay = () => video.play().catch(()=>{ /* ignore */ });
+      video.addEventListener("canplay", ensurePlay, { once: true });
+      ensurePlay();
 
-      // Try to unmute safely after user interaction
+      // Safe unmute on user action
       function tryUnmute() {
+        if (!video.muted) return;
         video.muted = false;
         video.volume = 1;
-        video.play().then(()=>{
-          hint.textContent = "Sound enabled. Tap ✕ to choose your pill.";
-          unmuteBtn.classList.add("hidden");
+        video.play().then(() => {
+          unmuteChip.classList.add("hidden");
         }).catch(()=>{
-          // If browser blocks, keep muted and keep button visible
+          // Browser blocked; keep chip visible
           video.muted = true;
         });
       }
+      unmuteChip.addEventListener("click", tryUnmute);
+      // First tap on video also tries to unmute
+      video.addEventListener("pointerdown", tryUnmute, { once: true });
 
-      // Events → exit to choice
+      // Exit paths → pill choice
+      exitBtn.addEventListener("click", goToChoice);
       video.addEventListener("ended", goToChoice);
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") goToChoice();
       });
-      window.addEventListener("pagehide", goToChoice);
       window.addEventListener("blur", goToChoice);
+      window.addEventListener("pagehide", goToChoice);
 
-      // Make sure autoplay starts ASAP
-      video.addEventListener("canplay", ensurePlay, { once: true });
-      ensurePlay();
-
-      // Fallback timeout (e.g., super long video)
-      // Adjust if needed; currently ~2m34s like before:
+      // Safety timeout (same as before ~2m34s)
       timeout = setTimeout(goToChoice, 154000);
-
-      // Buttons
-      unmuteBtn.addEventListener("click", tryUnmute);
-      exitBtn.addEventListener("click", goToChoice);
-
-      // First tap anywhere can also unmute (UX sugar)
-      document.getElementById("splash").addEventListener("pointerdown", (e)=>{
-        if (e.target === exitBtn || e.target === unmuteBtn) return;
-        if (video.muted) tryUnmute();
-      }, { once: true });
     })();
   </script>
 </body>
