@@ -520,7 +520,7 @@
   ],
   "added": "2025-08-09T07:34:54.595Z",
   "featured": false,
-  "pinned": true
+  "pinned": false
   },
   {
   "title": "EVERYTHING YOU NEED TO KNOW ABOUT TITHING PT2",
@@ -1404,6 +1404,21 @@
       "gods"
     ],
     "added": "2025-09-05T09:38:46.170Z",
+  "videos": [
+  {
+    "title": "THIS IS WHAT SATAN ACTUALLY LOOKS LIKE ACCORDING TO THE SCRIPTURES ",
+    "youtube_id": "YPOGF1_MqZc",
+    "category": [
+      "TRUTH",
+      "LEARNING "
+    ],
+    "tags": [
+      "bible",
+      "truth",
+      "gem",
+      "stones"
+    ],
+    "added": "2025-09-06T21:52:03.248Z",
     "featured": false,
     "pinned": false
   },
@@ -1425,7 +1440,19 @@
       "enoch",
       "jubilees"
     ],
-    "added": "2025-09-05T09:43:08.745Z",
+    "title": "GENESIS CHAPTER 1 & 2 ARE OF THE SAME ACCOUNT ",
+    "youtube_id": "6FEwLYj4HRY",
+    "category": "LEARNING",
+    "tags": [
+      "different",
+      "perspective",
+      "truth",
+      "bible",
+      "scripture",
+      "over",
+      "view"
+    ],
+    "added": "2025-09-06T22:00:45.452Z",
     "featured": false,
     "pinned": false
   },
@@ -1451,9 +1478,48 @@
       "money"
     ],
     "added": "2025-09-05T09:46:34.635Z",
+    "title": "HOW DO YOU HONOUR YOUR PARENTS ACCORDING TO THE SCRIPTURES?",
+    "youtube_id": "Q6SGRD1gPBg",
+    "category": [
+      "TRUTH",
+      "LEANING"
+    ],
+    "tags": [
+      "honour",
+      "parents",
+      "mother",
+      "father",
+      "bible",
+      "scripture",
+      "truth",
+      "lawful"
+    ],
+    "added": "2025-09-06T22:14:33.916Z",
+    "featured": false,
+    "pinned": false
+  },
+  {
+    "title": "HOW TO READ AND UNDERSTAND THE BIBLE ",
+    "youtube_id": "Y7wipbEDIKE",
+    "category": "LEARNING",
+    "tags": [],
+    "added": "2025-09-07T00:29:10.365Z",
+    "featured": false,
+    "pinned": false
+  },
+  {
+    "title": "DID YOU KNOW THIS ABOUT THE OLYMPICS AND VOTING?",
+    "youtube_id": "z0JhAAsVwiQ",
+    "category": [
+      "TRUTH",
+      "HISTORY"
+    ],
+    "tags": [],
+    "added": "2025-09-07T00:50:19.981Z",
     "featured": false,
     "pinned": false
   }
+  
   
 ]
 }
