@@ -1306,7 +1306,6 @@
   "featured": false,
   "pinned": false
   },
-
   {
   "title": "WHAT IS ABRAHAMS BOSOM",
   "youtube_id": "CsXS909-L_0",
@@ -1404,7 +1403,7 @@
       "gods"
     ],
     "added": "2025-09-05T09:38:46.170Z",
-  "videos": [
+  },
   {
     "title": "THIS IS WHAT SATAN ACTUALLY LOOKS LIKE ACCORDING TO THE SCRIPTURES ",
     "youtube_id": "YPOGF1_MqZc",
@@ -1502,7 +1501,7 @@
     "title": "HOW TO READ AND UNDERSTAND THE BIBLE ",
     "youtube_id": "Y7wipbEDIKE",
     "category": "LEARNING",
-    "tags": ["bible"],
+    "tags": [],
     "added": "2025-09-07T00:29:10.365Z",
     "featured": false,
     "pinned": false
@@ -1514,7 +1513,7 @@
       "TRUTH",
       "HISTORY"
     ],
-    "tags": ["bible"],
+    "tags": [],
     "added": "2025-09-07T00:50:19.981Z",
     "featured": false,
     "pinned": false
