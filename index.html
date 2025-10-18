@@ -4,96 +4,172 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LISTEN AND CHOOSE</title>
+  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     :root { box-sizing: border-box; }
     *,*::before,*::after { box-sizing: inherit; }
     html, body {
-      margin: 0; padding: 0;
-      height: 100%; background: #000;
-      overflow: hidden;                 /* keep page static */
-      touch-action: manipulation;
+      margin: 0; padding: 0; height: 100%;
+      background: #000; color: #e6ffe6;
+      overflow: hidden; touch-action: manipulation;
+      font-family: 'Share Tech Mono', monospace;
     }
 
-    /* Backdrop */
+    /* Fade-to-black page transition */
+    .fadeout { animation: fadeToBlack .35s ease forwards; }
+    @keyframes fadeToBlack { to { opacity: 0; } }
+
+    /* Backdrop with subtle neon vignette */
     .backdrop {
-      position: fixed; inset: 0;
-      display: grid; place-items: center;
-      background: rgba(0,0,0,.7);
-      backdrop-filter: blur(4px);
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: radial-gradient(1200px 800px at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.88) 60%, #000 100%);
     }
 
-    /* Centered modal */
-    .modal {
-      position: relative;
-      width: min(90vw, 900px);
-      aspect-ratio: 16 / 9;             /* keeps a nice shape */
-      background: #000;
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 14px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08) inset;
-      overflow: hidden;
+    /* Code rain canvas (same style vibe as choice) */
+    #codeRain {
+      position: absolute; inset: 0; z-index: 0;
+      opacity: .18; filter: blur(.2px); /* keep it subtle */
     }
+
+    /* Centered modal for the intro video */
+    .modal {
+      position: relative; z-index: 1;
+      width: min(90vw, 900px);
+      aspect-ratio: 16 / 9;
+      background: #000; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow:
+        0 18px 60px rgba(0,0,0,.6),
+        0 0 0 1px rgba(255,255,255,.06) inset,
+        0 0 44px rgba(0,255,65,.25);
+      transform: translateY(6px) scale(.985);
+      opacity: 0;
+      animation: modalIn .5s cubic-bezier(.2,.8,.2,1) .05s forwards;
+    }
+    @keyframes modalIn { to { transform: translateY(0) scale(1); opacity: 1; } }
 
     /* Fit video fully (no cropping) */
     video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;              /* key change: no cut-offs */
-      background: #000;                 /* letterbox */
-      display: block;
+      width: 100%; height: 100%;
+      object-fit: contain; background: #000; display: block;
     }
 
-    /* Minimal icon buttons */
+    /* Red glowing exit button */
     .icon-btn {
-      position: absolute;
-      top: 10px; right: 10px;
-      width: 36px; height: 36px;
-      display: grid; place-items: center;
-      border: 1px solid rgba(255,255,255,.35);
+      position: absolute; top: 10px; right: 10px;
+      min-width: 42px; height: 38px; padding: 0 12px;
+      display: inline-grid; place-items: center;
+      border: 1px solid rgba(255, 0, 55, .65);
       background: rgba(0,0,0,.45);
-      color: #fff;
-      border-radius: 50%;
-      cursor: pointer;
-      z-index: 2;
+      color: #fff; border-radius: 999px; cursor: pointer; z-index: 2;
+      font: 700 13px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      text-transform: uppercase; letter-spacing: .06em;
+      box-shadow: 0 0 18px rgba(255,0,55,.35), inset 0 0 12px rgba(255,0,55,.15);
       backdrop-filter: blur(6px);
-      font: 700 16px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
-    .icon-btn:hover { background: rgba(255,255,255,.12); }
+    .icon-btn::before { content: "EXIT"; }
+    .icon-btn:hover {
+      background: rgba(255,0,55,.12);
+      box-shadow: 0 0 26px rgba(255,0,55,.55), inset 0 0 14px rgba(255,0,55,.2);
+    }
 
     /* Unmute chip (small, bottom-left) */
     .chip {
-      position: absolute;
-      left: 10px; bottom: 10px;
+      position: absolute; left: 10px; bottom: 10px;
       display: inline-flex; gap: 6px; align-items: center;
       padding: 8px 10px; border-radius: 999px;
       border: 1px solid rgba(255,255,255,.28);
       background: rgba(0,0,0,.45); color: #fff;
       cursor: pointer; z-index: 2; backdrop-filter: blur(6px);
       font: 600 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      transition: transform .15s ease;
     }
+    .chip:hover { transform: translateY(-1px); }
     .hidden { display: none !important; }
+
+    /* Top instruction */
+    .topline {
+      position: absolute; inset: auto 0 100% 0;
+      text-align: center; color: #9fffb3;
+      font: 700 14px/1.3 'Share Tech Mono', monospace;
+      text-shadow: 0 0 8px rgba(0,255,65,.3);
+      margin-bottom: 12px;
+      z-index: 1;
+    }
+
+    /* ===== First-visit popup (same scheme + rain vibe) ===== */
+    .popup-wrap {
+      position: fixed; inset: 0; display: none; place-items: center; z-index: 9999;
+      background: radial-gradient(1100px 720px at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.88) 60%, #000 100%);
+      backdrop-filter: blur(2px);
+    }
+    .popup-rain { position:absolute; inset:0; opacity:.18; filter: blur(.2px); }
+    .popup-box {
+      position: relative; z-index: 1;
+      width: min(92vw, 720px);
+      background:#000; color:#e6ffe6;
+      border:1px solid rgba(0,255,65,.28);
+      border-radius: 14px; padding: 22px 20px;
+      box-shadow:
+        0 18px 60px rgba(0,0,0,.6),
+        0 0 0 1px rgba(255,255,255,.06) inset,
+        0 0 44px rgba(0,255,65,.25);
+      text-align: center;
+    }
+    .popup-box h2 {
+      margin: 0 0 8px; font-size: 1.15rem; color: #9fffb3;
+      text-shadow: 0 0 8px rgba(0,255,65,.25);
+    }
+    .popup-msg { line-height:1.7; white-space:pre-wrap; }
+    .popup-msg .verse { font-style:italic; color:#7bd58a; }
+    .popup-btn {
+      margin-top: 14px; padding: 10px 16px; border-radius: 999px;
+      border: 1px solid rgba(0,255,65,.6); background: rgba(0,0,0,.45);
+      color: #e6ffe6; cursor: pointer; font-weight: 700; letter-spacing:.02em;
+      box-shadow: 0 0 18px rgba(0,255,65,.28), inset 0 0 10px rgba(0,255,65,.12);
+    }
+    .popup-btn:hover { background: rgba(0,255,65,.12); }
 
     @media (max-width: 420px) {
       .modal { width: 94vw; }
-      .icon-btn { width: 34px; height: 34px; font-size: 15px; }
+      .icon-btn { height: 36px; min-width: 40px; font-size: 12px; }
       .chip { font-size: 11px; padding: 7px 9px; }
+      .topline { font-size: 12px; padding: 0 10px; }
     }
   </style>
 </head>
 <body>
   <script>
-    // Skip splash if already seen
+    // Skip splash (video) entirely if already seen previously
     if (localStorage.getItem("splashSeen") === "true") {
       window.location.replace("videos.html");
     }
   </script>
 
-  <div class="backdrop" id="backdrop">
-    <div class="modal">
-      <button class="icon-btn" id="exitBtn" aria-label="Exit">✕</button>
+  <!-- First-visit popup -->
+  <div class="popup-wrap" id="firstPopup" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
+    <canvas class="popup-rain" id="popupRain"></canvas>
+    <div class="popup-box">
+      <h2 id="popupTitle">WELCOME OUT THE MATRIX!</h2>
+      <div id="popupMsg" class="popup-msg">
+“WATCH THIS VIDEO BELOW AND THEN DECIDE WHICH PILL YOU CHOOSE.”
+      </div>
+      <button id="popupClose" class="popup-btn">Enter</button>
+    </div>
+  </div>
 
-      <video id="introVideo" autoplay muted playsinline preload="metadata">
-        <!-- Primary MP4, then fallbacks -->
+  <div class="backdrop" id="backdrop">
+    <!-- Subtle code rain -->
+    <canvas id="codeRain"></canvas>
+
+    <div class="topline">WATCH THIS VIDEO BELOW AND THEN DECIDE WHICH PILL YOU CHOOSE</div>
+
+    <div class="modal" id="modal">
+      <button class="icon-btn" id="exitBtn" aria-label="Exit"></button>
+
+      <video id="introVideo" autoplay muted playsinline preload="auto"
+             poster="assets/splash-poster.jpg">
         <source src="The-Matrix-Blue-Pill-or-Red-Pill.mp4" type="video/mp4">
         <source src="The-Matrix-Blue-Pill-or-Red-Pill.webm" type="video/webm">
         <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
@@ -113,16 +189,18 @@
       let redirected = false;
       let timeout;
 
-      function goToChoice() {
+      function fadeAndGo(url){
         if (redirected) return;
         redirected = true;
         clearTimeout(timeout);
         localStorage.setItem("splashSeen", "true");
-        window.location.replace(redirectURL);
+        document.body.classList.add('fadeout');
+        setTimeout(()=>window.location.replace(url), 320);
       }
+      function goToChoice(){ fadeAndGo(redirectURL); }
 
-      // Autoplay kick
-      const ensurePlay = () => video.play().catch(()=>{ /* ignore */ });
+      // Autoplay kick (mobile-safe)
+      const ensurePlay = () => video.play().catch(()=>{ /* ignored */ });
       video.addEventListener("canplay", ensurePlay, { once: true });
       ensurePlay();
 
@@ -134,13 +212,12 @@
         video.play().then(() => {
           unmuteChip.classList.add("hidden");
         }).catch(()=>{
-          // Browser blocked; keep chip visible
+          // Browser blocked; keep chip visible and audio muted
           video.muted = true;
         });
       }
-      unmuteChip.addEventListener("click", tryUnmute);
-      // First tap on video also tries to unmute
-      video.addEventListener("pointerdown", tryUnmute, { once: true });
+      unmuteChip.addEventListener("click", tryUnmute, { passive:true });
+      video.addEventListener("pointerdown", tryUnmute, { once: true, passive:true });
 
       // Exit paths → pill choice
       exitBtn.addEventListener("click", goToChoice);
@@ -151,8 +228,64 @@
       window.addEventListener("blur", goToChoice);
       window.addEventListener("pagehide", goToChoice);
 
-      // Safety timeout (same as before ~2m34s)
+      // Safety timeout (~2m34s)
       timeout = setTimeout(goToChoice, 154000);
+
+      /* ===== Code rain (page background) ===== */
+      function makeRain(canvas, speed=0.6, opacityFill=0.05){
+        const ctx = canvas.getContext('2d');
+        const chars = 'アカサタナハマヤラワ012345789abcdef';
+        let W=0, H=0, cols=0, drops=[], fontSize=16, running=true;
+
+        function resize(){
+          W = canvas.width = window.innerWidth;
+          H = canvas.height = window.innerHeight;
+          cols = Math.floor(W / fontSize);
+          drops = new Array(cols).fill(0).map(()=>Math.random()*H/fontSize);
+          ctx.font = `${fontSize}px monospace`;
+        }
+        function tick(){
+          if(!running){ requestAnimationFrame(tick); return; }
+          ctx.fillStyle = `rgba(0,0,0,${opacityFill})`;
+          ctx.fillRect(0,0,W,H);
+          ctx.fillStyle = '#00ff41';
+          for (let i=0;i<cols;i++){
+            const txt = chars[Math.floor(Math.random()*chars.length)];
+            const x = i*fontSize;
+            const y = drops[i]*fontSize;
+            ctx.fillText(txt, x, y);
+            if (y > H && Math.random() > 0.987) drops[i] = 0;
+            drops[i] += speed;
+          }
+          requestAnimationFrame(tick);
+        }
+        resize(); tick();
+        window.addEventListener('resize', resize);
+        document.addEventListener('visibilitychange', ()=>{ running = document.visibilityState === 'visible'; });
+      }
+
+      // Rain behind the video modal
+      makeRain(document.getElementById('codeRain'), 0.6, 0.05);
+
+      // First-visit popup (same vibe) — shown BEFORE video if never seen
+      const firstPopup = document.getElementById('firstPopup');
+      const popupClose = document.getElementById('popupClose');
+      const popSeen = localStorage.getItem('indexPopupSeen') === 'true';
+
+      if(!popSeen){
+        firstPopup.style.display = 'grid';
+        // pause video visuals under popup to save battery (optional)
+        try { video.pause(); } catch {}
+        // rain for popup layer
+        makeRain(document.getElementById('popupRain'), 0.55, 0.06);
+
+        popupClose.addEventListener('click', ()=>{
+          firstPopup.style.display = 'none';
+          localStorage.setItem('indexPopupSeen', 'true');
+          // kick video again after closing
+          ensurePlay();
+        }, { once:true });
+      }
     })();
   </script>
 </body>
