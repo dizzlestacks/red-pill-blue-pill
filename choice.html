@@ -1,82 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MOST IMPORTANT CHOICE OF YOUR LIFE</title> 
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>MOST IMPORTANT CHOICE OF YOUR LIFE</title>
+  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: #00FF41;
-      height: 100%;
-      font-family: 'Share Tech Mono', monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+    :root { box-sizing: border-box; }
+    *,*::before,*::after { box-sizing: inherit; }
+    html,body {
+      margin:0; height:100%; background:#000; color:#00FF41;
+      font-family:'Share Tech Mono', monospace;
+      overflow:hidden; user-select:none; -webkit-user-select:none;
+      cursor:none; /* custom cursor ring (desktop) */
     }
+
+    /* Fade-out on navigate */
+    .fadeout { animation: fadeToBlack .35s ease forwards; }
+    @keyframes fadeToBlack { to { opacity:0; } }
+
+    /* Code rain backdrop */
+    .stage {
+      position:fixed; inset:0; display:grid; place-items:center;
+      background: radial-gradient(1200px 800px at 50% 50%, rgba(0,0,0,.5), rgba(0,0,0,.9) 60%, #000 100%);
+    }
+    #codeRain {
+      position:absolute; inset:0; z-index:0; opacity:.18; filter: blur(.2px);
+    }
+
+    /* Content */
+    .wrap {
+      position:relative; z-index:1; width:min(96vw, 1100px);
+      display:flex; flex-direction:column; align-items:center; gap:12px; padding:10px;
+      text-align:center;
+      transform: translateY(6px); opacity:0; animation: contentIn .5s cubic-bezier(.2,.8,.2,1) .05s forwards;
+    }
+    @keyframes contentIn { to { transform: translateY(0); opacity:1; } }
+
     h1 {
-      font-size: 1.5rem;
-      margin-bottom: 10px;
-      text-shadow: 0 0 5px #00FF41;
+      margin:0 0 6px; font-size: clamp(18px, 3.5vw, 28px);
+      text-shadow: 0 0 6px rgba(0,255,65,.35);
     }
-    .pill-container {
-      position: relative;
-      width: 100%;
-      max-width: 1000px;
+    .sub { color:#a6ffc0; font-size: clamp(12px, 2.6vw, 16px); opacity:.9; margin-bottom:8px; }
+
+    /* Pill image container with parallax tilt + neon outline on hover */
+    .pill-frame {
+      position:relative; width:100%; max-width:1000px; aspect-ratio: 16/9;
+      border-radius:16px; overflow:hidden; background:#000;
+      border:1px solid rgba(0,255,65,.18);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset, 0 18px 60px rgba(0,0,0,.65);
+      transform-style: preserve-3d; perspective: 800px;
+      transition: box-shadow .18s ease, border-color .18s ease;
     }
-    img {
-      width: 100%;
-      height: auto;
-      display: block;
+    .pill-frame:hover {
+      border-color: rgba(0,255,65,.35);
+      box-shadow:
+        0 0 24px rgba(0,255,65,.25),
+        0 18px 60px rgba(0,0,0,.65),
+        inset 0 0 24px rgba(0,255,65,.15);
     }
-    .hotzone {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 50%;
-      z-index: 2;
+    .pill-art {
+      width:100%; height:100%; object-fit:cover; display:block; pointer-events:none;
+      transform: translateZ(0);
     }
-    .left { left: 0; }
-    .right { right: 0; }
-    .countdown {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #00ff99;
+
+    /* Red EXIT-style button top-right (glow) */
+    .exit {
+      position:absolute; top:10px; right:10px; z-index:3;
+      display:inline-grid; place-items:center; padding:8px 14px;
+      border-radius:999px; border:1px solid rgba(255,0,55,.65);
+      background: rgba(0,0,0,.45); color:#fff; letter-spacing:.06em;
+      font:700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      text-transform:uppercase; cursor:pointer; backdrop-filter: blur(6px);
+      box-shadow: 0 0 18px rgba(255,0,55,.35), inset 0 0 12px rgba(255,0,55,.15);
+      transition: background .15s, box-shadow .15s, transform .08s;
+    }
+    .exit:hover { background: rgba(255,0,55,.12); box-shadow: 0 0 26px rgba(255,0,55,.55), inset 0 0 14px rgba(255,0,55,.2); }
+    .exit:active { transform: translateY(1px) scale(.99); }
+
+    /* Hotzones */
+    .hotzone { position:absolute; top:0; bottom:0; width:50%; z-index:2; }
+    .left { left:0; } .right { right:0; }
+
+    /* Loading spinner over art */
+    .spinner {
+      position:absolute; inset:0; z-index:2; display:grid; place-items:center;
+      background: linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,.2) 40%, rgba(0,0,0,.5));
+      transition: opacity .2s ease; 
+    }
+    .spinner.hide { opacity:0; pointer-events:none; }
+    .ring {
+      width:48px; height:48px; border-radius:50%;
+      border:3px solid rgba(0,255,65,.18); border-top-color:#00ff41;
+      animation: spin 1s linear infinite;
+      box-shadow: 0 0 16px rgba(0,255,65,.35);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Custom cursor ring (desktop) */
+    .cursor {
+      position: fixed; left:0; top:0; width:20px; height:20px; margin:-10px 0 0 -10px;
+      border:1px solid rgba(0,255,65,.6); border-radius:50%;
+      pointer-events:none; z-index:9999; mix-blend-mode:screen;
+      transition: transform .07s linear, opacity .2s ease;
+      box-shadow: 0 0 10px rgba(0,255,65,.25);
+    }
+
+    /* Blue & Red click “rumble” */
+    @keyframes rumble {
+      0% { transform: translate(0,0); }
+      20% { transform: translate(-1px, 1px); }
+      40% { transform: translate(1px, -1px); }
+      60% { transform: translate(-1px, -1px); }
+      80% { transform: translate(1px, 1px); }
+      100% { transform: translate(0,0); }
+    }
+    .rumble { animation: rumble .15s linear; }
+
+    @media (max-width:600px){
+      .exit { padding:7px 12px; font-size:11px; }
     }
   </style>
 </head>
 <body>
-  <h1>WHICH PILL DO YOU CHOOSE?</h1>
+  <div class="stage">
+    <canvas id="codeRain"></canvas>
 
-  <div class="pill-container">
-    <img src="final_combined_original_size.jpg" alt="Pill Choice">
-    <a href="videos.html" class="hotzone left" id="redPill"></a>
-    <a href="https://google.com" class="hotzone right" id="bluePill"></a>
+    <div class="wrap">
+      <h1>WHICH PILL DO YOU CHOOSE?</h1>
+      <div class="sub">Choose wisely.</div>
+
+      <div class="pill-frame" id="frame">
+        <button class="exit" id="exitBtn" aria-label="Exit">Exit</button>
+
+        <!-- Loading until image paints -->
+        <div class="spinner" id="spinner"><div class="ring"></div></div>
+
+        <img
+          id="pillArt"
+          class="pill-art"
+          src="final_combined_original_size.jpg"
+          alt="Pill Choice"
+          draggable="false"
+        />
+
+        <!-- Left = Red (videos.html), Right = Blue (external) -->
+        <div class="hotzone left"  id="redPill"  aria-label="Red Pill"></div>
+        <div class="hotzone right" id="bluePill" aria-label="Blue Pill"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- countdown is now visible from start -->
-  <div class="countdown" id="timer">Auto-selecting Blue Pill in 30 seconds...</div>
+  <!-- custom cursor -->
+  <div class="cursor" id="cursor"></div>
 
   <script>
-    let countdown = 30;
-    const timerEl = document.getElementById("timer");
-    const interval = setInterval(() => {
-      countdown--;
-      if (countdown <= 0) {
-        clearInterval(interval);
-        window.location.href = "https://google.com";
-      } else {
-        timerEl.textContent = "Auto-selecting Blue Pill in " + countdown + " seconds...";
-      }
-    }, 1000);
+  (function(){
+    const frame = document.getElementById('frame');
+    const art   = document.getElementById('pillArt');
+    const spinner = document.getElementById('spinner');
+    const red   = document.getElementById('redPill');
+    const blue  = document.getElementById('bluePill');
+    const exit  = document.getElementById('exitBtn');
+    const cursor= document.getElementById('cursor');
 
-    document.getElementById("redPill").onclick = () => clearInterval(interval);
-    document.getElementById("bluePill").onclick = () => clearInterval(interval);
+    const BLUE_URL = "https://google.com";       // external
+    const RED_URL  = "videos.html";              // internal
+
+    /* ===== Spinner hide when image ready ===== */
+    if (art.complete) spinner.classList.add('hide');
+    else art.addEventListener('load', ()=> spinner.classList.add('hide'));
+
+    /* ===== Parallax tilt (gentle) ===== */
+    let rafId = null;
+    function tilt(px, py){
+      const r = frame.getBoundingClientRect();
+      const x = (px - (r.left + r.width/2)) / (r.width/2);
+      const y = (py - (r.top  + r.height/2)) / (r.height/2);
+      const maxTilt = 6; // degrees
+      frame.style.transform = `rotateX(${-y*maxTilt}deg) rotateY(${x*maxTilt}deg)`;
+    }
+    function resetTilt(){ frame.style.transform = ''; }
+    frame.addEventListener('mousemove', (e)=>{
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(()=>tilt(e.clientX, e.clientY));
+    });
+    frame.addEventListener('mouseleave', ()=>{ resetTilt(); });
+
+    // Touch: a single gentle bump on first touch
+    frame.addEventListener('touchstart', ()=>{
+      frame.style.transform = 'scale(1.01)';
+      setTimeout(()=> frame.style.transform = '', 120);
+    }, {passive:true});
+
+    /* ===== Custom cursor ring (desktop only) ===== */
+    const isTouch = matchMedia("(pointer: coarse)").matches;
+    if (isTouch) { cursor.style.opacity = 0; }
+    else {
+      window.addEventListener('mousemove', (e)=>{
+        cursor.style.opacity = 1;
+        cursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+      });
+      document.addEventListener('mouseleave', ()=> cursor.style.opacity = 0);
+    }
+
+    /* ===== Haptics helper ===== */
+    function vibe(ms){ if (navigator.vibrate) try{ navigator.vibrate(ms); }catch{} }
+
+    /* ===== Fade + anti-back navigate ===== */
+    function fadeAndGo(url){
+      document.body.classList.add('fadeout');
+      setTimeout(()=> { location.replace(url); }, 300);
+    }
+
+    /* ===== Click handlers ===== */
+    red.addEventListener('click', ()=>{
+      frame.classList.add('rumble');
+      vibe(15);
+      localStorage.setItem("splashSeen", "true");
+      fadeAndGo(RED_URL);       // replace → prevents back to choice
+    });
+
+    blue.addEventListener('click', ()=>{
+      frame.classList.add('rumble');
+      vibe(15);
+      // no flag set; user “opts out”
+      fadeAndGo(BLUE_URL);      // replace → prevents back to choice
+    });
+
+    exit.addEventListener('click', ()=>{
+      // exit behaves like blue (you approved)
+      frame.classList.add('rumble');
+      vibe(10);
+      fadeAndGo(BLUE_URL);
+    });
+
+    /* ===== Silent auto-redirect to BLUE after 30s ===== */
+    const auto = setTimeout(()=> {
+      if (document.visibilityState === 'visible') fadeAndGo(BLUE_URL);
+    }, 30000);
+
+    // Any choice cancels auto-redirect
+    function cancelAuto(){ clearTimeout(auto); }
+    red.addEventListener('click', cancelAuto);
+    blue.addEventListener('click', cancelAuto);
+    exit.addEventListener('click', cancelAuto);
+
+    /* ===== Subtle Matrix code rain ===== */
+    const cvs = document.getElementById('codeRain');
+    const ctx = cvs.getContext('2d');
+    let W, H, cols, drops, fontSize = 16, chars = 'アカサタナハマヤラワ012345789abcdef';
+
+    function resize(){
+      W = cvs.width = window.innerWidth;
+      H = cvs.height = window.innerHeight;
+      cols = Math.floor(W / fontSize);
+      drops = new Array(cols).fill(0).map(()=>Math.random()*H/fontSize);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    (function tick(){
+      ctx.fillStyle = 'rgba(0,0,0,0.05)';
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = '#00ff41';
+      ctx.font = `${fontSize}px monospace`;
+      for (let i=0;i<cols;i++){
+        const ch = chars[Math.floor(Math.random()*chars.length)];
+        const x = i*fontSize, y = drops[i]*fontSize;
+        ctx.fillText(ch, x, y);
+        if (y > H && Math.random() > 0.987) drops[i] = 0;
+        drops[i] += 0.6;
+      }
+      requestAnimationFrame(tick);
+    })();
+  })();
   </script>
 </body>
 </html>
