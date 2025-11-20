@@ -1,44 +1,248 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Video JSON Editor</title>
   <link rel="stylesheet" href="themes.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
-    :root { box-sizing: border-box; }
-    *, *::before, *::after { box-sizing: inherit; }
-    html, body { margin:0; padding:0; overflow-x:hidden; }
-    body { background:var(--bg); color:var(--fg); font-family:'Share Tech Mono',monospace; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 16px 14px 60px; display:flex; flex-direction:column; align-items:center; gap:16px; }
-    .row-top { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; }
+    :root { box-sizing:border-box; }
+    *,*::before,*::after { box-sizing:inherit; }
+    html,body { margin:0; padding:0; overflow-x:hidden; }
+    body {
+      background:var(--bg);
+      color:var(--fg);
+      font-family:'Share Tech Mono',monospace;
+      transition: background .25s ease, color .25s ease;
+    }
+
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 16px 14px 80px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:16px;
+    }
+
+    .row-top {
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      margin-bottom:4px;
+    }
     label.small { font-size:.9rem; opacity:.85; }
-    select#themeSelect { background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-width: 160px; max-width: 60vw; box-shadow: var(--shadow); }
-    .card { width:100%; background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:14px; }
+    select#themeSelect {
+      background: var(--card);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      min-width: 160px;
+      max-width: 60vw;
+      box-shadow: var(--shadow);
+    }
+
+    .card {
+      width:100%;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:10px;
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
     h1,h2,h3 { margin:0 0 10px 0; text-align:center; }
     h1 { font-size:1.3rem; color:var(--muted); }
     h2 { font-size:1.05rem; color:var(--muted); }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    .grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
     @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
-    input, textarea, select, button { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--fg); font-family:inherit; font-size:1rem; }
+
+    input, textarea, select, button {
+      width:100%;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      background:var(--card);
+      color:var(--fg);
+      font-family:inherit;
+      font-size:1rem;
+    }
     textarea { resize:vertical; min-height:110px; }
-    .row { display:flex; gap:10px; justify-content:center; margin-top:8px; }
-    .row label { display:flex; align-items:center; gap:6px; }
-    .btns { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:6px; }
-    .btn { cursor:pointer; border:1px solid var(--border); background:color-mix(in srgb, var(--accent) 10%, var(--card)); color:var(--fg); font-weight:600; }
+
+    .row {
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      margin-top:8px;
+      flex-wrap:wrap;
+    }
+    .row label {
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .btns {
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
+      margin-top:10px;
+    }
+    .btn {
+      cursor:pointer;
+      border:1px solid var(--border);
+      background:color-mix(in srgb, var(--accent) 10%, var(--card));
+      color:var(--fg);
+      font-weight:600;
+      border-radius:8px;
+      padding:10px 12px;
+    }
     .btn.primary { border:1px solid var(--accent); }
     .btn.danger { border:1px solid #a33; }
-    .muted { color:color-mix(in srgb,var(--fg)70%,transparent); font-size:.9rem; text-align:center; }
-    details { width:100%; border:1px dashed var(--border); border-radius:10px; padding:10px; background:color-mix(in srgb,var(--card)92%,var(--bg)); }
-    summary { cursor:pointer; list-style:none; font-weight:600; display:flex; align-items:center; gap:8px; }
+
+    .muted {
+      color:color-mix(in srgb,var(--fg)70%,transparent);
+      font-size:.9rem;
+      text-align:center;
+    }
+
+    details {
+      width:100%;
+      border:1px dashed var(--border);
+      border-radius:10px;
+      padding:10px;
+      background:color-mix(in srgb,var(--card)92%,var(--bg));
+    }
+    summary {
+      cursor:pointer;
+      list-style:none;
+      font-weight:600;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
     summary::-webkit-details-marker { display:none; }
-    pre { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--fg); padding:14px; border-radius:10px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
-    .hint { text-align:center; font-size:.9rem; color:color-mix(in srgb,var(--fg)70%,transparent); }
+
+    pre {
+      width:100%;
+      background:var(--bg);
+      border:1px solid var(--border);
+      color:var(--fg);
+      padding:14px;
+      border-radius:10px;
+      overflow:auto;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-family:'Share Tech Mono',monospace;
+      font-size:.92rem;
+    }
+
+    .hint {
+      text-align:center;
+      font-size:.9rem;
+      color:color-mix(in srgb,var(--fg)70%,transparent);
+      margin-top:6px;
+    }
+
+    /* Live preview */
+    .preview-wrap {
+      margin-top:14px;
+      border:1px dashed var(--border);
+      border-radius:10px;
+      padding:10px;
+      background:color-mix(in srgb,var(--bg)96%,var(--card));
+    }
+    .preview-title {
+      margin:0 0 6px;
+      font-size:1rem;
+      text-align:left;
+      color:var(--muted);
+    }
+    .preview-embed {
+      width:100%;
+      aspect-ratio:16/9;
+      border-radius:8px;
+      overflow:hidden;
+      background:#000;
+      display:block;
+    }
+    .preview-embed iframe,
+    .preview-embed video {
+      width:100%;
+      height:100%;
+      border:0;
+      display:block;
+    }
+    .preview-meta {
+      margin-top:6px;
+      font-size:.9rem;
+      color:color-mix(in srgb,var(--fg)70%,transparent);
+    }
+    .preview-tags {
+      margin-top:4px;
+      font-size:.85rem;
+    }
+    .preview-tag {
+      display:inline-block;
+      margin:2px 4px 0 0;
+      padding:3px 7px;
+      border-radius:4px;
+      background:var(--tag-bg);
+      color:var(--tag-fg);
+      font-size:.78rem;
+    }
+
+    .help {
+      font-size:.8rem;
+      color:color-mix(in srgb,var(--fg)70%,transparent);
+      margin-top:2px;
+    }
+
+    /* Batch list */
+    .batch-list {
+      margin-top:8px;
+      font-family:'Share Tech Mono',monospace;
+      font-size:.9rem;
+      white-space:pre-wrap;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
+      color: var(--fg);
+      border:1px solid var(--accent);
+      padding: 8px 14px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .2s ease, transform .2s ease;
+      z-index: 50;
+      font-size:.9rem;
+    }
+    .toast.show {
+      opacity:1;
+      transform: translateX(-50%) translateY(-4px);
+    }
   </style>
 </head>
 <body class="dark">
   <div class="wrap">
+    <!-- Theme selector -->
     <div class="row-top">
       <label class="small" for="themeSelect">Themes</label>
       <select id="themeSelect">
@@ -78,18 +282,53 @@
     <!-- Single JSON -->
     <div class="card">
       <h1>Video JSON Builder</h1>
+
       <div class="grid">
-        <input id="title" placeholder="Title" />
-        <input id="yt" placeholder="YouTube link or ID (video/playlist)" />
-        <input id="url" placeholder="Direct video URL (optional)" />
-        <input id="category1" placeholder="Category 1" list="savedCategories" />
-        <input id="category2" placeholder="Category 2 (optional)" list="savedCategories" />
-        <input id="tags" placeholder="Tags (comma-separated)" />
+        <div>
+          <input id="title" placeholder="Title" />
+          <div class="help">Required.</div>
+        </div>
+
+        <div>
+          <input id="yt" placeholder="YouTube link or ID (video/playlist)" />
+          <div class="help">
+            Paste URL or ID, then
+            <button type="button" id="fetchMetaBtn" style="margin-top:4px;padding:2px 8px;font-size:.78rem;">
+              Autofill from YouTube
+            </button>
+          </div>
+          <div id="ytStatus" class="help"></div>
+        </div>
+
+        <div>
+          <input id="url" placeholder="Direct video URL (optional)" />
+          <div class="help">Optional fallback MP4 / direct link.</div>
+        </div>
+
+        <div>
+          <input id="category1" placeholder="Category 1" list="savedCategories" />
+        </div>
+        <div>
+          <input id="category2" placeholder="Category 2 (optional)" list="savedCategories" />
+        </div>
+        <div>
+          <input id="tags" placeholder="Tags (comma-separated)" />
+        </div>
       </div>
       <datalist id="savedCategories"></datalist>
+
+      <!-- Centered pinned/featured -->
       <div class="row">
         <label><input type="checkbox" id="featured"> Featured</label>
         <label><input type="checkbox" id="pinned"> Pinned</label>
+      </div>
+
+      <!-- Live preview -->
+      <div class="preview-wrap">
+        <h2 class="preview-title">Preview</h2>
+        <div id="previewEmbed" class="preview-embed"></div>
+        <div id="previewMeta" class="preview-meta"></div>
+        <div id="previewTags" class="preview-tags"></div>
       </div>
 
       <div id="singleBtns" class="btns">
@@ -99,7 +338,7 @@
       </div>
 
       <pre id="output">Fill the form then Generate…</pre>
-      <div class="hint">Format matches <code>videos.json</code> items exactly.</div>
+      <div class="hint">Format matches <code>videos.json</code> items exactly (2-space indent + outer 2-space pad).</div>
     </div>
 
     <!-- Batch panel -->
@@ -112,7 +351,7 @@
         <button class="btn" id="copyBatch">Copy Batch JSON</button>
         <button class="btn danger" id="clearBatch">Clear Batch</button>
       </div>
-      <pre id="batchList">No items in batch yet.</pre>
+      <pre id="batchList" class="batch-list">No items in batch yet.</pre>
     </details>
 
     <!-- Popup panel -->
@@ -122,104 +361,417 @@
         <label><input type="checkbox" id="popupEnabled"> Enabled</label>
       </div>
       <textarea id="popupMsg" placeholder="Popup message (only included in batch export)"></textarea>
-      <div class="muted">Tip: multi-line text is supported. This panel doesn’t affect single-item JSON.</div>
+      <div class="muted">Multi-line supported. This panel doesn’t affect single-item JSON.</div>
     </details>
   </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
 <script>
-function buildVideoObject() {
-  const ytVal = document.getElementById('yt').value.trim();
-  let youtube_id = ytVal;
-  if (ytVal.includes("youtube.com") || ytVal.includes("youtu.be")) {
-    const url = new URL(ytVal);
-    if (url.searchParams.get("v")) youtube_id = url.searchParams.get("v");
-    else if (url.pathname.startsWith("/playlist")) youtube_id = url.searchParams.get("list");
-    else youtube_id = url.pathname.split("/").pop();
+/* ========================
+   THEME PERSISTENCE
+   ======================== */
+(function(){
+  const select = document.getElementById('themeSelect');
+  const saved = localStorage.getItem('editor:theme') || 'dark';
+  document.body.className = saved;
+  select.value = saved;
+  select.addEventListener('change', () => {
+    const val = select.value || 'dark';
+    document.body.className = val;
+    localStorage.setItem('editor:theme', val);
+  });
+})();
+
+/* ========================
+   TOAST HELPERS
+   ======================== */
+const toastEl = document.getElementById('toast');
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'), 1500);
+}
+
+/* ========================
+   STATE / ELEMENTS
+   ======================== */
+const form = {
+  title: document.getElementById('title'),
+  yt: document.getElementById('yt'),
+  url: document.getElementById('url'),
+  category1: document.getElementById('category1'),
+  category2: document.getElementById('category2'),
+  tags: document.getElementById('tags'),
+  featured: document.getElementById('featured'),
+  pinned: document.getElementById('pinned')
+};
+const savedCatsEl = document.getElementById('savedCategories');
+let savedCats = new Set(JSON.parse(localStorage.getItem('editor:savedCats') || '[]'));
+let batch = [];
+
+const popupEnabledEl = document.getElementById('popupEnabled');
+const popupMsgEl = document.getElementById('popupMsg');
+const outputEl = document.getElementById('output');
+const batchListEl = document.getElementById('batchList');
+
+/* ========================
+   DATALIST CATEGORIES
+   ======================== */
+function refreshDatalists(){
+  savedCatsEl.innerHTML = '';
+  Array.from(savedCats).sort().forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c;
+    savedCatsEl.appendChild(o);
+  });
+}
+refreshDatalists();
+
+/* ========================
+   AUTOSAVE FORM
+   ======================== */
+function saveFormState(){
+  const state = {};
+  Object.entries(form).forEach(([k,el])=>{
+    state[k] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  localStorage.setItem('editor:form', JSON.stringify(state));
+}
+function restoreFormState(){
+  const s = localStorage.getItem('editor:form');
+  if(!s) return;
+  try {
+    const state = JSON.parse(s);
+    Object.entries(state).forEach(([k,v])=>{
+      if(!form[k]) return;
+      if(form[k].type === 'checkbox') form[k].checked = v;
+      else form[k].value = v;
+    });
+  } catch(e){}
+}
+restoreFormState();
+
+/* Save on change */
+Object.values(form).forEach(el=>{
+  el.addEventListener('input', saveFormState);
+  if(el.type === 'checkbox') el.addEventListener('change', saveFormState);
+});
+
+/* ========================
+   AUTOSAVE BATCH & POPUP
+   ======================== */
+function saveBatch(){ localStorage.setItem('editor:batch', JSON.stringify(batch)); }
+function restoreBatch(){
+  const s = localStorage.getItem('editor:batch');
+  if(!s) return;
+  try { batch = JSON.parse(s) || []; } catch(e){ batch = []; }
+  renderBatchList();
+}
+restoreBatch();
+
+(function restorePopup(){
+  const en = localStorage.getItem('editor:popupEnabled');
+  const msg = localStorage.getItem('editor:popupMsg') || '';
+  if(en !== null) popupEnabledEl.checked = en === 'true';
+  popupMsgEl.value = msg;
+})();
+function savePopup(){
+  localStorage.setItem('editor:popupEnabled', String(popupEnabledEl.checked));
+  localStorage.setItem('editor:popupMsg', popupMsgEl.value);
+}
+popupEnabledEl.addEventListener('change', savePopup);
+popupMsgEl.addEventListener('input', savePopup);
+
+/* ========================
+   HELPERS
+   ======================== */
+const isYoutubeId = (s)=> typeof s === 'string' && /^[\w-]{11}$/.test(s.trim());
+const looksPlaylistId = (s)=> typeof s === 'string' && /^PL[\w-]{16,}$/.test(s.trim());
+
+function extractYoutubeId(raw){
+  const ytVal = (raw || '').trim();
+  if(!ytVal) return '';
+
+  if(ytVal.includes('youtube.com') || ytVal.includes('youtu.be')){
+    try {
+      const url = new URL(ytVal);
+      if (url.searchParams.get('list') && (url.pathname.startsWith('/playlist') || !url.searchParams.get('v'))) {
+        return url.searchParams.get('list') || '';
+      }
+      if (url.searchParams.get('v')) return url.searchParams.get('v');
+      const last = url.pathname.split('/').filter(Boolean).pop() || '';
+      return last;
+    } catch {
+      return ytVal;
+    }
   }
+
+  return ytVal;
+}
+
+function buildVideoObject(){
+  const ytRaw = form.yt.value;
+  const youtube_id = extractYoutubeId(ytRaw);
   const cats = [];
-  if (document.getElementById('category1').value) cats.push(document.getElementById('category1').value);
-  if (document.getElementById('category2').value) cats.push(document.getElementById('category2').value);
+  if(form.category1.value.trim()) cats.push(form.category1.value.trim());
+  if(form.category2.value.trim()) cats.push(form.category2.value.trim());
+  const tags = form.tags.value.split(',').map(t=>t.trim()).filter(Boolean);
+
+  // learn categories
+  cats.forEach(c=> savedCats.add(c));
+  localStorage.setItem('editor:savedCats', JSON.stringify(Array.from(savedCats)));
+  refreshDatalists();
+
+  let category = undefined;
+  if(cats.length === 1) category = cats[0];
+  else if(cats.length > 1) category = cats;
 
   return {
-    "title": document.getElementById('title').value,
+    "title": form.title.value.trim(),
     "youtube_id": youtube_id || "",
-    ...(document.getElementById('url').value ? {"url": document.getElementById('url').value} : {}),
-    ...(cats.length ? {"category": cats.length === 1 ? cats[0] : cats} : {}),
-    "tags": document.getElementById('tags').value.split(",").map(t=>t.trim()).filter(Boolean),
+    ...(form.url.value.trim() ? {"url": form.url.value.trim()} : {}),
+    ...(category ? {"category": category} : {}),
+    "tags": tags,
     "added": new Date().toISOString(),
-    "featured": document.getElementById('featured').checked,
-    "pinned": document.getElementById('pinned').checked
+    "featured": form.featured.checked,
+    "pinned": form.pinned.checked
   };
 }
 
-let batch = [];
+/* Validation */
+function validate(obj){
+  const errors = [];
+  if(!obj.title) errors.push("Title is required.");
+  if(!(obj.youtube_id || obj.url)) errors.push("Provide a YouTube link/ID or a direct URL.");
+  if(obj.url && !/^https?:\/\/.+/i.test(obj.url)) errors.push("Direct URL must start with http(s)://");
+  return errors;
+}
 
-/* Single JSON */
+/* Left-pad JSON */
+function leftPadTwo(jsonStr){
+  return jsonStr.split("\n").map(line=>"  "+line).join("\n");
+}
+
+/* ========================
+   LIVE PREVIEW
+   ======================== */
+const previewEmbed = document.getElementById('previewEmbed');
+const previewMeta  = document.getElementById('previewMeta');
+const previewTags  = document.getElementById('previewTags');
+
+function updatePreview(){
+  const obj = buildVideoObject();
+
+  // embed
+  if(obj.youtube_id){
+    if(String(obj.youtube_id).startsWith('PL')){
+      previewEmbed.innerHTML = `<iframe src="https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(obj.youtube_id)}" allowfullscreen loading="lazy"></iframe>`;
+    } else {
+      previewEmbed.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(obj.youtube_id)}" allowfullscreen loading="lazy"></iframe>`;
+    }
+  } else if(obj.url){
+    previewEmbed.innerHTML = `<video src="${obj.url}" controls preload="metadata"></video>`;
+  } else {
+    previewEmbed.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#888;">No source yet</div>`;
+  }
+
+  const cats = Array.isArray(obj.category) ? obj.category : (obj.category ? [obj.category] : []);
+  previewMeta.textContent = `Category: ${cats.join(', ') || '—'} • Featured: ${obj.featured ? 'Yes':'No'} • Pinned: ${obj.pinned ? 'Yes':'No'}`;
+  previewTags.innerHTML = (obj.tags || []).map(t=>`<span class="preview-tag">#${t.replace(/^#/,'')}</span>`).join('');
+}
+
+Object.values(form).forEach(el=>{
+  el.addEventListener('input', updatePreview);
+  if(el.type === 'checkbox') el.addEventListener('change', updatePreview);
+});
+updatePreview();
+
+/* ========================
+   YOUTUBE AUTOFILL (oEmbed)
+   ======================== */
+async function fetchYouTubeMeta(){
+  const ytInput = form.yt;
+  const statusEl = document.getElementById('ytStatus');
+  let val = ytInput.value.trim();
+  if(!val){
+    statusEl.textContent = "Paste a YouTube link or ID first.";
+    return;
+  }
+
+  // If it's just an ID, make it a full URL for oEmbed
+  if(!val.includes("youtube.com") && !val.includes("youtu.be")){
+    val = "https://www.youtube.com/watch?v=" + val;
+  }
+
+  statusEl.textContent = "Fetching…";
+  try {
+    const res = await fetch("https://www.youtube.com/oembed?url=" + encodeURIComponent(val) + "&format=json");
+    if(!res.ok) throw new Error("Not found");
+    const data = await res.json();
+
+    if(!form.title.value.trim() && data.title){
+      form.title.value = data.title;
+    }
+
+    // Optional: if tags empty, add channel as tag
+    if(!form.tags.value.trim() && data.author_name){
+      form.tags.value = data.author_name.replace(/\s+/g,'-').toLowerCase();
+    }
+
+    statusEl.textContent = "Autofilled from YouTube ✓";
+    updatePreview();
+    saveFormState();
+  } catch(e){
+    console.error(e);
+    statusEl.textContent = "Could not fetch YouTube info.";
+  }
+}
+document.getElementById('fetchMetaBtn').addEventListener('click', fetchYouTubeMeta);
+
+/* ========================
+   SINGLE JSON
+   ======================== */
 document.getElementById('genOne').addEventListener('click', ()=>{
   const obj = buildVideoObject();
-  const formatted = JSON.stringify(obj, null, 2)
-    .split("\n").map(line=>"  "+line).join("\n"); // indent
-  document.getElementById('output').textContent = formatted + ",";
+  const errs = validate(obj);
+  if(errs.length){
+    toast(errs[0]);
+    return;
+  }
+  const formatted = leftPadTwo(JSON.stringify(obj, null, 2));
+  outputEl.textContent = formatted + ",";
+  toast("Single JSON generated");
 });
 
 document.getElementById('copyOne').addEventListener('click', ()=>{
-  navigator.clipboard.writeText(document.getElementById('output').textContent);
+  const txt = outputEl.textContent.trim();
+  if(!txt){
+    toast("Nothing to copy");
+    return;
+  }
+  navigator.clipboard.writeText(txt).then(()=>toast("Copied")).catch(()=>toast("Copy failed"));
 });
 
 document.getElementById('clearForm').addEventListener('click', ()=>{
-  document.getElementById('title').value="";
-  document.getElementById('yt').value="";
-  document.getElementById('url').value="";
-  document.getElementById('category1').value="";
-  document.getElementById('category2').value="";
-  document.getElementById('tags').value="";
-  document.getElementById('featured').checked=false;
-  document.getElementById('pinned').checked=false;
-  document.getElementById('output').textContent="Fill the form then Generate…";
+  form.title.value="";
+  form.yt.value="";
+  form.url.value="";
+  form.category1.value="";
+  form.category2.value="";
+  form.tags.value="";
+  form.featured.checked=false;
+  form.pinned.checked=false;
+  outputEl.textContent="Fill the form then Generate…";
+  saveFormState();
+  updatePreview();
 });
 
-/* Batch JSON */
+/* ========================
+   BATCH
+   ======================== */
+function renderBatchList(){
+  if(!batch.length){
+    batchListEl.textContent = "No items in batch yet.";
+    saveBatch();
+    return;
+  }
+  batchListEl.textContent = batch.map((o,i)=>`#${i+1} ${o.title || 'Untitled'}`).join("\n");
+  saveBatch();
+}
+
 document.getElementById('addBatch').addEventListener('click', ()=>{
-  batch.push(buildVideoObject());
-  document.getElementById('batchList').textContent = batch.map((o,i)=>`#${i+1} ${o.title}`).join("\n") || "No items in batch yet.";
-  document.getElementById('title').value="";
-  document.getElementById('yt').value="";
-  document.getElementById('url').value="";
-  document.getElementById('category1').value="";
-  document.getElementById('category2').value="";
-  document.getElementById('tags').value="";
-  document.getElementById('featured').checked=false;
-  document.getElementById('pinned').checked=false;
+  const obj = buildVideoObject();
+  const errs = validate(obj);
+  if(errs.length){
+    toast(errs[0]);
+    return;
+  }
+  batch.push(obj);
+  renderBatchList();
+
+  // light reset (keep cats/tags to speed entry)
+  form.title.value="";
+  form.yt.value="";
+  form.url.value="";
+  form.featured.checked=false;
+  form.pinned.checked=false;
+  saveFormState();
+  updatePreview();
+  toast("Added to batch");
 });
 
 document.getElementById('genBatch').addEventListener('click', ()=>{
-  const popupEnabled = document.getElementById('popupEnabled').checked;
-  const popupMsg = document.getElementById('popupMsg').value.trim();
-  let videosJSON = batch.map(o=>{
-    return JSON.stringify(o,null,2).split("\n").map(line=>"  "+line).join("\n") + ",";
-  }).join("\n");
-  videosJSON = videosJSON.replace(/,+$/,""); // no trailing comma
-  let finalJSON = "";
-  if (popupEnabled && popupMsg) {
-    finalJSON = `{\n  "popup": {\n    "enabled": true,\n    "message": ${JSON.stringify(popupMsg)}\n  },\n  "videos": [\n${videosJSON}\n  ]\n}`;
-  } else {
-    finalJSON = `{\n  "videos": [\n${videosJSON}\n  ]\n}`;
+  if(!batch.length){
+    batchListEl.textContent = "No items in batch yet.";
+    toast("Batch is empty");
+    return;
   }
-  document.getElementById('batchList').textContent = finalJSON;
+  const popupEnabled = popupEnabledEl.checked;
+  const popupMsg = popupMsgEl.value.trim();
+
+  let videosJSON = batch.map(o=>{
+    return leftPadTwo(JSON.stringify(o,null,2)) + ",";
+  }).join("\n");
+  videosJSON = videosJSON.replace(/,+\s*$/,""); // no trailing comma on last line
+
+  let finalJSON = "";
+  if(popupEnabled && popupMsg){
+    finalJSON =
+`{
+  "popup": {
+    "enabled": true,
+    "message": ${JSON.stringify(popupMsg)}
+  },
+  "videos": [
+${videosJSON}
+  ]
+}`;
+  } else {
+    finalJSON =
+`{
+  "videos": [
+${videosJSON}
+  ]
+}`;
+  }
+
+  batchListEl.textContent = finalJSON;
+  toast("Batch JSON generated");
 });
 
 document.getElementById('copyBatch').addEventListener('click', ()=>{
-  navigator.clipboard.writeText(document.getElementById('batchList').textContent);
+  const txt = batchListEl.textContent.trim();
+  if(!txt){
+    toast("Nothing to copy");
+    return;
+  }
+  navigator.clipboard.writeText(txt).then(()=>toast("Copied")).catch(()=>toast("Copy failed"));
 });
 
 document.getElementById('clearBatch').addEventListener('click', ()=>{
   batch = [];
-  document.getElementById('batchList').textContent="No items in batch yet.";
+  renderBatchList();
+  toast("Batch cleared");
 });
 
-/* Theme selector */
-document.getElementById('themeSelect').addEventListener('change', e=>{
-  document.body.className = e.target.value;
+/* ========================
+   KEYBOARD SHORTCUTS
+   ======================== */
+document.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+    e.preventDefault();
+    document.getElementById('genOne').click();
+  }
+  if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')){
+    e.preventDefault();
+    document.getElementById('addBatch').click();
+  }
+  if(e.key === 'Escape'){
+    e.preventDefault();
+    document.getElementById('clearForm').click();
+  }
 });
 </script>
 </body>
