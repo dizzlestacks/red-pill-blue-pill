@@ -1,8 +1,9 @@
-// videos.js — HUD + tabs version
+// videos.js — v4 HUD + tabs
 // - Tags hidden on cards (but still searchable)
-// - No separate Featured section
+// - Featured section not used (hidden)
 // - De-duplicated categories (case + whitespace)
-// - Supports All / Pinned / Playlists tabs
+// - All / Pinned / Playlists views
+// - Playlist panel in "All" view, dedicated mode in "Playlists"
 
 (() => {
   "use strict";
@@ -26,7 +27,6 @@
     tabPlaylists: document.getElementById("tab-playlists"),
 
     // Sections
-    // (featured section exists in HTML, but we won't use it anymore)
     featured: document.getElementById("featured"),
     featuredContainer: document.getElementById("featuredContainer"),
 
@@ -35,9 +35,6 @@
     playlistContainer: document.getElementById("playlistContainer"),
     playlistGrid: document.getElementById("playlistGrid"),
     videoGrid: document.getElementById("videoGrid"),
-
-    // Footer
-    footInfo: document.getElementById("footInfo"),
 
     // Popup
     popupOverlay: document.getElementById("popupOverlay"),
@@ -56,10 +53,10 @@
     playlistsOpen: false
   };
 
-  const CACHE_KEY = "videosCacheV3";
+  const CACHE_KEY = "videosCacheV4";
 
   /* ============================
-     HELPERS
+     HELPERS: CACHE
      ============================ */
   function safeJsonParse(str, fallback = null) {
     try { return JSON.parse(str); } catch { return fallback; }
@@ -151,26 +148,34 @@
     if (v.url) {
       return `<video src="${v.url}" controls style="width:100%;height:auto;" preload="metadata" playsinline></video>`;
     }
-    return `<div class="meta">No source</div>`;
+    return `<div class="meta-line">No source</div>`;
   }
 
   // NOTE: tags are NOT displayed anymore (hidden), but still used internally for search
   function cardHTML(v, idx) {
     const cats = categoryArray(v).map(catChipHTML).join("");
+    const date = v.added ? new Date(v.added) : null;
+    const dateStr = date ? date.toLocaleDateString() : "Unknown date";
     return `
       <div class="card" data-vid="${idx}">
-        <h3>${v.title || "Untitled"}</h3>
-        ${embedHTML(v)}
-        <div class="meta">Category: ${cats || "—"}</div>
+        <div class="thumb-wrap">
+          ${embedHTML(v)}
+        </div>
+        <div class="card-title">${v.title || "Untitled"}</div>
+        <div class="meta-line">Added: ${dateStr}</div>
+        <div class="chips">${cats || ""}</div>
       </div>
     `;
   }
 
   function playlistCardHTML(v, idx) {
+    const date = v.added ? new Date(v.added) : null;
+    const dateStr = date ? date.toLocaleDateString() : "Unknown date";
     return `
       <div class="playlist-item" data-pl="${idx}">
-        <div class="meta" style="margin-bottom:6px;">${v.title || "Playlist"}</div>
+        <div class="meta-line" style="margin-bottom:4px;"><strong>${v.title || "Playlist"}</strong></div>
         ${embedHTML(v)}
+        <div class="meta-line" style="margin-top:4px;">Added: ${dateStr}</div>
         <div style="text-align:center;margin-top:6px;">
           <button class="btn" data-share-pl="${idx}">🔗 Share</button>
         </div>
@@ -328,25 +333,12 @@
       }
     }
 
-    // Category chip -> filter
+    // Category chips -> filter
     document.querySelectorAll(".cat-chip").forEach(el => {
       el.addEventListener("click", () => {
         const c = el.getAttribute("data-cat") || "";
         els.category.value = c;
         render();
-      });
-    });
-
-    // Share buttons for grid
-    document.querySelectorAll("[data-share]").forEach(el => {
-      el.addEventListener("click", () => {
-        const idx = Number(el.getAttribute("data-share"));
-        const list =
-          state.view === "pinned"
-            ? state.videos.filter(v => v.pinned && !isPlaylist(v))
-            : state.videos.filter(v => !isPlaylist(v));
-        const v = list[idx];
-        if (v) shareVideo(v);
       });
     });
 
