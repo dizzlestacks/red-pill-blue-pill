@@ -208,12 +208,51 @@
       margin-top:2px;
     }
 
-    /* Batch list */
+    /* Batch list (interactive) */
     .batch-list {
       margin-top:8px;
       font-family:'Share Tech Mono',monospace;
       font-size:.9rem;
-      white-space:pre-wrap;
+      white-space:normal;
+    }
+    .batch-item-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:6px;
+      padding:4px 0;
+      border-bottom:1px dashed rgba(255,255,255,.04);
+    }
+    .batch-item-row:last-child {
+      border-bottom:none;
+    }
+    .batch-item-main {
+      cursor:pointer;
+    }
+    .batch-item-main span.idx {
+      opacity:.6;
+      margin-right:4px;
+    }
+    .batch-actions-inline {
+      display:flex;
+      gap:6px;
+      flex-shrink:0;
+    }
+    .mini-btn {
+      padding:3px 7px;
+      border-radius:6px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--fg);
+      font-size:.75rem;
+      cursor:pointer;
+    }
+    .mini-btn.danger {
+      border-color:#a33;
+    }
+    .mini-btn.current {
+      border-color:var(--accent);
+      box-shadow:0 0 8px color-mix(in srgb,var(--accent)35%,transparent);
     }
 
     /* Toast */
@@ -306,10 +345,12 @@
         </div>
 
         <div>
-          <input id="category1" placeholder="Category 1" list="savedCategories" />
+          <input id="category1" placeholder="Categories (comma-separated)" list="savedCategories" />
+          <div class="help">You can enter multiple categories here, separated by commas.</div>
         </div>
         <div>
-          <input id="category2" placeholder="Category 2 (optional)" list="savedCategories" />
+          <input id="category2" placeholder="More categories (optional)" list="savedCategories" />
+          <div class="help">Optional extra categories, also comma-separated.</div>
         </div>
         <div>
           <input id="tags" placeholder="Tags (comma-separated)" />
@@ -347,11 +388,12 @@
       <div class="muted">Queue multiple items; export as <code>{"popup":{…},"videos":[…]}</code>.</div>
       <div class="btns">
         <button class="btn primary" id="addBatch">Add to Batch</button>
+        <button class="btn" id="newItem">New Item</button>
         <button class="btn" id="genBatch">Generate Batch JSON</button>
         <button class="btn" id="copyBatch">Copy Batch JSON</button>
         <button class="btn danger" id="clearBatch">Clear Batch</button>
       </div>
-      <pre id="batchList" class="batch-list">No items in batch yet.</pre>
+      <div id="batchList" class="batch-list">No items in batch yet.</div>
     </details>
 
     <!-- Popup panel -->
@@ -410,11 +452,13 @@ const form = {
 const savedCatsEl = document.getElementById('savedCategories');
 let savedCats = new Set(JSON.parse(localStorage.getItem('editor:savedCats') || '[]'));
 let batch = [];
+let editingIndex = null; // null = adding new, number = editing existing
 
 const popupEnabledEl = document.getElementById('popupEnabled');
 const popupMsgEl = document.getElementById('popupMsg');
 const outputEl = document.getElementById('output');
 const batchListEl = document.getElementById('batchList');
+const addBatchBtn = document.getElementById('addBatch');
 
 /* ========================
    DATALIST CATEGORIES
@@ -511,12 +555,24 @@ function extractYoutubeId(raw){
   return ytVal;
 }
 
+// multi-category parser (comma-separated across both fields)
+function parseCategories(){
+  const raw1 = form.category1.value || "";
+  const raw2 = form.category2.value || "";
+  const set = new Set();
+  [raw1, raw2].forEach(raw=>{
+    String(raw).split(',')
+      .map(t=>t.trim())
+      .filter(Boolean)
+      .forEach(t=> set.add(t));
+  });
+  return Array.from(set);
+}
+
 function buildVideoObject(){
   const ytRaw = form.yt.value;
   const youtube_id = extractYoutubeId(ytRaw);
-  const cats = [];
-  if(form.category1.value.trim()) cats.push(form.category1.value.trim());
-  if(form.category2.value.trim()) cats.push(form.category2.value.trim());
+  const cats = parseCategories();
   const tags = form.tags.value.split(',').map(t=>t.trim()).filter(Boolean);
 
   // learn categories
@@ -577,9 +633,10 @@ function updatePreview(){
     previewEmbed.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#888;">No source yet</div>`;
   }
 
-  const cats = Array.isArray(obj.category) ? obj.category : (obj.category ? [obj.category] : []);
-  previewMeta.textContent = `Category: ${cats.join(', ') || '—'} • Featured: ${obj.featured ? 'Yes':'No'} • Pinned: ${obj.pinned ? 'Yes':'No'}`;
-  previewTags.innerHTML = (obj.tags || []).map(t=>`<span class="preview-tag">#${t.replace(/^#/,'')}</span>`).join('');
+  const cats = parseCategories();
+  previewMeta.textContent = `Category: ${cats.join(', ') || '—'} • Featured: ${form.featured.checked ? 'Yes':'No'} • Pinned: ${form.pinned.checked ? 'Yes':'No'}`;
+  const tags = form.tags.value.split(',').map(t=>t.trim()).filter(Boolean);
+  previewTags.innerHTML = tags.map(t=>`<span class="preview-tag">#${t.replace(/^#/,'')}</span>`).join('');
 }
 
 Object.values(form).forEach(el=>{
@@ -625,10 +682,28 @@ async function fetchYouTubeMeta(){
     saveFormState();
   } catch(e){
     console.error(e);
-    statusEl.textContent = "Could not fetch YouTube info.";
+    statusEl.textContent = "Could not fetch YouTube info (browser/CORS may block this).";
   }
 }
 document.getElementById('fetchMetaBtn').addEventListener('click', fetchYouTubeMeta);
+
+/* ========================
+   FORM HELPERS
+   ======================== */
+function resetForm(keepCatsAndTags=false){
+  form.title.value="";
+  form.yt.value="";
+  form.url.value="";
+  form.featured.checked=false;
+  form.pinned.checked=false;
+  if(!keepCatsAndTags){
+    form.category1.value="";
+    form.category2.value="";
+    form.tags.value="";
+  }
+  updatePreview();
+  saveFormState();
+}
 
 /* ========================
    SINGLE JSON
@@ -655,30 +730,99 @@ document.getElementById('copyOne').addEventListener('click', ()=>{
 });
 
 document.getElementById('clearForm').addEventListener('click', ()=>{
-  form.title.value="";
-  form.yt.value="";
-  form.url.value="";
-  form.category1.value="";
-  form.category2.value="";
-  form.tags.value="";
-  form.featured.checked=false;
-  form.pinned.checked=false;
+  editingIndex = null;
+  addBatchBtn.textContent = "Add to Batch";
+  resetForm(false);
   outputEl.textContent="Fill the form then Generate…";
-  saveFormState();
-  updatePreview();
 });
 
 /* ========================
-   BATCH
+   BATCH (with editing)
    ======================== */
+function loadBatchItemIntoForm(index){
+  const item = batch[index];
+  if(!item) return;
+  editingIndex = index;
+  addBatchBtn.textContent = "Update Item";
+
+  form.title.value = item.title || "";
+  form.yt.value = item.youtube_id || "";
+  form.url.value = item.url || "";
+
+  // categories → category1/category2 inputs as comma-separated chunks
+  const cats = Array.isArray(item.category)
+    ? item.category
+    : (item.category ? [item.category] : []);
+
+  // if many categories, split roughly half/half for the two inputs
+  if(cats.length <= 2){
+    form.category1.value = cats[0] || "";
+    form.category2.value = cats[1] || "";
+  } else {
+    const mid = Math.ceil(cats.length / 2);
+    form.category1.value = cats.slice(0, mid).join(", ");
+    form.category2.value = cats.slice(mid).join(", ");
+  }
+
+  form.tags.value = (item.tags || []).join(", ");
+  form.featured.checked = !!item.featured;
+  form.pinned.checked = !!item.pinned;
+
+  updatePreview();
+  saveFormState();
+  toast(`Loaded #${index+1} into form`);
+}
+
 function renderBatchList(){
   if(!batch.length){
     batchListEl.textContent = "No items in batch yet.";
     saveBatch();
     return;
   }
-  batchListEl.textContent = batch.map((o,i)=>`#${i+1} ${o.title || 'Untitled'}`).join("\n");
+  batchListEl.innerHTML = batch.map((o,i)=>`
+    <div class="batch-item-row">
+      <div class="batch-item-main" data-idx="${i}">
+        <span class="idx">#${i+1}</span>${(o.title || 'Untitled').replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+      </div>
+      <div class="batch-actions-inline">
+        <button class="mini-btn${editingIndex===i?' current':''}" data-edit="${i}">Edit</button>
+        <button class="mini-btn danger" data-del="${i}">Delete</button>
+      </div>
+    </div>
+  `).join("");
   saveBatch();
+
+  // wire edit/delete
+  batchListEl.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const i = Number(btn.getAttribute('data-edit'));
+      loadBatchItemIntoForm(i);
+      // re-render to update "current" style
+      renderBatchList();
+    });
+  });
+  batchListEl.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const i = Number(btn.getAttribute('data-del'));
+      batch.splice(i,1);
+      if(editingIndex === i) {
+        editingIndex = null;
+        addBatchBtn.textContent = "Add to Batch";
+        resetForm(false);
+      } else if(editingIndex !== null && i < editingIndex){
+        editingIndex -= 1;
+      }
+      renderBatchList();
+      toast("Item removed");
+    });
+  });
+  batchListEl.querySelectorAll('.batch-item-main').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const i = Number(row.getAttribute('data-idx'));
+      loadBatchItemIntoForm(i);
+      renderBatchList();
+    });
+  });
 }
 
 document.getElementById('addBatch').addEventListener('click', ()=>{
@@ -688,18 +832,27 @@ document.getElementById('addBatch').addEventListener('click', ()=>{
     toast(errs[0]);
     return;
   }
-  batch.push(obj);
+
+  if(editingIndex === null){
+    batch.push(obj);
+    toast("Added to batch");
+  } else {
+    batch[editingIndex] = obj;
+    toast(`Updated item #${editingIndex+1}`);
+  }
   renderBatchList();
 
-  // light reset (keep cats/tags to speed entry)
-  form.title.value="";
-  form.yt.value="";
-  form.url.value="";
-  form.featured.checked=false;
-  form.pinned.checked=false;
-  saveFormState();
-  updatePreview();
-  toast("Added to batch");
+  // light reset (keep cats/tags to speed entry), but stay in "add new" mode after update
+  editingIndex = null;
+  addBatchBtn.textContent = "Add to Batch";
+  resetForm(true);
+});
+
+document.getElementById('newItem').addEventListener('click', ()=>{
+  editingIndex = null;
+  addBatchBtn.textContent = "Add to Batch";
+  resetForm(true);
+  toast("Ready for new item");
 });
 
 document.getElementById('genBatch').addEventListener('click', ()=>{
@@ -737,8 +890,9 @@ ${videosJSON}
 }`;
   }
 
+  // Show JSON in the same area (easy to copy)
   batchListEl.textContent = finalJSON;
-  toast("Batch JSON generated");
+  toast("Batch JSON generated (list view replaced by JSON)");
 });
 
 document.getElementById('copyBatch').addEventListener('click', ()=>{
@@ -752,6 +906,8 @@ document.getElementById('copyBatch').addEventListener('click', ()=>{
 
 document.getElementById('clearBatch').addEventListener('click', ()=>{
   batch = [];
+  editingIndex = null;
+  addBatchBtn.textContent = "Add to Batch";
   renderBatchList();
   toast("Batch cleared");
 });
