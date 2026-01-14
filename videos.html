@@ -1,250 +1,266 @@
-<!-- =========================
-     /videos.html  (v4 HUD + Matrix rain, clean hooks for videos.js)
-     ========================= -->
+<!-- videos.html — V4 (centered + theme-tinted bars + Lucky + PDF link)
+     Works with your videos.js V4 (KEEP_THUMBNAILS) FINAL DROP-IN.
+     Fixes included:
+     - Bars now tint with BOTH bg + accent (so not always “solid black”)
+     - Everything centered (learn + theme + socials + tabs)
+     - Slightly tighter/cleaner spacing without breaking layout
+     - (Card title above thumb is handled in videos.js you pasted)
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>VIDEO HUB</title>
-  <link rel="icon" href="assets/favicon.png" type="image/png">
+
+  <!-- Favicons -->
+  <link rel="icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48x48.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180x180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/favicon-512x512.png">
+
   <link href="themes.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
   <style>
-    /* ===== Base ===== */
-    html, body {
-      height:100%;
-      max-width:100%;
-      margin:0;
-      padding:0;
-      overflow-x:hidden;
+    :root{
+      box-sizing:border-box;
+      --meta-h: 28px;
+      --theme-h: 28px;
+      --social-h: 28px;
+
+      /* ✅ IMPROVED: theme-tinted bar background helpers (bg + accent)
+         This fixes the “always black” look across themes. */
+      --bar-a: color-mix(in srgb, var(--bg) 78%, var(--accent) 8%, black);
+      --bar-b: color-mix(in srgb, var(--bg) 65%, var(--accent) 14%, black);
+
+      --bar-border: color-mix(in srgb, var(--accent) 38%, var(--border));
+      --bar-glow: 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
     }
-    body {
+    *, *::before, *::after { box-sizing:inherit; }
+
+    html, body { height:100%; max-width:100%; margin:0; padding:0; overflow-x:hidden; }
+
+    body{
       background:var(--bg);
       color:var(--fg);
       font-family:'Share Tech Mono', monospace;
       position:relative;
     }
 
-    /* ===== Matrix rain canvas (background) ===== */
-    #matrixRain {
-      position:fixed;
-      inset:0;
-      z-index:-1;
-      display:block;
+    input, button, select, textarea {
+      font-family:inherit !important;
+      letter-spacing:.04em;
     }
 
-    /* ===== Loading overlay ===== */
-    #loading {
-      position:fixed;
-      inset:0;
-      display:grid;
-      place-items:center;
-      z-index:9998;
+    #matrixRain{ position:fixed; inset:0; z-index:-1; display:block; pointer-events:none; }
+
+    #loading{
+      position:fixed; inset:0; display:grid; place-items:center; z-index:9998;
       background: radial-gradient(900px 600px at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.9) 60%, #000);
     }
-    .ring {
-      width:54px;
-      height:54px;
-      border-radius:50%;
+    .ring{
+      width:46px; height:46px; border-radius:50%;
       border:3px solid color-mix(in srgb, var(--accent) 25%, transparent);
       border-top-color: var(--accent);
       animation: spin 1s linear infinite;
       box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
     }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .hide { opacity:0; pointer-events:none; transition: opacity .2s ease; }
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+    .hide{ opacity:0; pointer-events:none; transition: opacity .2s ease; }
 
-    /* ===== Top social bar ===== */
-    .top-social {
-      position:sticky;
-      top:0;
-      z-index:60;
+    /* ✅ Centering helper (true centered look) */
+    .bar-inner{
+      width:min(1200px, 100%);
+      margin:0 auto;
       display:flex;
-      justify-content:center;
       align-items:center;
-      gap:16px;
-      flex-wrap:wrap;
-      padding:8px 12px;
-      background:color-mix(in srgb, var(--bg) 92%, black);
-      border-bottom:1px solid var(--border);
-      backdrop-filter: blur(6px);
+      justify-content:center;
+      text-align:center;
+      gap:10px;
+      padding:0 10px;
     }
-    .top-social a {
+
+    /* ===== Top Learn (theme-tinted) ===== */
+    .top-learn{
+      position:sticky; top:0; z-index:80;
+      padding:4px 0;
+      background: linear-gradient(90deg, var(--bar-a), var(--bar-b), var(--bar-a));
+      border-bottom:1px solid var(--bar-border);
+      box-shadow: var(--bar-glow);
+      text-transform:uppercase;
+      letter-spacing:.10em; /* ✅ slightly less cramped */
+      font-size:.62rem;
+      line-height:1.15;     /* ✅ more readable */
+      white-space:nowrap;
+      overflow:hidden;
+    }
+    .top-learn a{
       color: var(--accent);
       text-decoration:none;
-      padding:2px 0;
-      border-bottom:1px dashed var(--accent);
-      font-size:.9rem;
+      border-bottom:1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+      text-shadow:0 0 8px color-mix(in srgb, var(--accent) 22%, transparent);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:100%;
+      padding:2px 0; /* ✅ tiny padding for readability */
     }
 
-    /* ===== HUD bar (tabs + theme) ===== */
-    .hud-bar {
-      position:sticky;
-      top:40px; /* under social bar */
-      z-index:59;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:8px 14px;
-      background:color-mix(in srgb, var(--bg) 96%, black);
-      border-bottom:1px solid var(--border);
-      backdrop-filter: blur(6px);
-    }
-    .hud-left {
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      font-size:.8rem;
+    /* ===== Top Theme (theme-tinted) ===== */
+    .top-theme{
+      position:sticky; top: var(--meta-h); z-index:79;
+      padding:4px 0;
+      background: linear-gradient(90deg, var(--bar-a), var(--bar-b), var(--bar-a));
+      border-bottom:1px solid var(--bar-border);
+      box-shadow: var(--bar-glow);
       text-transform:uppercase;
-      letter-spacing:.08em;
-      color:color-mix(in srgb, var(--fg) 80%, transparent);
+      letter-spacing:.10em;
+      font-size:.62rem;
+      line-height:1.15;
+      white-space:nowrap;
+      overflow:hidden;
     }
-    .hud-left span strong {
+    .palette-label{
+      background:transparent;
+      border:none;
+      padding:0;
+      margin:0;
       color:var(--accent);
+      text-shadow:0 0 8px color-mix(in srgb, var(--accent) 22%, transparent);
+      font-size:.82rem;
+      line-height:1;
+      flex:0 0 auto;
+    }
+    .theme-select{
+      border:1px solid var(--bar-border);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
+      color:var(--fg);
+      border-radius:10px;
+      padding:2px 10px;
+      font-size:.66rem;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      outline:none;
+      max-width:min(520px, 78vw);
+      width:100%;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 14%, transparent);
     }
 
-    .hud-tabs {
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:center;
-      flex:1;
+    /* ===== Social (theme-tinted) ===== */
+    .top-social{
+      position:sticky; top: calc(var(--meta-h) + var(--theme-h)); z-index:78;
+      padding:4px 0;
+      background: linear-gradient(90deg, var(--bar-a), var(--bar-b), var(--bar-a));
+      border-bottom:1px solid var(--bar-border);
+      box-shadow: var(--bar-glow);
+      text-transform:uppercase;
+      letter-spacing:.10em;
+      font-size:.60rem;
+      line-height:1.15;
     }
-    .hud-tab {
-      cursor:pointer;
-      user-select:none;
-      padding:6px 11px;
+    .top-social .bar-inner{ flex-wrap:wrap; gap:10px; }
+    .top-social a{
+      color: var(--accent);
+      text-decoration:none;
+      border-bottom:1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+      text-shadow:0 0 8px color-mix(in srgb, var(--accent) 22%, transparent);
+      padding:2px 0;
+    }
+
+    /* ===== Tabs bar (theme-tinted) ===== */
+    .hud-buttons{
+      position:sticky; top: calc(var(--meta-h) + var(--theme-h) + var(--social-h)); z-index:77;
+      padding:4px 0;
+      background: linear-gradient(90deg, var(--bar-a), var(--bar-b), var(--bar-a));
+      border-bottom:1px solid var(--bar-border);
+      box-shadow: var(--bar-glow);
+      backdrop-filter: blur(6px);
+      white-space:nowrap;
+      overflow:hidden;
+    }
+    .hud-buttons .bar-inner{ flex-wrap:wrap; gap:6px; }
+    .hud-tab{
+      cursor:pointer; user-select:none;
+      padding:3px 8px;
       border-radius:999px;
-      border:1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
-      background:color-mix(in srgb, var(--card) 92%, var(--bg));
+      border:1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: color-mix(in srgb, var(--card) 88%, var(--bg));
       color:var(--fg);
-      font-size:.82rem;
-      box-shadow: 0 0 10px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.04);
+      font-size:.66rem;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      box-shadow: 0 0 8px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);
       transition: transform .1s ease, box-shadow .12s ease, background .12s ease;
     }
-    .hud-tab:hover { transform: translateY(-1px); }
-    .hud-tab.active {
-      background: color-mix(in srgb, var(--accent) 22%, var(--card));
-      box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 0 0 1px rgba(255,255,255,.05);
+    .hud-tab:hover{ transform: translateY(-1px); }
+    .hud-tab.active{
+      background: color-mix(in srgb, var(--accent) 18%, var(--card));
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 0 0 1px rgba(255,255,255,.04);
     }
 
-    .hud-right {
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .hud-right label {
-      font-size:.75rem;
-      opacity:.8;
-    }
-    .theme-select {
-      border:1px solid var(--border);
-      background:var(--card);
-      color:var(--fg);
-      border-radius:6px;
-      padding:4px 8px;
-      font-size:.8rem;
-      min-width:130px;
-    }
+    .wrap{ padding:10px 12px 60px; max-width:1200px; margin:0 auto; position:relative; }
 
-    @media (max-width:720px){
-      .hud-bar {
-        flex-wrap:wrap;
-        justify-content:center;
-      }
-      .hud-left { display:none; }
-      .hud-right { order:3; }
+    .controls{
+      display:flex; flex-direction:column; align-items:center;
+      gap:8px; margin:10px auto 8px;
     }
-
-    /* ===== Main layout ===== */
-    .wrap {
-      padding:14px 12px 60px;
-      max-width:1200px;
-      margin:0 auto;
-      position:relative;
-    }
-
-    /* Controls */
-    .controls {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:10px;
-      margin:14px auto 8px;
-    }
-    .search-row {
-      width:100%;
-      display:flex;
-      justify-content:center;
-      position:relative;
-    }
-    #searchInput {
-      width:100%;
-      max-width:760px;
-      padding:11px 14px;
+    .search-row{ width:100%; display:flex; justify-content:center; }
+    #searchInput{
+      width:100%; max-width:760px;
+      padding:10px 12px;
       border-radius:10px;
       border:1px solid var(--accent);
-      background:var(--card);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
       color:var(--fg);
-      font-size:.95rem;
+      font-size:.90rem;
     }
 
-    .filter-row {
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      flex-wrap:wrap;
-      align-items:center;
+    .filter-row{
+      display:flex; gap:8px; justify-content:center; flex-wrap:wrap; align-items:center;
     }
-    .filter-row select, .filter-row button {
-      padding:8px 11px;
+    .filter-row select, .filter-row button{
+      padding:6px 10px;
       border-radius:8px;
       border:1px solid var(--border);
-      background:var(--card);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
       color:var(--fg);
+      font-size:.78rem;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+    .result-count{
+      text-align:center;
       font-size:.85rem;
-    }
-    .result-count {
-      text-align:center;
-      font-size:.9rem;
       color:color-mix(in srgb, var(--fg) 70%, transparent);
-      margin-top:4px;
+      margin-top:2px;
     }
 
-    /* ===== Sections ===== */
-    .section {
-      margin:12px 0;
+    .lucky-row{ display:flex; justify-content:center; margin: 8px 0 6px; }
+    .lucky-btn{
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: color-mix(in srgb, var(--card) 88%, var(--bg));
+      color:var(--fg);
+      font-size:.72rem;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      cursor:pointer;
+      box-shadow: 0 0 8px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);
     }
+    .lucky-btn:hover{ background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
 
-    /* Featured (kept for compatibility, hidden by JS) */
-    .featured {
-      border:1px solid var(--border);
-      padding:10px;
-      border-radius:12px;
-      background:color-mix(in srgb, var(--card) 96%, var(--bg));
-      box-shadow:var(--shadow);
-      max-width:1000px;
-      margin:10px auto 14px;
-    }
-    .featured h2 {
-      margin:0 0 8px;
-      font-size:1.05rem;
-      color:var(--muted);
-      text-align:center;
-    }
-
-    /* Main grid */
-    .video-grid {
+    .video-grid{
       display:grid;
       grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
       gap:16px;
       margin-top:10px;
     }
-
-    .card {
-      background:var(--card);
+    .card{
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
       border:1px solid var(--border);
       border-radius:12px;
       padding:10px;
@@ -253,137 +269,96 @@
       display:flex;
       flex-direction:column;
       gap:6px;
-      position:relative;
       overflow:hidden;
       transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease;
     }
-    .card:hover {
+    .card:hover{
       transform:translateY(-2px);
       border-color:var(--accent);
       box-shadow:0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
     }
 
-    .thumb-wrap {
-      position:relative;
+    .thumb-wrap{
       border-radius:8px;
       overflow:hidden;
       background:#000;
       aspect-ratio:16/9;
+      position:relative;
     }
-    .thumb-wrap img {
-      width:100%;
-      height:100%;
+    .thumb-wrap iframe, .thumb-wrap video, .thumb-wrap img{
+      width:100%; height:100%;
+      border:0; display:block;
       object-fit:cover;
-      display:block;
-      transition: transform .18s ease;
     }
-    .card:hover .thumb-wrap img {
-      transform:scale(1.03);
+    .thumb-badge{
+      position:absolute;
+      left:8px; bottom:8px;
+      padding:3px 7px;
+      border-radius:999px;
+      font-size:.70rem;
+      background: rgba(0,0,0,.55);
+      border:1px solid rgba(255,255,255,.18);
+      color:#fff;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      user-select:none;
     }
 
-    .card-title {
-      font-size:.95rem;
-      font-weight:700;
-      margin-top:4px;
-      line-height:1.3;
-    }
-    .meta-line {
-      font-size:.8rem;
-      color:color-mix(in srgb, var(--fg) 70%, transparent);
-    }
-    .chips {
-      margin-top:2px;
-    }
-    .cat-chip {
+    .card-title{ font-size:.95rem; font-weight:700; line-height:1.3; margin-top:2px; }
+    .meta-line{ font-size:.8rem; color:color-mix(in srgb, var(--fg) 70%, transparent); }
+    .chips{ margin-top:2px; }
+    .cat-chip{
       display:inline-block;
       padding:3px 7px;
-      margin:2px 4px 0 0;
+      margin:2px 3px 0 0;
       border-radius:999px;
-      font-size:.75rem;
+      font-size:.72rem;
       cursor:pointer;
       background:var(--tag-bg);
       color:var(--tag-fg);
+      text-transform:uppercase;
+      letter-spacing:.06em;
     }
 
-    .card-actions {
-      margin-top:6px;
-      display:flex;
-      justify-content:flex-end;
-      gap:6px;
-    }
-    .btn {
+    .card-actions{ margin-top:6px; display:flex; gap:6px; }
+    .btn{
+      flex:1;
       padding:6px 10px;
-      border-radius:8px;
+      border-radius:10px;
       border:1px dashed var(--accent);
       background:transparent;
       color:var(--fg);
-      font-size:.8rem;
+      font-size:.78rem;
       cursor:pointer;
       text-align:center;
+      text-transform:uppercase;
+      letter-spacing:.08em;
     }
-    .btn:hover {
-      background:color-mix(in srgb, var(--accent) 16%, var(--bg));
-    }
+    .btn.secondary{ border-style:solid; border-color:var(--border); }
+    .btn:hover{ background:color-mix(in srgb, var(--accent) 14%, var(--bg)); }
 
-    /* Playlist block */
-    .playlist-box {
+    /* Playlist section still present for compatibility; videos.js controls visibility */
+    .playlist-box{
       margin:18px auto 4px;
       border:1px solid var(--border);
       padding:10px;
       border-radius:12px;
-      background:color-mix(in srgb, var(--card) 96%, var(--bg));
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
       box-shadow:var(--shadow);
       max-width:1100px;
     }
-    .playlist-header {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:8px;
-    }
-    .playlist-header h2 {
-      margin:0;
-      font-size:.95rem;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.08em;
-    }
-    .playlist-toggle {
-      border:1px dashed var(--accent);
-      background:transparent;
-      color:var(--fg);
-      border-radius:6px;
-      padding:6px 10px;
-      cursor:pointer;
-      font-size:.8rem;
-    }
-    .playlist-list { display:none; margin-top:10px; }
-    .playlist-grid {
-      display:grid;
-      grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
-      gap:10px;
-    }
-    .playlist-item {
-      border:1px solid var(--border);
-      border-radius:8px;
-      background:var(--bg);
-      padding:8px;
-      font-size:.85rem;
-    }
-    .playlist-item iframe { width:100%; aspect-ratio:16/9; }
 
-    footer {
+    footer{
       margin:26px 0 30px;
-      font-size:.9rem;
-      color:var(--fg);
+      font-size:.85rem;
       text-align:center;
       opacity:.85;
+      letter-spacing:.08em;
+      text-transform:uppercase;
     }
 
-    /* Popup */
-    #popupOverlay {
-      position:fixed;
-      inset:0;
+    #popupOverlay{
+      position:fixed; inset:0;
       background:rgba(0,0,0,0.85);
       display:none;
       align-items:center;
@@ -391,94 +366,80 @@
       z-index:9996;
       padding:20px;
     }
-    #popupBox {
+    #popupBox{
       width:min(92vw, 760px);
-      background:var(--card);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
       border:1px solid var(--border);
-      border-radius:12px;
+      border-radius:14px;
       padding:22px 24px;
-      color:var(--fg);
       text-align:center;
       box-shadow:var(--shadow);
     }
-    #popupBox h2 {
-      margin:0 0 8px;
-      color:var(--accent);
-      font-size:1.2rem;
-    }
-    #popupMsg {
-      white-space:pre-wrap;
-      line-height:1.7;
-      text-align:center;
-    }
-    #popupMsg .verse {
-      font-style:italic;
-      color:var(--muted);
-    }
-    #popupClose {
+    #popupBox h2{ margin:0 0 8px; color:var(--accent); font-size:1.15rem; letter-spacing:.10em; text-transform:uppercase; }
+    #popupMsg{ white-space:pre-wrap; line-height:1.7; text-align:center; }
+    #popupMsg .verse{ font-style:italic; color:var(--muted); }
+    #popupClose{
       margin-top:16px;
       padding:10px 16px;
       background:var(--accent);
       color:#000;
       border:none;
-      border-radius:8px;
-      font-weight:bold;
+      border-radius:999px;
+      font-weight:800;
       cursor:pointer;
+      text-transform:uppercase;
+      letter-spacing:.10em;
     }
-    #popupClose:hover { opacity:.92; }
   </style>
 </head>
-<body class="dark">
-  <!-- Matrix rain canvas -->
-  <canvas id="matrixRain"></canvas>
 
-  <!-- loader -->
+<body class="dark">
+  <canvas id="matrixRain"></canvas>
   <div id="loading"><div class="ring"></div></div>
 
-  <!-- Social bar (topmost) -->
-  <div class="top-social">
-    <a href="https://www.tiktok.com/@wokearewe1" target="_blank" rel="noopener">TikTok</a>
-    <a href="https://www.instagram.com/wokearewe1" target="_blank" rel="noopener">Instagram</a>
-    <a href="https://x.com/wokearewe1" target="_blank" rel="noopener">Twitter / X</a>
-    <a href="https://youtube.com/@prophecyministries?si=mZcOPp08umKEB3Q7" target="_blank" rel="noopener">Prophecy Ministries</a>
-    <a href="https://youtube.com/@truthunedited?si=ZBoGbHwGPtKPs6oQ" target="_blank" rel="noopener">Truth Unedited</a>
+  <div class="top-learn" id="topLearn">
+    <div class="bar-inner">
+      <a href="learn.html">NOT A VISUAL LEARNER? CLICK HERE</a>
+    </div>
   </div>
 
-  <!-- HUD bar -->
-  <div class="hud-bar">
-    <div class="hud-left">
-      <span>ESCAPE <strong>MATRIX</strong></span>
-      <span>VIDEO HUB // LIVE FEED</span>
-    </div>
-
-    <div class="hud-tabs">
-      <button class="hud-tab active" id="tab-all" type="button">All</button>
-      <button class="hud-tab" id="tab-pinned" type="button">Pinned</button>
-      <button class="hud-tab" id="tab-playlists" type="button">Playlists</button>
-    </div>
-
-    <div class="hud-right">
-      <label for="themeSelect">Theme</label>
-      <select id="themeSelect" class="theme-select" title="Themes">
-        <option value="">THEMES 🎨</option>
-        <!-- options injected -->
+  <div class="top-theme" id="topTheme">
+    <div class="bar-inner">
+      <label class="palette-label" for="themeSelect" aria-label="Color palette">🎨</label>
+      <select id="themeSelect" class="theme-select" title="Color Palette">
+        <option value="">COLOR PALETTE</option>
       </select>
     </div>
   </div>
 
+  <div class="top-social" id="topSocial">
+    <div class="bar-inner">
+      <a href="https://www.tiktok.com/@wokearewe1" target="_blank" rel="noopener">TikTok</a>
+      <a href="https://www.instagram.com/wokearewe1" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://x.com/wokearewe1" target="_blank" rel="noopener">Twitter / X</a>
+      <a href="https://youtube.com/@prophecyministries?si=mZcOPp08umKEB3Q7" target="_blank" rel="noopener">Prophecy Ministries</a>
+      <a href="https://youtube.com/@truthunedited?si=ZBoGbHwGPtKPs6oQ" target="_blank" rel="noopener">Truth Unedited</a>
+    </div>
+  </div>
+
+  <div class="hud-buttons" id="hudButtons">
+    <div class="bar-inner">
+      <button class="hud-tab active" id="tab-all" type="button">All</button>
+      <button class="hud-tab" id="tab-pinned" type="button">Pinned</button>
+      <button class="hud-tab" id="tab-playlists" type="button">Playlists</button>
+      <button class="hud-tab" id="tab-trending" type="button">Trending</button>
+      <button class="hud-tab" id="tab-new" type="button">New</button>
+    </div>
+  </div>
+
   <div class="wrap">
-    <!-- Controls -->
     <div class="controls">
-      <!-- Search -->
       <div class="search-row">
         <input id="searchInput" type="text" placeholder="Search by title, tag, or category…"/>
       </div>
 
-      <!-- Filters -->
       <div class="filter-row">
-        <select id="categoryFilter">
-          <option value="">All Categories</option>
-        </select>
+        <select id="categoryFilter"><option value="">All Categories</option></select>
         <select id="sortFilter">
           <option value="random">🎲 Random</option>
           <option value="newest">Newest First</option>
@@ -489,16 +450,19 @@
         </select>
         <button id="clearFilters" type="button">Clear</button>
       </div>
+
       <div id="resultCount" class="result-count">Showing 0</div>
     </div>
 
-    <!-- Featured (kept for JS compatibility but disabled in videos.js) -->
+    <div class="lucky-row">
+      <button class="lucky-btn" id="luckyBtn" type="button">I’M FEELING LUCKY</button>
+    </div>
+
     <section id="featured" class="featured" style="display:none;">
       <h2>Featured Transmission</h2>
       <div id="featuredContainer"></div>
     </section>
 
-    <!-- Playlists -->
     <section id="playlistBox" class="playlist-box" style="display:none;">
       <div class="playlist-header">
         <h2>Playlists</h2>
@@ -509,13 +473,10 @@
       </div>
     </section>
 
-    <!-- Main grid -->
     <div id="videoGrid" class="video-grid"></div>
-
     <footer id="footInfo"></footer>
   </div>
 
-  <!-- Popup -->
   <div id="popupOverlay" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
     <div id="popupBox">
       <h2 id="popupTitle">WELCOME OUT THE MATRIX!</h2>
@@ -524,9 +485,19 @@
     </div>
   </div>
 
-  <!-- Boot scripts: theme init, footer clock, matrix rain -->
   <script>
-    /* Theme list (30) */
+    function updateStickyHeights(){
+      const learn = document.getElementById("topLearn");
+      const theme = document.getElementById("topTheme");
+      const social = document.getElementById("topSocial");
+      if (learn)  document.documentElement.style.setProperty("--meta-h",  Math.ceil(learn.getBoundingClientRect().height)  + "px");
+      if (theme)  document.documentElement.style.setProperty("--theme-h", Math.ceil(theme.getBoundingClientRect().height)  + "px");
+      if (social) document.documentElement.style.setProperty("--social-h",Math.ceil(social.getBoundingClientRect().height) + "px");
+    }
+    window.addEventListener("resize", updateStickyHeights, { passive:true });
+    window.addEventListener("load", updateStickyHeights, { passive:true });
+    updateStickyHeights();
+
     const THEMES = [
       "dark","light","grey","pink","blue","vaporwave","solarized-dark","dracula","cyberpunk","sepia","midnight",
       "facebook","mcdonalds","walmart","office","discord","netflix","apple","google","amazon","spotify","twitch",
@@ -536,9 +507,10 @@
     THEMES.forEach(t => {
       const opt = document.createElement("option");
       opt.value = t;
-      opt.textContent = t;
+      opt.textContent = t.toUpperCase();
       themeSelect.appendChild(opt);
     });
+
     function setTheme(t){
       document.body.className = t;
       localStorage.setItem("preferredTheme", t);
@@ -549,20 +521,20 @@
       setTheme(saved);
       themeSelect.value = saved;
     })();
+
     themeSelect.addEventListener("change", () => {
       if (THEMES.includes(themeSelect.value)) setTheme(themeSelect.value);
     });
 
-    /* Footer device/time */
     function device(){
       const u = navigator.userAgent.toLowerCase();
-      if (u.includes("iphone")) return "iPhone";
-      if (u.includes("ipad")) return "iPad";
-      if (u.includes("android")) return "Android";
-      if (u.includes("mac")) return "Mac";
-      if (u.includes("win")) return "PC";
-      if (u.includes("linux")) return "Linux";
-      return "Device";
+      if (u.includes("iphone")) return "iphone";
+      if (u.includes("ipad")) return "ipad";
+      if (u.includes("android")) return "android";
+      if (u.includes("mac")) return "mac";
+      if (u.includes("win")) return "pc";
+      if (u.includes("linux")) return "linux";
+      return "device";
     }
     function updateFooter(){
       const el = document.getElementById("footInfo");
@@ -572,64 +544,164 @@
     updateFooter();
     setInterval(updateFooter, 1000);
 
-    /* Matrix rain (theme-aware) */
+    /* Lucky (unchanged) */
     (function(){
-      const canvas = document.getElementById('matrixRain');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      let W = window.innerWidth;
-      let H = window.innerHeight;
-      canvas.width = W;
-      canvas.height = H;
+      const btn = document.getElementById("luckyBtn");
+      if (!btn) return;
 
-      let fontSize = 16;
-      let cols = Math.floor(W / fontSize);
-      let drops = new Array(cols).fill(0);
-      const chars = 'アカサタナハマヤラワ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let all = [];
+      function normalizePayload(d){
+        if (Array.isArray(d)) return d;
+        if (d && Array.isArray(d.videos)) return d.videos;
+        if (Array.isArray(d?.[0]?.videos)) return d[0].videos;
+        return [];
+      }
+      function isPlaylist(v){ return v?.youtube_id && String(v.youtube_id).startsWith("PL"); }
+      function catArray(v){
+        if (!v?.category) return [];
+        return Array.isArray(v.category) ? v.category.filter(Boolean) : [v.category];
+      }
+      function shareLink(v){
+        if (v.youtube_id) {
+          if (isPlaylist(v)) return `https://www.youtube.com/playlist?list=${v.youtube_id}`;
+          return `https://youtu.be/${v.youtube_id}`;
+        }
+        if (v.url) return v.url;
+        return location.href;
+      }
+
+      fetch("videos.json", { cache: "no-store" })
+        .then(r => r.json())
+        .then(data => { all = normalizePayload(data).filter(v => !isPlaylist(v) && (v.youtube_id || v.url)); })
+        .catch(()=>{ all = []; });
+
+      btn.addEventListener("click", () => {
+        if (!all.length) { alert("No videos loaded yet. Try again."); return; }
+
+        const qRaw = (document.getElementById("searchInput")?.value || "").trim();
+        const q = qRaw.toLowerCase();
+        const catVal = (document.getElementById("categoryFilter")?.value || "").trim().toLowerCase();
+
+        const filtered = all.filter(v => {
+          const cats = catArray(v).map(c => String(c).trim());
+          const catsLower = cats.map(c => c.toLowerCase());
+          const tagsLower = (v.tags || []).map(t => String(t||"").toLowerCase());
+          const titleLower = String(v.title || "").toLowerCase();
+
+          if (catVal && !catsLower.some(c => c === catVal)) return false;
+          if (!q) return true;
+
+          const isTagMode = qRaw.startsWith("#");
+          const tq = isTagMode ? qRaw.replace(/^#/, "").toLowerCase() : null;
+
+          if (isTagMode) return tagsLower.some(t => t.includes(tq)) || catsLower.some(c => c.includes(tq));
+          return titleLower.includes(q) || tagsLower.some(t => t.includes(q)) || catsLower.some(c => c.includes(q));
+        });
+
+        const pickFrom = filtered.length ? filtered : all;
+        const v = pickFrom[(Math.random() * pickFrom.length) | 0];
+        window.open(shareLink(v), "_blank", "noopener");
+      });
+    })();
+
+    /* Matrix rain (unchanged) */
+    (function(){
+      const canvas = document.getElementById("matrixRain");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d", { alpha: true });
+
+      const prefersReduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const isSmall = Math.min(window.innerWidth, window.innerHeight) < 430;
+
+      let W=0, H=0, cols=0, drops=[];
+      let fontSize = isSmall ? 14 : 16;
+      const chars = "アカサタナハマヤラワ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      let running = !prefersReduced;
+
+      const targetFPS = prefersReduced ? 10 : (isSmall ? 18 : 24);
+      const frameMS = 1000 / targetFPS;
+      let lastT = 0;
 
       function resize(){
-        W = window.innerWidth;
-        H = window.innerHeight;
-        canvas.width = W;
-        canvas.height = H;
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
         cols = Math.floor(W / fontSize);
-        drops = new Array(cols).fill(0);
+        drops = new Array(cols).fill(0).map(()=>Math.random()*H/fontSize);
+        ctx.font = fontSize + "px monospace";
       }
-      window.addEventListener('resize', resize);
+      window.addEventListener("resize", resize, { passive:true });
+      resize();
 
-      function getColors(){
+      function cssToRGB(cssColor){
+        ctx.save();
+        ctx.fillStyle = "#000";
+        ctx.fillStyle = cssColor;
+        const resolved = ctx.fillStyle;
+        ctx.restore();
+        const m = String(resolved).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+        if (m) return { r:+m[1], g:+m[2], b:+m[3] };
+        const hex = String(resolved).trim();
+        if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)){
+          let h = hex.slice(1);
+          if (h.length === 3) h = h.split("").map(x=>x+x).join("");
+          const n = parseInt(h,16);
+          return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+        }
+        return { r:0, g:0, b:0 };
+      }
+
+      function getThemeColors(){
         const cs = getComputedStyle(document.body);
-        const accent = cs.getPropertyValue('--accent').trim() || '#00ff41';
-        return { accent };
+        const accent = cs.getPropertyValue("--accent").trim() || "#00ff41";
+        const bg = cs.getPropertyValue("--bg").trim() || "#000";
+        return { accent, bg };
       }
 
-      function draw(){
-        const { accent } = getColors();
-        ctx.fillStyle = 'rgba(0,0,0,0.08)';
-        ctx.fillRect(0,0,W,H);
+      let scrollTimer = null;
+      window.addEventListener("scroll", () => {
+        if (prefersReduced) return;
+        running = false;
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => { running = true; }, 140);
+      }, { passive:true });
 
-        ctx.fillStyle = accent;
-        ctx.font = fontSize + 'px monospace';
+      document.addEventListener("visibilitychange", () => {
+        if (prefersReduced) return;
+        running = document.visibilityState === "visible";
+      });
 
-        for (let i = 0; i < cols; i++){
-          const text = chars[Math.floor(Math.random()*chars.length)];
-          const x = i * fontSize;
-          const y = drops[i] * fontSize;
-          ctx.fillText(text, x, y);
+      function draw(t){
+        requestAnimationFrame(draw);
+        if (t - lastT < frameMS) return;
+        lastT = t;
 
-          if (y > H && Math.random() > 0.975) {
-            drops[i] = 0;
-          } else {
-            drops[i] += 0.8;
+        const { accent, bg } = getThemeColors();
+        const { r, g, b } = cssToRGB(bg);
+
+        if (running) {
+          const alpha = isSmall ? 0.16 : 0.12;
+          ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+          ctx.fillRect(0,0,W,H);
+
+          ctx.fillStyle = accent;
+          ctx.font = fontSize + "px monospace";
+
+          const step = isSmall ? 2 : 1;
+          for (let i = 0; i < cols; i += step) {
+            const text = chars[(Math.random() * chars.length) | 0];
+            const x = i * fontSize;
+            const y = drops[i] * fontSize;
+            ctx.fillText(text, x, y);
+
+            if (y > H && Math.random() > 0.98) drops[i] = 0;
+            drops[i] += isSmall ? 0.75 : 0.85;
           }
         }
-        requestAnimationFrame(draw);
       }
-      draw();
+      requestAnimationFrame(draw);
     })();
   </script>
 
-  <!-- Core app logic -->
   <script src="videos.js"></script>
 </body>
 </html>
