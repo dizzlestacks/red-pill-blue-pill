@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>READ ONLY — BREAK OUT THE MATRIX</title>
+
+  <link rel="icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180x180.png">
+
+  <link href="themes.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    :root { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    html, body { margin: 0; padding: 0; overflow-x: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    #matrixRain {
+      position: fixed; inset: 0; z-index: -1;
+      display: block; pointer-events: none;
+      opacity: .10; filter: blur(.2px);
+    }
+
+    /* ===== Nav bar ===== */
+    .top-bar {
+      position: sticky; top: 0; z-index: 80;
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--bg) 78%, var(--accent) 8%, black),
+        color-mix(in srgb, var(--bg) 60%, var(--accent) 14%, black),
+        color-mix(in srgb, var(--bg) 78%, var(--accent) 8%, black)
+      );
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+      box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+      text-transform: uppercase;
+      letter-spacing: .10em;
+      font-size: .62rem;
+    }
+    .top-bar a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+      text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 22%, transparent);
+      padding: 2px 0;
+      white-space: nowrap;
+    }
+    .top-bar a:hover {
+      text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 50%, transparent);
+    }
+    .divider { opacity: .35; }
+    .top-bar select {
+      border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
+      color: var(--fg);
+      border-radius: 10px;
+      padding: 2px 10px;
+      font-size: .62rem;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      outline: none;
+      font-family: inherit;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+
+    /* ===== Layout ===== */
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 20px 14px 80px;
+    }
+
+    /* ===== Page header ===== */
+    .page-header {
+      text-align: center;
+      padding: 18px 0 14px;
+    }
+    .page-header h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.1rem, 3.5vw, 1.6rem);
+      color: var(--accent);
+      text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .page-header p {
+      margin: 0;
+      font-size: .82rem;
+      color: color-mix(in srgb, var(--fg) 55%, transparent);
+      line-height: 1.6;
+    }
+
+    /* ===== Controls ===== */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 10px 0 14px;
+      align-items: center;
+    }
+    #roSearchInput {
+      width: 100%; max-width: 720px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--accent);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
+      color: var(--fg);
+      font-family: inherit;
+      font-size: .90rem;
+      letter-spacing: .04em;
+      outline: none;
+    }
+    .filter-row {
+      display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    }
+    .filter-row select, .filter-row button {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
+      color: var(--fg);
+      font-family: inherit;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      cursor: pointer;
+      outline: none;
+    }
+    .filter-row button:hover {
+      background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+      border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    }
+    #roResultCount {
+      text-align: center;
+      font-size: .80rem;
+      color: color-mix(in srgb, var(--fg) 50%, transparent);
+    }
+
+    /* ===== Loading spinner ===== */
+    #roLoading {
+      text-align: center;
+      padding: 50px 20px;
+      font-size: .88rem;
+      color: color-mix(in srgb, var(--fg) 50%, transparent);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .ring {
+      display: inline-block;
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== Category sections ===== */
+    .cat-section { margin-top: 22px; }
+    .cat-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--accent);
+      text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 22%, transparent);
+      border-bottom: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+      padding-bottom: 4px;
+    }
+    .cat-count {
+      opacity: .6;
+      font-size: .70rem;
+    }
+
+    /* ===== Video list items ===== */
+    .ro-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .ro-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+      background: color-mix(in srgb, var(--card) 88%, var(--bg));
+      cursor: pointer;
+      transition: border-color .12s ease, background .12s ease;
+    }
+    .ro-item:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 6%, var(--card));
+    }
+    .ro-item:hover .ro-title { color: var(--accent); }
+
+    .ro-num {
+      flex-shrink: 0;
+      font-size: .70rem;
+      color: color-mix(in srgb, var(--fg) 38%, transparent);
+      width: 28px;
+      text-align: right;
+      padding-top: 2px;
+    }
+    .ro-body { flex: 1; min-width: 0; }
+    .ro-title {
+      font-size: .92rem;
+      font-weight: 700;
+      line-height: 1.3;
+      word-break: break-word;
+      transition: color .12s ease;
+    }
+    .ro-meta {
+      margin-top: 3px;
+      font-size: .70rem;
+      color: color-mix(in srgb, var(--fg) 50%, transparent);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+    .ro-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--tag-bg);
+      color: var(--tag-fg);
+      font-size: .63rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .ro-badge.pinned {
+      background: color-mix(in srgb, var(--accent) 20%, var(--card));
+      color: var(--accent);
+      border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+    .ro-tags {
+      margin-top: 4px;
+      font-size: .68rem;
+      color: color-mix(in srgb, var(--fg) 42%, transparent);
+    }
+    .ro-actions {
+      flex-shrink: 0;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .ro-btn {
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px dashed var(--accent);
+      background: transparent;
+      color: var(--fg);
+      font-family: inherit;
+      font-size: .70rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s ease;
+    }
+    .ro-btn:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    .ro-btn.secondary { border-style: solid; border-color: var(--border); }
+
+    .no-results {
+      text-align: center;
+      padding: 50px 20px;
+      color: color-mix(in srgb, var(--fg) 45%, transparent);
+      font-size: .92rem;
+    }
+
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: .78rem;
+      color: color-mix(in srgb, var(--fg) 35%, transparent);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    /* Force-hide all videos.js stub elements — nothing from videos.html should render here */
+    #loading, #featured, #featuredContainer, #playlistBox, #playlistToggle,
+    #playlistContainer, #playlistGrid, #videoGrid, #popupOverlay, #popupMsg,
+    #popupClose, #searchInput, #categoryFilter, #sortFilter, #clearFilters,
+    #resultCount, #tab-all, #tab-pinned, #tab-playlists, #tab-trending, #tab-new {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    @media (max-width: 560px) {
+      .ro-num { display: none; }
+      .ro-actions { flex-direction: column; gap: 4px; }
+    }
+  </style>
+</head>
+
+<body class="dark">
+  <canvas id="matrixRain"></canvas>
+
+  <!--
+    Hidden stubs required by videos.js — these are never shown to the user.
+    videos.js needs these element IDs to function without errors.
+  -->
+  <div id="loading" style="display:none"></div>
+  <div id="featured" style="display:none"><div id="featuredContainer"></div></div>
+  <div id="playlistBox" style="display:none">
+    <button id="playlistToggle"></button>
+    <div id="playlistContainer"><div id="playlistGrid"></div></div>
+  </div>
+  <div id="videoGrid" style="display:none"></div>
+  <div id="popupOverlay" style="display:none !important; visibility:hidden !important; pointer-events:none !important;">
+    <div id="popupMsg"></div>
+    <button id="popupClose"></button>
+  </div>
+  <input  id="searchInput"  style="display:none">
+  <select id="categoryFilter" style="display:none"></select>
+  <select id="sortFilter" style="display:none"><option value="random">Random</option></select>
+  <button id="clearFilters"  style="display:none"></button>
+  <div    id="resultCount"   style="display:none"></div>
+  <button id="tab-all"       style="display:none"></button>
+  <button id="tab-pinned"    style="display:none"></button>
+  <button id="tab-playlists" style="display:none"></button>
+  <button id="tab-trending"  style="display:none"></button>
+  <button id="tab-new"       style="display:none"></button>
+
+  <!-- Nav -->
+  <div class="top-bar">
+    <a href="videos.html">← Video Hub</a>
+    <span class="divider">|</span>
+    <a href="learn.html">Scripture Hub</a>
+    <span class="divider">|</span>
+    <select id="themeSelect" title="Color Palette" aria-label="Theme"></select>
+  </div>
+
+  <div class="wrap">
+
+    <div class="page-header">
+      <h1>Read Only Version</h1>
+      <p>All videos as a searchable text list. Click any title to watch on YouTube.</p>
+    </div>
+
+    <div class="controls">
+      <input id="roSearchInput" type="text" placeholder="Search by title, tag, or category…" autocomplete="off"/>
+      <div class="filter-row">
+        <select id="roCategoryFilter"><option value="">All Categories</option></select>
+        <select id="roSortFilter">
+          <option value="az">Title A–Z</option>
+          <option value="za">Title Z–A</option>
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+        </select>
+        <button id="roClearBtn">Clear</button>
+      </div>
+      <div id="roResultCount"></div>
+    </div>
+
+    <div id="roContent">
+      <div id="roLoading"><span class="ring"></span>Loading…</div>
+    </div>
+
+    <footer id="footInfo"></footer>
+  </div>
+
+  <script>
+  (function(){
+    "use strict";
+
+    /* ===== Theme ===== */
+    const THEMES = [
+      "dark","light","grey","pink","blue","vaporwave","solarized-dark","dracula","cyberpunk","sepia","midnight",
+      "facebook","mcdonalds","walmart","office","discord","netflix","apple","google","amazon","spotify","twitch",
+      "youtube","terminal","desert","ocean","forest","blood","gold","ice"
+    ];
+    const themeSelect = document.getElementById("themeSelect");
+    THEMES.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t; opt.textContent = t.toUpperCase();
+      themeSelect.appendChild(opt);
+    });
+    function setTheme(t){
+      document.body.className = t;
+      localStorage.setItem("preferredTheme", t);
+    }
+    const saved = localStorage.getItem("preferredTheme") || "terminal";
+    setTheme(saved);
+    themeSelect.value = saved;
+    themeSelect.addEventListener("change", () => {
+      if (THEMES.includes(themeSelect.value)) setTheme(themeSelect.value);
+    });
+
+    /* ===== Matrix rain ===== */
+    (function(){
+      const canvas = document.getElementById("matrixRain");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      let W=0, H=0, cols=0, drops=[];
+      const fontSize = 15;
+      const chars = "アカサタナハマヤラワ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+      function resize(){
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        cols = Math.floor(W / fontSize);
+        drops = new Array(cols).fill(0).map(() => Math.random() * H / fontSize);
+        ctx.font = fontSize + "px monospace";
+      }
+      window.addEventListener("resize", resize, { passive: true });
+      document.addEventListener("visibilitychange", () => { running = document.visibilityState === "visible"; });
+      resize();
+
+      let lastT = 0, running = true;
+      const frameMS = 1000 / 22;
+      function tick(ts){
+        requestAnimationFrame(tick);
+        if (!running || ts - lastT < frameMS) return;
+        lastT = ts;
+        ctx.fillStyle = "rgba(0,0,0,0.05)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#00ff41";
+        for (let i = 0; i < cols; i++){
+          const ch = chars[Math.floor(Math.random() * chars.length)];
+          ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+          if (drops[i] * fontSize > H && Math.random() > 0.987) drops[i] = 0;
+          drops[i] += 0.55;
+        }
+      }
+      requestAnimationFrame(tick);
+    })();
+
+    /* ===== Helpers ===== */
+    function escHTML(s){ return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+    function categoryArray(v){
+      if (!v.category) return ["UNCATEGORIZED"];
+      if (Array.isArray(v.category)) return v.category.filter(Boolean).length ? v.category.filter(Boolean) : ["UNCATEGORIZED"];
+      return [v.category];
+    }
+    function isPlaylist(v){ return v.youtube_id && String(v.youtube_id).startsWith("PL"); }
+    function shareLink(v){
+      if (v.youtube_id){
+        if (isPlaylist(v)) return `https://www.youtube.com/playlist?list=${v.youtube_id}`;
+        return `https://youtu.be/${v.youtube_id}`;
+      }
+      if (v.url) return v.url;
+      return "#";
+    }
+    async function copyLink(v, btn){
+      const url = shareLink(v);
+      try {
+        await navigator.clipboard.writeText(url);
+        const orig = btn.textContent;
+        btn.textContent = "COPIED!";
+        setTimeout(() => btn.textContent = orig, 1500);
+      } catch { prompt("Copy link:", url); }
+    }
+
+    /* ===== State ===== */
+    let allVideos = [];
+
+    /* ===== Category filter options ===== */
+    function buildCategoryOptions(){
+      const catEl = document.getElementById("roCategoryFilter");
+      while (catEl.options.length > 1) catEl.remove(1);
+      const seen = new Map();
+      allVideos.forEach(v => {
+        categoryArray(v).forEach(c => {
+          const key = c.trim().toLowerCase();
+          if (!seen.has(key)) seen.set(key, c.trim());
+        });
+      });
+      Array.from(seen.values())
+        .sort((a, b) => a.localeCompare(b))
+        .forEach(label => {
+          const opt = document.createElement("option");
+          opt.value = label; opt.textContent = label;
+          catEl.appendChild(opt);
+        });
+    }
+
+    /* ===== Render ===== */
+    function render(){
+      const q           = (document.getElementById("roSearchInput").value || "").trim().toLowerCase();
+      const catFilter   = (document.getElementById("roCategoryFilter").value || "").trim().toLowerCase();
+      const sort        = document.getElementById("roSortFilter").value;
+
+      let list = allVideos.slice();
+
+      if (catFilter){
+        list = list.filter(v => categoryArray(v).some(c => c.trim().toLowerCase() === catFilter));
+      }
+      if (q){
+        list = list.filter(v => {
+          const title = (v.title || "").toLowerCase();
+          const tags  = (v.tags || []).map(t => (t||"").toLowerCase());
+          const cats  = categoryArray(v).map(c => c.toLowerCase());
+          return title.includes(q) || tags.some(t => t.includes(q)) || cats.some(c => c.includes(q));
+        });
+      }
+
+      const byDate = x => new Date(x.added || 0).getTime() || 0;
+      if (sort === "newest") list.sort((a, b) => byDate(b) - byDate(a));
+      else if (sort === "oldest") list.sort((a, b) => byDate(a) - byDate(b));
+      else if (sort === "az") list.sort((a, b) => (a.title||"").localeCompare(b.title||""));
+      else if (sort === "za") list.sort((a, b) => (b.title||"").localeCompare(a.title||""));
+
+      document.getElementById("roResultCount").textContent =
+        `Showing ${list.length} of ${allVideos.length} videos`;
+
+      const content = document.getElementById("roContent");
+
+      if (!list.length){
+        content.innerHTML = `<div class="no-results">No videos match your search. Try different keywords.</div>`;
+        return;
+      }
+
+      const groupByCategory = catFilter === "" && q === "";
+      let flatList = [];
+
+      if (groupByCategory){
+        const groups = new Map();
+        list.forEach(v => {
+          const cat = categoryArray(v)[0].trim().toUpperCase();
+          if (!groups.has(cat)) groups.set(cat, []);
+          groups.get(cat).push(v);
+        });
+        const sorted = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
+
+        content.innerHTML = sorted.map(([cat, vids]) => {
+          const startIdx = flatList.length;
+          flatList.push(...vids);
+          return `
+            <div class="cat-section">
+              <div class="cat-heading">
+                <span>${escHTML(cat)}</span>
+                <span class="cat-count">${vids.length} video${vids.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div class="ro-list">
+                ${vids.map((v, i) => itemHTML(v, startIdx + i, startIdx + i + 1)).join("")}
+              </div>
+            </div>
+          `;
+        }).join("");
+      } else {
+        flatList = list.slice();
+        content.innerHTML = `<div class="ro-list">${list.map((v, i) => itemHTML(v, i, i + 1)).join("")}</div>`;
+      }
+
+      /* Wire buttons */
+      content.querySelectorAll("[data-open]").forEach(btn => {
+        const idx = parseInt(btn.dataset.open);
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          window.open(shareLink(flatList[idx]), "_blank", "noopener");
+        });
+      });
+      content.querySelectorAll("[data-share]").forEach(btn => {
+        const idx = parseInt(btn.dataset.share);
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          copyLink(flatList[idx], btn);
+        });
+      });
+      content.querySelectorAll(".ro-item").forEach(el => {
+        const idx = parseInt(el.dataset.idx);
+        el.addEventListener("click", () => window.open(shareLink(flatList[idx]), "_blank", "noopener"));
+      });
+    }
+
+    function itemHTML(v, flatIdx, displayNum){
+      const cats = categoryArray(v).map(c =>
+        `<span class="ro-badge">${escHTML(c.trim())}</span>`
+      ).join("");
+      const date = v.added ? new Date(v.added).toLocaleDateString() : null;
+      const pinnedBadge = v.pinned ? `<span class="ro-badge pinned">★ Pinned</span>` : "";
+      const tags = (v.tags || []).slice(0, 6).map(t => "#" + escHTML(String(t||"").trim())).join(" ");
+
+      return `
+        <div class="ro-item" data-idx="${flatIdx}">
+          <div class="ro-num">${displayNum}</div>
+          <div class="ro-body">
+            <div class="ro-title">${escHTML(v.title || "Untitled")}</div>
+            <div class="ro-meta">
+              ${pinnedBadge}${cats}
+              ${date ? `<span style="opacity:.55">Added: ${date}</span>` : ""}
+            </div>
+            ${tags ? `<div class="ro-tags">${tags}</div>` : ""}
+          </div>
+          <div class="ro-actions">
+            <button class="ro-btn" data-open="${flatIdx}">▶ Watch</button>
+            <button class="ro-btn secondary" data-share="${flatIdx}">🔗 Share</button>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ===== Listen for data from videos.js ===== */
+    document.addEventListener("videosloaded", (e) => {
+      allVideos = (e.detail.videos || []).filter(v => v.title && (v.youtube_id || v.url));
+      buildCategoryOptions();
+      render();
+    });
+
+    /* ===== Controls ===== */
+    let debounceT;
+    document.getElementById("roSearchInput").addEventListener("input", () => {
+      clearTimeout(debounceT);
+      debounceT = setTimeout(render, 100);
+    });
+    document.getElementById("roCategoryFilter").addEventListener("change", render);
+    document.getElementById("roSortFilter").addEventListener("change", render);
+    document.getElementById("roClearBtn").addEventListener("click", () => {
+      document.getElementById("roSearchInput").value = "";
+      document.getElementById("roCategoryFilter").value = "";
+      document.getElementById("roSortFilter").value = "az";
+      render();
+    });
+
+    /* ===== Footer clock ===== */
+    function updateFooter(){
+      const el = document.getElementById("footInfo");
+      if (el) el.textContent = new Date().toLocaleTimeString() + " — read only";
+    }
+    updateFooter();
+    setInterval(updateFooter, 1000);
+
+  })();
+  </script>
+
+  <!-- Load videos.js AFTER listener registration — shares the same data pipeline (cache, normalization, fetch) -->
+  <script src="videos.js"></script>
+</body>
+</html>

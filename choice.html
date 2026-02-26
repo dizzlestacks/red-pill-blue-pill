@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>MOST IMPORTANT CHOICE OF YOUR LIFE</title>
-  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <link rel="icon" href="assets/favicon-32x32.png" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     :root { box-sizing: border-box; }
@@ -13,101 +13,207 @@
       margin:0; height:100%; background:#000; color:#00FF41;
       font-family:'Share Tech Mono', monospace;
       overflow:hidden; user-select:none; -webkit-user-select:none;
-      cursor:none; /* custom cursor ring (desktop) */
+      cursor: default;
     }
 
-    /* Fade-out on navigate */
     .fadeout { animation: fadeToBlack .35s ease forwards; }
     @keyframes fadeToBlack { to { opacity:0; } }
 
-    /* Code rain backdrop */
-    .stage {
-      position:fixed; inset:0; display:grid; place-items:center;
-      background: radial-gradient(1200px 800px at 50% 50%, rgba(0,0,0,.5), rgba(0,0,0,.9) 60%, #000 100%);
+    @keyframes glitch {
+      0%,100%  { text-shadow: 0 0 8px rgba(0,255,65,.35); transform: none; }
+      18%      { text-shadow: -2px 0 rgba(255,0,65,.7), 2px 0 rgba(0,255,200,.7); transform: translate(-1px,0); }
+      19%      { text-shadow: 2px 0 rgba(255,0,65,.7), -2px 0 rgba(0,255,200,.7); transform: translate(1px,0); }
+      20%      { text-shadow: 0 0 8px rgba(0,255,65,.35); transform: none; }
     }
-    #codeRain {
-      position:absolute; inset:0; z-index:0; opacity:.18; filter: blur(.2px);
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+
+    .pill-stage {
+      position: fixed; inset: 0; background: #000;
+      border: none; outline: none;
     }
 
-    /* Content */
-    .wrap {
-      position:relative; z-index:1; width:min(96vw, 1100px);
-      display:flex; flex-direction:column; align-items:center; gap:12px; padding:10px;
-      text-align:center;
-      transform: translateY(6px); opacity:0; animation: contentIn .5s cubic-bezier(.2,.8,.2,1) .05s forwards;
-    }
-    @keyframes contentIn { to { transform: translateY(0); opacity:1; } }
-
-    h1 {
-      margin:0 0 6px; font-size: clamp(18px, 3.5vw, 28px);
-      text-shadow: 0 0 6px rgba(0,255,65,.35);
-    }
-    .sub { color:#a6ffc0; font-size: clamp(12px, 2.6vw, 16px); opacity:.9; margin-bottom:8px; }
-
-    /* Pill image container with parallax tilt + neon outline on hover */
-    .pill-frame {
-      position:relative; width:100%; max-width:1000px; aspect-ratio: 16/9;
-      border-radius:16px; overflow:hidden; background:#000;
-      border:1px solid rgba(0,255,65,.18);
-      box-shadow: 0 0 0 1px rgba(255,255,255,.05) inset, 0 18px 60px rgba(0,0,0,.65);
-      transform-style: preserve-3d; perspective: 800px;
-      transition: box-shadow .18s ease, border-color .18s ease;
-    }
-    .pill-frame:hover {
-      border-color: rgba(0,255,65,.35);
-      box-shadow:
-        0 0 24px rgba(0,255,65,.25),
-        0 18px 60px rgba(0,0,0,.65),
-        inset 0 0 24px rgba(0,255,65,.15);
-    }
-    .pill-art {
-      width:100%; height:100%; object-fit:cover; display:block; pointer-events:none;
-      transform: translateZ(0);
+    .pill-stage img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: contain; display: block; background: #000;
+      border: none; outline: none;
+      pointer-events: none;
+      opacity: .65;
+      filter: brightness(.9) saturate(.8);
     }
 
-    /* Red EXIT-style button top-right (glow) */
-    .exit {
-      position:absolute; top:10px; right:10px; z-index:3;
-      display:inline-grid; place-items:center; padding:8px 14px;
-      border-radius:999px; border:1px solid rgba(255,0,55,.65);
-      background: rgba(0,0,0,.45); color:#fff; letter-spacing:.06em;
-      font:700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      text-transform:uppercase; cursor:pointer; backdrop-filter: blur(6px);
-      box-shadow: 0 0 18px rgba(255,0,55,.35), inset 0 0 12px rgba(255,0,55,.15);
-      transition: background .15s, box-shadow .15s, transform .08s;
+    .pill-rain {
+      position: absolute; inset: 0; z-index: 1;
+      opacity: .08; pointer-events: none;
+      mix-blend-mode: screen;
     }
-    .exit:hover { background: rgba(255,0,55,.12); box-shadow: 0 0 26px rgba(255,0,55,.55), inset 0 0 14px rgba(255,0,55,.2); }
-    .exit:active { transform: translateY(1px) scale(.99); }
 
-    /* Hotzones */
-    .hotzone { position:absolute; top:0; bottom:0; width:50%; z-index:2; }
-    .left { left:0; } .right { right:0; }
+    .pill-scanlines {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom, transparent 0px, transparent 2px,
+        rgba(0,0,0,.10) 2px, rgba(0,0,0,.10) 3px
+      );
+    }
 
-    /* Loading spinner over art */
+    .pill-scanbar {
+      position: absolute; left: 0; right: 0; height: 4px; z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(to bottom,
+        transparent,
+        rgba(0,255,65,.08) 40%,
+        rgba(255,255,255,.04) 50%,
+        rgba(0,255,65,.08) 60%,
+        transparent
+      );
+      animation: scanBarMove 4s linear infinite;
+    }
+    @keyframes scanBarMove {
+      from { top: -4px; }
+      to   { top: 100%; }
+    }
+
+    .pill-vignette {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.65) 100%);
+    }
+
+    .pill-green-tint {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: rgba(0,255,65,.03);
+      mix-blend-mode: overlay;
+    }
+
+    .pill-flicker {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      animation: flicker 0.15s infinite;
+      background: transparent;
+    }
+    @keyframes flicker {
+      0%   { opacity: 1; }
+      50%  { opacity: .97; }
+      100% { opacity: 1; }
+    }
+
+    .hud-corner {
+      position: absolute; z-index: 3; pointer-events: none;
+      width: 50px; height: 50px;
+      border-color: rgba(0,255,65,.20);
+      border-style: solid;
+      border-width: 0;
+    }
+    .hud-tl { top: 20px; left: 20px; border-top-width: 1px; border-left-width: 1px; }
+    .hud-tr { top: 20px; right: 20px; border-top-width: 1px; border-right-width: 1px; }
+    .hud-bl { bottom: 20px; left: 20px; border-bottom-width: 1px; border-left-width: 1px; }
+    .hud-br { bottom: 20px; right: 20px; border-bottom-width: 1px; border-right-width: 1px; }
+
+    .hud-top {
+      position: absolute; top: 22px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 700 clamp(11px, 2.2vw, 16px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.5);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(0,255,65,.3);
+      animation: glitch 5s infinite;
+    }
+    .hud-sub {
+      position: absolute; top: 46px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 400 clamp(9px, 1.6vw, 12px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.3);
+      letter-spacing: .15em;
+    }
+    .hud-bottom {
+      position: absolute; bottom: 22px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 400 clamp(8px, 1.4vw, 10px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.25);
+      letter-spacing: .15em;
+      text-shadow: 0 0 4px rgba(0,255,65,.15);
+    }
+    .hud-bottom span {
+      color: rgba(255,40,40,.5);
+      animation: blink 1.2s step-end infinite;
+    }
+    .hud-left {
+      position: absolute; top: 50%; left: 22px; z-index: 4;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font: 400 clamp(7px, 1vw, 9px)/1.6 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.18);
+      letter-spacing: .1em;
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+    }
+    .hud-right {
+      position: absolute; top: 50%; right: 22px; z-index: 4;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font: 400 clamp(7px, 1vw, 9px)/1.6 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.18);
+      letter-spacing: .1em;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+    }
+
+    .hotzone {
+      position: absolute; top: 0; bottom: 0; width: 50%; z-index: 5;
+      cursor: pointer;
+      transition: background .25s ease, box-shadow .25s ease;
+    }
+    .hotzone.left  { left: 0; }
+    .hotzone.right { right: 0; }
+    .hotzone.left:hover {
+      background: linear-gradient(135deg, rgba(255,30,30,.15) 0%, transparent 60%);
+      box-shadow: inset 0 0 80px rgba(255,0,0,.12);
+    }
+    .hotzone.right:hover {
+      background: linear-gradient(225deg, rgba(30,80,255,.15) 0%, transparent 60%);
+      box-shadow: inset 0 0 80px rgba(0,80,255,.12);
+    }
+
+    .pill-label {
+      position: absolute; bottom: 60px; z-index: 6;
+      padding: 8px 20px; border-radius: 4px;
+      font: 700 clamp(11px, 2vw, 14px)/1 'Share Tech Mono', monospace;
+      letter-spacing: .12em; text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .25s ease, transform .25s ease;
+      transform: translateY(6px);
+      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,.6);
+    }
+    .pill-label.red {
+      left: 15%; transform: translateY(6px);
+      color: #ff4444;
+      border: 1px solid rgba(255,0,55,.4);
+      text-shadow: 0 0 8px rgba(255,0,0,.4);
+    }
+    .pill-label.blue {
+      right: 15%; transform: translateY(6px);
+      color: #4488ff;
+      border: 1px solid rgba(60,100,255,.4);
+      text-shadow: 0 0 8px rgba(60,100,255,.4);
+    }
+
+    .hotzone.left:hover  ~ .pill-label.red  { opacity: 1; transform: translateY(0); }
+    .hotzone.right:hover ~ .pill-label.blue { opacity: 1; transform: translateY(0); }
+
     .spinner {
-      position:absolute; inset:0; z-index:2; display:grid; place-items:center;
-      background: linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,.2) 40%, rgba(0,0,0,.5));
-      transition: opacity .2s ease; 
+      position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
+      background: rgba(0,0,0,.5);
+      transition: opacity .2s ease;
     }
-    .spinner.hide { opacity:0; pointer-events:none; }
+    .spinner.hide { opacity: 0; pointer-events: none; }
     .ring {
-      width:48px; height:48px; border-radius:50%;
-      border:3px solid rgba(0,255,65,.18); border-top-color:#00ff41;
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 3px solid rgba(0,255,65,.18); border-top-color: #00ff41;
       animation: spin 1s linear infinite;
-      box-shadow: 0 0 16px rgba(0,255,65,.35);
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Custom cursor ring (desktop) */
-    .cursor {
-      position: fixed; left:0; top:0; width:20px; height:20px; margin:-10px 0 0 -10px;
-      border:1px solid rgba(0,255,65,.6); border-radius:50%;
-      pointer-events:none; z-index:9999; mix-blend-mode:screen;
-      transition: transform .07s linear, opacity .2s ease;
-      box-shadow: 0 0 10px rgba(0,255,65,.25);
-    }
-
-    /* Blue & Red click “rumble” */
     @keyframes rumble {
       0% { transform: translate(0,0); }
       20% { transform: translate(-1px, 1px); }
@@ -118,162 +224,134 @@
     }
     .rumble { animation: rumble .15s linear; }
 
-    @media (max-width:600px){
-      .exit { padding:7px 12px; font-size:11px; }
+    @media (max-width: 600px) {
+      .hud-corner { width: 24px; height: 24px; }
+      .hud-tl { top: 10px; left: 10px; }
+      .hud-tr { top: 10px; right: 10px; }
+      .hud-bl { bottom: 10px; left: 10px; }
+      .hud-br { bottom: 10px; right: 10px; }
+      .hud-top { top: 12px; font-size: 12px; }
+      .hud-sub { top: 34px; font-size: 9px; }
+      .hud-bottom { bottom: 12px; font-size: 8px; }
+      .hud-left, .hud-right { display: none; }
+      .pill-label { bottom: 40px; font-size: 10px; padding: 6px 14px; }
+      .pill-label.red { left: 8%; }
+      .pill-label.blue { right: 8%; }
     }
   </style>
 </head>
 <body>
-  <div class="stage">
-    <canvas id="codeRain"></canvas>
+  <div class="pill-stage" id="pillStage">
+    <div class="spinner" id="spinner"><div class="ring"></div></div>
 
-    <div class="wrap">
-      <h1>WHICH PILL DO YOU CHOOSE?</h1>
-      <div class="sub">Choose wisely.</div>
+    <img
+      id="pillArt"
+      src="assets/pill-choice.png"
+      alt="Pill Choice"
+      draggable="false"
+    />
 
-      <div class="pill-frame" id="frame">
-        <button class="exit" id="exitBtn" aria-label="Exit">Exit</button>
+    <canvas class="pill-rain" id="pillRain"></canvas>
+    <div class="pill-scanlines"></div>
+    <div class="pill-scanbar"></div>
+    <div class="pill-vignette"></div>
+    <div class="pill-green-tint"></div>
+    <div class="pill-flicker"></div>
 
-        <!-- Loading until image paints -->
-        <div class="spinner" id="spinner"><div class="ring"></div></div>
+    <div class="hud-corner hud-tl"></div>
+    <div class="hud-corner hud-tr"></div>
+    <div class="hud-corner hud-bl"></div>
+    <div class="hud-corner hud-br"></div>
 
-        <img
-          id="pillArt"
-          class="pill-art"
-          src="final_combined_original_size.jpg"
-          alt="Pill Choice"
-          draggable="false"
-        />
+    <div class="hud-top">WHICH PILL DO YOU CHOOSE?</div>
+    <div class="hud-sub">Choose wisely.</div>
+    <div class="hud-bottom">AWAITING INPUT <span>●</span></div>
+    <div class="hud-left">SYS.MATRIX.CHOICE//02</div>
+    <div class="hud-right">DECISION:PENDING</div>
 
-        <!-- Left = Red (videos.html), Right = Blue (external) -->
-        <div class="hotzone left"  id="redPill"  aria-label="Red Pill"></div>
-        <div class="hotzone right" id="bluePill" aria-label="Blue Pill"></div>
-      </div>
-    </div>
+    <div class="hotzone left"  id="redPill"  aria-label="Red Pill"></div>
+    <div class="hotzone right" id="bluePill" aria-label="Blue Pill"></div>
+    <span class="pill-label red">Red Pill — Enter</span>
+    <span class="pill-label blue">Blue Pill — Leave</span>
   </div>
-
-  <!-- custom cursor -->
-  <div class="cursor" id="cursor"></div>
 
   <script>
   (function(){
-    const frame = document.getElementById('frame');
-    const art   = document.getElementById('pillArt');
+    const stage   = document.getElementById('pillStage');
+    const art     = document.getElementById('pillArt');
     const spinner = document.getElementById('spinner');
-    const red   = document.getElementById('redPill');
-    const blue  = document.getElementById('bluePill');
-    const exit  = document.getElementById('exitBtn');
-    const cursor= document.getElementById('cursor');
+    const red     = document.getElementById('redPill');
+    const blue    = document.getElementById('bluePill');
 
-    const BLUE_URL = "https://google.com";       // external
-    const RED_URL  = "videos.html";              // internal
+    const BLUE_URL = "https://google.com";
+    const RED_URL  = "videos.html";
 
-    /* ===== Spinner hide when image ready ===== */
     if (art.complete) spinner.classList.add('hide');
     else art.addEventListener('load', ()=> spinner.classList.add('hide'));
 
-    /* ===== Parallax tilt (gentle) ===== */
-    let rafId = null;
-    function tilt(px, py){
-      const r = frame.getBoundingClientRect();
-      const x = (px - (r.left + r.width/2)) / (r.width/2);
-      const y = (py - (r.top  + r.height/2)) / (r.height/2);
-      const maxTilt = 6; // degrees
-      frame.style.transform = `rotateX(${-y*maxTilt}deg) rotateY(${x*maxTilt}deg)`;
-    }
-    function resetTilt(){ frame.style.transform = ''; }
-    frame.addEventListener('mousemove', (e)=>{
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(()=>tilt(e.clientX, e.clientY));
-    });
-    frame.addEventListener('mouseleave', ()=>{ resetTilt(); });
-
-    // Touch: a single gentle bump on first touch
-    frame.addEventListener('touchstart', ()=>{
-      frame.style.transform = 'scale(1.01)';
-      setTimeout(()=> frame.style.transform = '', 120);
-    }, {passive:true});
-
-    /* ===== Custom cursor ring (desktop only) ===== */
-    const isTouch = matchMedia("(pointer: coarse)").matches;
-    if (isTouch) { cursor.style.opacity = 0; }
-    else {
-      window.addEventListener('mousemove', (e)=>{
-        cursor.style.opacity = 1;
-        cursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
-      });
-      document.addEventListener('mouseleave', ()=> cursor.style.opacity = 0);
-    }
-
-    /* ===== Haptics helper ===== */
     function vibe(ms){ if (navigator.vibrate) try{ navigator.vibrate(ms); }catch{} }
 
-    /* ===== Fade + anti-back navigate ===== */
     function fadeAndGo(url){
       document.body.classList.add('fadeout');
       setTimeout(()=> { location.replace(url); }, 300);
     }
 
-    /* ===== Click handlers ===== */
     red.addEventListener('click', ()=>{
-      frame.classList.add('rumble');
+      stage.classList.add('rumble');
       vibe(15);
       localStorage.setItem("splashSeen", "true");
-      fadeAndGo(RED_URL);       // replace → prevents back to choice
+      fadeAndGo(RED_URL);
     });
 
     blue.addEventListener('click', ()=>{
-      frame.classList.add('rumble');
+      stage.classList.add('rumble');
       vibe(15);
-      // no flag set; user “opts out”
-      fadeAndGo(BLUE_URL);      // replace → prevents back to choice
-    });
-
-    exit.addEventListener('click', ()=>{
-      // exit behaves like blue (you approved)
-      frame.classList.add('rumble');
-      vibe(10);
       fadeAndGo(BLUE_URL);
     });
 
-    /* ===== Silent auto-redirect to BLUE after 30s ===== */
     const auto = setTimeout(()=> {
       if (document.visibilityState === 'visible') fadeAndGo(BLUE_URL);
     }, 30000);
-
-    // Any choice cancels auto-redirect
     function cancelAuto(){ clearTimeout(auto); }
     red.addEventListener('click', cancelAuto);
     blue.addEventListener('click', cancelAuto);
-    exit.addEventListener('click', cancelAuto);
 
-    /* ===== Subtle Matrix code rain ===== */
-    const cvs = document.getElementById('codeRain');
+    /* Matrix rain */
+    const cvs = document.getElementById('pillRain');
     const ctx = cvs.getContext('2d');
-    let W, H, cols, drops, fontSize = 16, chars = 'アカサタナハマヤラワ012345789abcdef';
+    const chars = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ' +
+                   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                   'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθ';
+    let W, H, cols, drops, fontSize = 16;
 
     function resize(){
-      W = cvs.width = window.innerWidth;
+      W = cvs.width  = window.innerWidth;
       H = cvs.height = window.innerHeight;
       cols = Math.floor(W / fontSize);
-      drops = new Array(cols).fill(0).map(()=>Math.random()*H/fontSize);
+      drops = new Array(cols).fill(0).map(() => -(Math.random() * (H / fontSize)));
+      ctx.font = `${fontSize}px monospace`;
     }
-    window.addEventListener('resize', resize);
+    window.addEventListener('resize', resize, { passive:true });
     resize();
 
+    let running = true;
+    document.addEventListener('visibilitychange', ()=>{ running = document.visibilityState === 'visible'; });
+
     (function tick(){
+      requestAnimationFrame(tick);
+      if (!running) return;
       ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0,0,W,H);
-      ctx.fillStyle = '#00ff41';
-      ctx.font = `${fontSize}px monospace`;
-      for (let i=0;i<cols;i++){
-        const ch = chars[Math.floor(Math.random()*chars.length)];
-        const x = i*fontSize, y = drops[i]*fontSize;
-        ctx.fillText(ch, x, y);
-        if (y > H && Math.random() > 0.987) drops[i] = 0;
+      for (let i = 0; i < cols; i++){
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+        ctx.fillStyle = '#afffbf';
+        ctx.fillText(chars[(Math.random() * chars.length) | 0], x, y);
+        ctx.fillStyle = '#00ff41';
+        ctx.fillText(chars[(Math.random() * chars.length) | 0], x, y - fontSize);
+        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 20);
         drops[i] += 0.6;
       }
-      requestAnimationFrame(tick);
     })();
   })();
   </script>

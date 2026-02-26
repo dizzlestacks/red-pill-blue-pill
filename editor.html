@@ -3,473 +3,442 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Video JSON Editor (v4)</title>
+  <title>Video JSON Editor</title>
   <link rel="stylesheet" href="themes.css">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
-    :root { box-sizing:border-box; }
+    :root { box-sizing:border-box; --glow: rgba(0,255,65,.35); --glow-strong: rgba(0,255,65,.6); }
     *,*::before,*::after { box-sizing:inherit; }
-    html,body { margin:0; padding:0; overflow-x:hidden; }
+    html,body { margin:0; padding:0; overflow-x:hidden; background:#0a0a0a; }
     body{
-      background:var(--bg);
-      color:var(--fg);
+      background:var(--bg, #0a0a0a);
+      color:var(--fg, #c0ffd0);
       font-family:'Share Tech Mono',monospace;
-      transition: background .25s ease, color .25s ease;
+      transition: background .3s, color .3s;
     }
+
+    .scanlines {
+      position:fixed; inset:0; z-index:9999; pointer-events:none;
+      background: repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 3px);
+    }
+
     .wrap{
-      max-width: 980px;
+      max-width: 1020px;
       margin: 0 auto;
-      padding: 16px 14px 90px;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:16px;
+      padding: 20px 16px 100px;
+      display:flex; flex-direction:column; gap:16px;
     }
 
-    .row-top{
-      width:100%;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
+    .header {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; flex-wrap:wrap; padding-bottom:12px;
+      border-bottom: 1px solid rgba(0,255,65,.12);
     }
-    .row-top .left,
-    .row-top .right{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
+    .header-title {
+      font-size: clamp(14px, 3vw, 18px);
+      color: #9fffb3;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      text-shadow: 0 0 12px var(--glow);
+      animation: titleGlitch 6s infinite;
+    }
+    @keyframes titleGlitch {
+      0%,100% { text-shadow: 0 0 12px var(--glow); transform:none; }
+      18% { text-shadow: -2px 0 rgba(255,0,65,.5), 2px 0 rgba(0,255,200,.5); transform:translate(-1px,0); }
+      19.5% { text-shadow: 2px 0 rgba(255,0,65,.5), -2px 0 rgba(0,255,200,.5); transform:translate(1px,0); }
+      21% { text-shadow: 0 0 12px var(--glow); transform:none; }
+    }
+    .header-controls {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
     }
 
-    label.small{ font-size:.9rem; opacity:.85; }
-    select#themeSelect{
-      background: var(--card);
-      color: var(--fg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 10px;
-      min-width: 170px;
-      max-width: 70vw;
-      box-shadow: var(--shadow);
-      font-family:inherit;
+    select, input[type="text"], input[type="file"], input:not([type]), textarea {
+      width:100%; padding:10px 12px;
+      border:1px solid rgba(0,255,65,.18);
+      border-radius:6px;
+      background: rgba(0,0,0,.5);
+      color: var(--fg, #c0ffd0);
+      font-family:inherit; font-size:.95rem;
+      letter-spacing:.03em;
+      transition: border-color .2s, box-shadow .2s;
+      outline:none;
     }
+    input:focus, textarea:focus, select:focus {
+      border-color: rgba(0,255,65,.45);
+      box-shadow: 0 0 12px rgba(0,255,65,.12), inset 0 0 20px rgba(0,255,65,.03);
+    }
+    ::placeholder { color: rgba(0,255,65,.25); }
+    textarea{ resize:vertical; min-height:100px; }
 
     .card{
       width:100%;
-      background:var(--card);
-      border:1px solid var(--border);
+      background: rgba(0,0,0,.4);
+      border:1px solid rgba(0,255,65,.12);
       border-radius:10px;
-      box-shadow:var(--shadow);
-      padding:14px;
+      padding:18px;
+      backdrop-filter: blur(4px);
+      transition: border-color .2s;
     }
-    h1,h2,h3{ margin:0 0 10px 0; text-align:center; }
-    h1{ font-size:1.25rem; color:var(--muted); }
-    h2{ font-size:1.02rem; color:var(--muted); text-align:left; }
-    h3{ font-size:.95rem; color:var(--muted); text-align:left; }
+    .card:hover { border-color: rgba(0,255,65,.22); }
+
+    .card-title {
+      margin:0 0 14px; font-size:1rem;
+      color:#9fffb3; letter-spacing:.08em;
+      text-transform:uppercase;
+      display:flex; align-items:center; gap:8px;
+    }
+    .card-title .badge {
+      font-size:.75rem; padding:2px 8px;
+      border-radius:999px;
+      background: rgba(0,255,65,.1);
+      border:1px solid rgba(0,255,65,.25);
+      color:#9fffb3;
+    }
 
     .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      display:grid; grid-template-columns:1fr 1fr;
+      gap:12px;
     }
     @media (max-width:780px){ .grid{grid-template-columns:1fr;} }
 
-    input, textarea, select, button{
-      width:100%;
-      padding:10px 12px;
-      border:1px solid var(--border);
-      border-radius:8px;
-      background:var(--card);
-      color:var(--fg);
-      font-family:inherit;
-      font-size:1rem;
-      letter-spacing:.02em;
+    .field-group { display:flex; flex-direction:column; gap:4px; }
+    .field-label {
+      font-size:.78rem; color:rgba(0,255,65,.45);
+      text-transform:uppercase; letter-spacing:.08em;
     }
-    textarea{ resize:vertical; min-height:110px; }
+    .field-help {
+      font-size:.75rem; color:rgba(0,255,65,.3);
+      line-height:1.3;
+    }
 
-    .row{
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      margin-top:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    .row label{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      cursor:pointer;
-    }
-    .row label input{ width:auto; }
-
-    .btns{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:center;
-      margin-top:10px;
-    }
     .btn{
       cursor:pointer;
-      border:1px solid var(--border);
-      background:color-mix(in srgb, var(--accent) 10%, var(--card));
-      color:var(--fg);
-      font-weight:700;
-      border-radius:8px;
-      padding:10px 12px;
+      border:1px solid rgba(0,255,65,.25);
+      background: rgba(0,255,65,.06);
+      color: #c0ffd0;
+      font-weight:700; font-family:inherit;
+      border-radius:6px;
+      padding:9px 14px;
       text-transform:uppercase;
-      letter-spacing:.06em;
+      letter-spacing:.08em;
+      font-size:.82rem;
+      transition: background .15s, border-color .15s, transform .1s, box-shadow .15s;
+      white-space:nowrap;
     }
-    .btn.primary{ border:1px solid var(--accent); }
-    .btn.danger{ border:1px solid #a33; }
-    .btn.small{ padding:7px 10px; font-size:.85rem; }
-    .btn.ghost{ background:transparent; }
+    .btn:hover{
+      background: rgba(0,255,65,.12);
+      border-color: rgba(0,255,65,.45);
+      box-shadow: 0 0 14px rgba(0,255,65,.1);
+    }
+    .btn:active { transform:scale(.97); }
+    .btn.primary{ border-color: rgba(0,255,65,.5); background: rgba(0,255,65,.12); }
+    .btn.primary:hover { background: rgba(0,255,65,.2); box-shadow: 0 0 20px rgba(0,255,65,.15); }
+    .btn.danger{ border-color: rgba(255,60,60,.4); color:#ff9999; }
+    .btn.danger:hover{ background:rgba(255,60,60,.1); border-color:rgba(255,60,60,.6); }
+    .btn.ghost{ background:transparent; border-color:rgba(0,255,65,.15); }
+    .btn.small{ padding:7px 10px; font-size:.78rem; }
+    .btn:disabled { opacity:.35; cursor:default; }
 
-    .muted{
-      color:color-mix(in srgb,var(--fg)70%,transparent);
-      font-size:.9rem;
-      text-align:center;
-    }
-    .help{
-      font-size:.8rem;
-      color:color-mix(in srgb,var(--fg)70%,transparent);
-      margin-top:2px;
-      line-height:1.35;
-    }
-
-    details{
-      width:100%;
-      border:1px dashed var(--border);
-      border-radius:10px;
-      padding:10px;
-      background:color-mix(in srgb,var(--card)92%,var(--bg));
-    }
-    summary{
-      cursor:pointer;
-      list-style:none;
-      font-weight:800;
-      display:flex;
+    .btn-row{
+      display:flex; flex-wrap:wrap; gap:8px;
       align-items:center;
-      gap:8px;
-      text-transform:uppercase;
-      letter-spacing:.06em;
     }
-    summary::-webkit-details-marker{ display:none; }
+    .btn-row.center { justify-content:center; }
+    .btn-row.between { justify-content:space-between; }
+
+    .row-checks {
+      display:flex; gap:16px; flex-wrap:wrap; align-items:center;
+      margin-top:6px;
+    }
+    .row-checks label {
+      display:flex; align-items:center; gap:6px; cursor:pointer;
+      font-size:.88rem; color: rgba(0,255,65,.6);
+    }
+    .row-checks input[type="checkbox"] { width:auto; accent-color:#00ff41; }
+
+    .section {
+      width:100%;
+      border:1px solid rgba(0,255,65,.10);
+      border-radius:10px;
+      overflow:hidden;
+      transition: border-color .2s;
+    }
+    .section:hover { border-color: rgba(0,255,65,.18); }
+    .section-header {
+      padding:12px 16px;
+      background: rgba(0,255,65,.04);
+      cursor:pointer; user-select:none;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      font-weight:700; text-transform:uppercase;
+      letter-spacing:.08em; font-size:.88rem;
+      color: #9fffb3;
+      transition: background .15s;
+    }
+    .section-header:hover { background: rgba(0,255,65,.08); }
+    .section-header .chevron {
+      transition: transform .25s;
+      font-size:.75rem;
+    }
+    .section.collapsed .section-header .chevron { transform: rotate(-90deg); }
+    .section-body {
+      padding:14px 16px;
+      max-height:2000px; overflow:hidden;
+      transition: max-height .35s ease, padding .25s ease, opacity .25s;
+      opacity:1;
+    }
+    .section.collapsed .section-body {
+      max-height:0; padding-top:0; padding-bottom:0; opacity:0;
+    }
+
+    .preview-wrap{
+      margin-top:12px;
+      border:1px solid rgba(0,255,65,.10);
+      border-radius:8px;
+      padding:12px;
+      background: rgba(0,0,0,.3);
+    }
+    .preview-top{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; flex-wrap:wrap; margin-bottom:8px;
+    }
+    .preview-label {
+      font-size:.82rem; color:rgba(0,255,65,.5);
+      text-transform:uppercase; letter-spacing:.08em;
+    }
+    .preview-embed{
+      width:100%; aspect-ratio:16/9;
+      border-radius:6px; overflow:hidden;
+      background:#000; display:block;
+      border:1px solid rgba(0,255,65,.08);
+    }
+    .preview-embed iframe, .preview-embed video{
+      width:100%; height:100%; border:0; display:block;
+    }
+    .preview-meta{
+      margin-top:6px; font-size:.82rem;
+      color: rgba(0,255,65,.4);
+    }
+    .preview-tags{ margin-top:4px; }
+    .preview-tag{
+      display:inline-block; margin:2px 4px 0 0;
+      padding:2px 8px; border-radius:999px;
+      background: rgba(0,255,65,.08);
+      border:1px solid rgba(0,255,65,.15);
+      color: rgba(0,255,65,.6);
+      font-size:.72rem;
+    }
+    .thumb-line{
+      display:flex; gap:8px; align-items:center;
+      flex-wrap:wrap; margin-top:6px;
+      font-size:.8rem; color:rgba(0,255,65,.4);
+    }
+    .thumb-line img{
+      width:80px; height:auto; border-radius:4px;
+      border:1px solid rgba(0,255,65,.12);
+    }
 
     pre{
       width:100%;
-      background:var(--bg);
-      border:1px solid var(--border);
-      color:var(--fg);
-      padding:14px;
-      border-radius:10px;
-      overflow:auto;
-      white-space:pre-wrap;
+      background: rgba(0,0,0,.6);
+      border:1px solid rgba(0,255,65,.12);
+      color: #c0ffd0;
+      padding:14px; border-radius:8px;
+      overflow:auto; white-space:pre-wrap;
       word-break:break-word;
       font-family:'Share Tech Mono',monospace;
-      font-size:.92rem;
+      font-size:.88rem;
+      max-height:400px;
     }
 
-    .hint{
-      text-align:center;
-      font-size:.9rem;
-      color:color-mix(in srgb,var(--fg)70%,transparent);
-      margin-top:6px;
-    }
-
-    /* Live preview */
-    .preview-wrap{
-      margin-top:14px;
-      border:1px dashed var(--border);
-      border-radius:10px;
-      padding:10px;
-      background:color-mix(in srgb,var(--bg)96%,var(--card));
-    }
-    .preview-top{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .preview-title{
-      margin:0 0 6px;
-      font-size:1rem;
-      text-align:left;
-      color:var(--muted);
-      font-weight:800;
-      letter-spacing:.04em;
-    }
-    .preview-embed{
-      width:100%;
-      aspect-ratio:16/9;
-      border-radius:8px;
-      overflow:hidden;
-      background:#000;
-      display:block;
-    }
-    .preview-embed iframe,
-    .preview-embed video{
-      width:100%;
-      height:100%;
-      border:0;
-      display:block;
-    }
-    .preview-meta{
-      margin-top:6px;
-      font-size:.9rem;
-      color:color-mix(in srgb,var(--fg)70%,transparent);
-    }
-    .preview-tags{
-      margin-top:4px;
-      font-size:.85rem;
-    }
-    .preview-tag{
-      display:inline-block;
-      margin:2px 4px 0 0;
-      padding:3px 7px;
-      border-radius:999px;
-      background:var(--tag-bg);
-      color:var(--tag-fg);
-      font-size:.78rem;
-    }
-    .thumb-line{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
-      margin-top:6px;
-      font-size:.85rem;
-      color:color-mix(in srgb,var(--fg)70%,transparent);
-    }
-    .thumb-line img{
-      width:84px;
-      height:auto;
-      border-radius:6px;
-      border:1px solid var(--border);
-      background:#000;
-    }
-
-    /* Status pills */
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:4px 8px;
-      border-radius:999px;
-      font-size:.78rem;
-      border:1px solid var(--border);
-      background:color-mix(in srgb,var(--card)92%,var(--bg));
-      color:var(--fg);
-      white-space:nowrap;
+      display:inline-flex; align-items:center; gap:5px;
+      padding:3px 9px; border-radius:999px;
+      font-size:.72rem; white-space:nowrap;
+      border:1px solid rgba(0,255,65,.15);
+      background:rgba(0,0,0,.3);
+      color: rgba(0,255,65,.5);
     }
-    .pill.good{ border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
-    .pill.bad{ border-color:#a33; }
+    .pill.good{ border-color: rgba(0,255,65,.4); color:#9fffb3; }
+    .pill.bad{ border-color:rgba(255,60,60,.4); color:#ff9999; }
 
-    /* Tag suggestions dropdown */
-    .suggest{
-      position:relative;
-    }
+    .suggest{ position:relative; }
     .suggest-box{
-      position:absolute;
-      left:0;
-      right:0;
-      top:100%;
-      z-index:20;
-      background:var(--card);
-      border:1px solid var(--border);
-      border-top:none;
-      border-radius:0 0 10px 10px;
-      max-height:220px;
-      overflow:auto;
+      position:absolute; left:0; right:0; top:100%; z-index:20;
+      background: rgba(10,10,10,.95);
+      border:1px solid rgba(0,255,65,.2);
+      border-top:none; border-radius:0 0 8px 8px;
+      max-height:200px; overflow:auto;
       display:none;
-      box-shadow:var(--shadow);
+      backdrop-filter: blur(8px);
     }
     .suggest-item{
-      padding:8px 10px;
-      font-size:.92rem;
+      padding:8px 12px; font-size:.88rem;
       cursor:pointer;
-      border-bottom:1px solid rgba(255,255,255,.04);
+      border-bottom:1px solid rgba(0,255,65,.05);
+      transition: background .1s;
     }
     .suggest-item:last-child{ border-bottom:none; }
-    .suggest-item:hover,
-    .suggest-item.active{
-      background:color-mix(in srgb, var(--accent) 16%, var(--bg));
+    .suggest-item:hover, .suggest-item.active{
+      background: rgba(0,255,65,.1);
     }
 
-    /* Import drop zone */
     .dropzone{
-      border:1px dashed var(--border);
-      border-radius:10px;
-      padding:10px;
-      background:color-mix(in srgb,var(--card)92%,var(--bg));
-      display:flex;
-      flex-direction:column;
-      gap:8px;
+      border:1px dashed rgba(0,255,65,.18);
+      border-radius:8px; padding:14px;
+      background: rgba(0,0,0,.3);
+      transition: border-color .2s, box-shadow .2s;
     }
     .dropzone.dragover{
-      border-color:var(--accent);
-      box-shadow:0 0 14px color-mix(in srgb,var(--accent)35%,transparent);
+      border-color: rgba(0,255,65,.5);
+      box-shadow: 0 0 20px rgba(0,255,65,.1);
     }
 
-    /* Batch list (interactive) */
-    .batch-tools{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      margin-top:6px;
+    .batch-search {
+      width:100%; margin-bottom:10px;
     }
-    .batch-tools .left,
-    .batch-tools .right{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    .batch-list{
-      margin-top:10px;
-      font-family:'Share Tech Mono',monospace;
-      font-size:.92rem;
-      white-space:normal;
-    }
-    .batch-item{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      padding:8px 8px;
-      border-radius:10px;
-      border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
-      background:color-mix(in srgb,var(--bg)92%,var(--card));
+    .batch-stats {
+      font-size:.78rem; color:rgba(0,255,65,.35);
       margin-bottom:8px;
+      display:flex; gap:14px; flex-wrap:wrap;
     }
-    .batch-item.dragging{ opacity:.6; }
+    .batch-list{ font-size:.88rem; }
+    .batch-item{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:8px; padding:10px 12px;
+      border-radius:8px;
+      border:1px solid rgba(0,255,65,.08);
+      background: rgba(0,0,0,.3);
+      margin-bottom:6px;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    .batch-item:hover {
+      border-color: rgba(0,255,65,.2);
+      background: rgba(0,255,65,.03);
+    }
+    .batch-item.dragging{ opacity:.5; transform:scale(.98); }
+    .batch-item.editing {
+      border-color: rgba(0,255,65,.4);
+      box-shadow: 0 0 12px rgba(0,255,65,.08);
+    }
     .batch-item .main{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      min-width:0;
-      flex:1 1 auto;
+      display:flex; gap:10px; align-items:flex-start;
+      min-width:0; flex:1 1 auto;
     }
-    .batch-item .main .meta{
-      min-width:0;
-    }
+    .batch-item .main .meta{ min-width:0; }
     .batch-item .title{
-      font-weight:800;
-      line-height:1.25;
-      word-break:break-word;
+      font-weight:700; line-height:1.3;
+      word-break:break-word; color:#c0ffd0;
     }
     .batch-item .sub{
-      font-size:.82rem;
-      opacity:.75;
-      margin-top:2px;
-      line-height:1.25;
+      font-size:.75rem; opacity:.5;
+      margin-top:2px; line-height:1.3;
     }
     .batch-item .actions{
-      display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      flex-shrink:0;
+      display:flex; gap:5px; flex-wrap:wrap;
+      justify-content:flex-end; flex-shrink:0;
     }
     .mini-btn{
-      padding:6px 8px;
-      border-radius:8px;
-      border:1px solid var(--border);
-      background:var(--card);
-      color:var(--fg);
-      font-size:.78rem;
-      cursor:pointer;
-      text-transform:uppercase;
-      letter-spacing:.06em;
+      padding:5px 8px; border-radius:5px;
+      border:1px solid rgba(0,255,65,.15);
+      background: rgba(0,0,0,.3);
+      color: rgba(0,255,65,.6);
+      font-size:.72rem; cursor:pointer;
+      text-transform:uppercase; letter-spacing:.04em;
+      font-family:inherit;
+      transition: background .12s, border-color .12s;
     }
-    .mini-btn.danger{ border-color:#a33; }
+    .mini-btn:hover { background:rgba(0,255,65,.08); border-color:rgba(0,255,65,.3); }
+    .mini-btn.danger{ border-color:rgba(255,60,60,.25); color:#ff9999; }
+    .mini-btn.danger:hover{ background:rgba(255,60,60,.08); border-color:rgba(255,60,60,.4); }
     .mini-btn.current{
-      border-color:var(--accent);
-      box-shadow:0 0 10px color-mix(in srgb,var(--accent)35%,transparent);
+      border-color:rgba(0,255,65,.5);
+      box-shadow: 0 0 8px rgba(0,255,65,.15);
+      color:#9fffb3;
     }
     .drag-handle{
-      cursor:grab;
-      user-select:none;
-      opacity:.8;
-      padding:2px 6px;
-      border-radius:8px;
-      border:1px dashed color-mix(in srgb, var(--border) 70%, transparent);
-      font-size:.9rem;
-      line-height:1;
+      cursor:grab; user-select:none; opacity:.5;
+      padding:2px 4px; font-size:.85rem;
     }
-    .check{
-      width:auto;
-      transform: translateY(1px);
-    }
+    .check{ width:auto; accent-color:#00ff41; }
 
-    /* Category manager */
     .cat-grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
+      display:grid; grid-template-columns:1fr 1fr; gap:12px;
     }
     @media (max-width:780px){ .cat-grid{grid-template-columns:1fr;} }
     .cat-list{
-      border:1px solid var(--border);
-      border-radius:10px;
-      padding:10px;
-      background:color-mix(in srgb,var(--bg)92%,var(--card));
-      max-height:260px;
-      overflow:auto;
+      border:1px solid rgba(0,255,65,.1);
+      border-radius:8px; padding:10px;
+      background:rgba(0,0,0,.3);
+      max-height:240px; overflow:auto;
     }
     .cat-row{
-      display:flex;
-      align-items:center;
+      display:flex; align-items:center;
       justify-content:space-between;
-      gap:8px;
-      padding:6px 0;
-      border-bottom:1px dashed rgba(255,255,255,.04);
+      gap:8px; padding:6px 0;
+      border-bottom:1px solid rgba(0,255,65,.05);
     }
     .cat-row:last-child{ border-bottom:none; }
-    .cat-row .name{ font-weight:800; font-size:.92rem; }
-    .cat-row .count{ opacity:.7; font-size:.82rem; }
-    .cat-row .btns{ display:flex; gap:6px; flex-wrap:wrap; }
+    .cat-row .name{ font-weight:700; font-size:.88rem; color:#c0ffd0; }
+    .cat-row .count{ opacity:.4; font-size:.78rem; }
 
-    /* Toast */
     .toast{
-      position: fixed;
-      left: 50%;
-      bottom: 20px;
-      transform: translateX(-50%);
-      background: color-mix(in srgb, var(--card) 92%, var(--bg));
-      color: var(--fg);
-      border:1px solid var(--accent);
-      padding: 8px 14px;
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      opacity:0;
-      pointer-events:none;
-      transition: opacity .2s ease, transform .2s ease;
-      z-index: 50;
-      font-size:.92rem;
-      text-transform:uppercase;
-      letter-spacing:.06em;
+      position:fixed; left:50%; bottom:24px;
+      transform:translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,.85);
+      color:#9fffb3;
+      border:1px solid rgba(0,255,65,.4);
+      padding:10px 20px;
+      border-radius:8px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 30px rgba(0,255,65,.1);
+      opacity:0; pointer-events:none;
+      transition: opacity .25s, transform .25s;
+      z-index:999;
+      font-size:.85rem;
+      text-transform:uppercase; letter-spacing:.08em;
     }
     .toast.show{
       opacity:1;
-      transform: translateX(-50%) translateY(-4px);
+      transform:translateX(-50%) translateY(0);
     }
+
+    .shortcut-hint {
+      font-size:.68rem; color:rgba(0,255,65,.2);
+      margin-top:4px; text-align:center;
+    }
+
+    .select-theme {
+      background: rgba(0,0,0,.5);
+      color: #c0ffd0;
+      border:1px solid rgba(0,255,65,.2);
+      border-radius:6px;
+      padding:6px 10px;
+      font-family:inherit; font-size:.85rem;
+      min-width:150px;
+    }
+
+    @media (max-width:600px) {
+      .wrap { padding: 12px 10px 80px; gap:12px; }
+      .card { padding:14px; }
+      .batch-item { flex-direction:column; align-items:flex-start; }
+      .batch-item .actions { width:100%; justify-content:flex-start; }
+    }
+
+    .hidden { display:none !important; }
+
+    datalist { display:none; }
   </style>
 </head>
 
 <body class="dark">
+  <div class="scanlines"></div>
   <div class="wrap">
 
-    <!-- Top row: theme + history -->
-    <div class="row-top">
-      <div class="left">
-        <label class="small" for="themeSelect">Theme</label>
-        <select id="themeSelect">
+    <div class="header">
+      <div class="header-title">Video JSON Editor</div>
+      <div class="header-controls">
+        <select id="themeSelect" class="select-theme">
           <option value="dark">Dark</option>
           <option value="light">Light</option>
           <option value="grey">Grey</option>
@@ -501,275 +470,266 @@
           <option value="gold">Gold</option>
           <option value="ice">Ice</option>
         </select>
-      </div>
-
-      <div class="right">
-        <button class="btn small ghost" id="undoBtn" type="button">↶ Undo</button>
-        <button class="btn small ghost" id="redoBtn" type="button">↷ Redo</button>
+        <button class="btn ghost small" id="undoBtn" type="button">Undo</button>
+        <button class="btn ghost small" id="redoBtn" type="button">Redo</button>
       </div>
     </div>
 
-    <!-- Single JSON -->
     <div class="card">
-      <h1>Video JSON Builder (v4)</h1>
+      <div class="card-title">Build Video Entry</div>
 
-      <!-- Templates -->
-      <details>
-        <summary>⚡ Templates</summary>
-        <div class="help">One click presets (you can edit after). We can add more anytime.</div>
-        <div class="btns" style="margin-top:8px;">
-          <button class="btn small" type="button" data-template="prophecy">Prophecy Ministries</button>
-          <button class="btn small" type="button" data-template="truth">Truth Unedited</button>
-          <button class="btn small" type="button" data-template="generic">Generic</button>
+      <div class="section" id="templateSection">
+        <div class="section-header" data-toggle="templateSection">
+          Templates <span class="chevron">&#9660;</span>
         </div>
-      </details>
-
-      <div class="grid" style="margin-top:10px;">
-        <div>
-          <input id="title" placeholder="Title" />
-          <div class="help">Required.</div>
-        </div>
-
-        <div>
-          <input id="yt" placeholder="YouTube link or ID (video/playlist/shorts)" />
-          <div class="help" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <button class="btn small primary" type="button" id="fetchMetaBtn">Autofill</button>
-            <button class="btn small" type="button" id="normalizeBtn">Normalize URL</button>
-            <span id="ytPill" class="pill">Paste a link…</span>
+        <div class="section-body">
+          <div class="field-help" style="margin-bottom:8px;">One-click presets. Edit after applying.</div>
+          <div class="btn-row">
+            <button class="btn small" type="button" data-template="prophecy">Prophecy</button>
+            <button class="btn small" type="button" data-template="truth">Truth Unedited</button>
+            <button class="btn small" type="button" data-template="generic">Generic</button>
           </div>
-          <div id="ytStatus" class="help"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:14px;">
+        <div class="field-group">
+          <label class="field-label" for="title">Title</label>
+          <input id="title" placeholder="Video title (required)" />
         </div>
 
-        <div>
-          <input id="url" placeholder="Direct video URL (optional)" />
-          <div class="help">Optional fallback MP4 / direct link.</div>
+        <div class="field-group">
+          <label class="field-label" for="yt">YouTube Link / ID</label>
+          <input id="yt" placeholder="Paste URL, video ID, or playlist ID" />
+          <div class="btn-row" style="margin-top:4px;">
+            <button class="btn small primary" type="button" id="fetchMetaBtn">Autofill</button>
+            <button class="btn small" type="button" id="normalizeBtn">Normalize</button>
+            <span id="ytPill" class="pill">Paste a link...</span>
+          </div>
+          <div id="ytStatus" class="field-help"></div>
         </div>
 
-        <div>
-          <input id="category1" placeholder="Categories (comma-separated)" list="savedCategories" />
-          <div class="help">Multiple categories allowed: <code>prophecy, news, bible</code></div>
+        <div class="field-group">
+          <label class="field-label" for="url">Direct Video URL</label>
+          <input id="url" placeholder="Optional fallback MP4 link" />
         </div>
 
-        <div>
-          <input id="category2" placeholder="More categories (optional)" list="savedCategories" />
-          <div class="help">Extra categories (also comma-separated).</div>
+        <div class="field-group">
+          <label class="field-label" for="category1">Categories</label>
+          <input id="category1" placeholder="Comma-separated" list="savedCategories" />
         </div>
 
-        <div class="suggest">
-          <input id="tags" placeholder="Tags (comma-separated)" autocomplete="off" />
-          <div class="help">Suggestions appear while typing. Use <code>#</code> optional, it’ll be cleaned.</div>
+        <div class="field-group">
+          <label class="field-label" for="category2">More Categories</label>
+          <input id="category2" placeholder="Optional extra categories" list="savedCategories" />
+        </div>
+
+        <div class="field-group suggest">
+          <label class="field-label" for="tags">Tags</label>
+          <input id="tags" placeholder="Comma-separated" autocomplete="off" />
           <div id="tagSuggest" class="suggest-box"></div>
         </div>
       </div>
 
       <datalist id="savedCategories"></datalist>
 
-      <!-- Flags -->
-      <div class="row">
+      <div class="row-checks">
         <label><input type="checkbox" id="featured"> Featured</label>
         <label><input type="checkbox" id="pinned"> Pinned</label>
       </div>
 
-      <!-- Live preview -->
       <div class="preview-wrap">
         <div class="preview-top">
-          <h2 class="preview-title">Preview</h2>
-          <div class="row" style="margin:0;">
-            <button class="btn small" type="button" id="testInHubBtn">Test in Hub</button>
-          </div>
+          <span class="preview-label">Live Preview</span>
+          <button class="btn small" type="button" id="testInHubBtn">Test in Hub</button>
         </div>
-
         <div id="previewEmbed" class="preview-embed"></div>
         <div id="previewMeta" class="preview-meta"></div>
         <div class="thumb-line" id="thumbLine" style="display:none;">
-          <span>Thumbnail:</span>
-          <img id="thumbImg" alt="thumbnail preview" loading="lazy" decoding="async">
+          <span>Thumb:</span>
+          <img id="thumbImg" alt="thumbnail" loading="lazy" decoding="async">
           <span id="thumbText"></span>
         </div>
         <div id="previewTags" class="preview-tags"></div>
       </div>
 
-      <div class="btns">
+      <div class="btn-row center" style="margin-top:14px;">
         <button class="btn primary" id="genOne" type="button">Generate JSON</button>
         <button class="btn" id="copyOne" type="button">Copy JSON</button>
-        <button class="btn danger" id="clearForm" type="button">Clear Form</button>
+        <button class="btn danger" id="clearForm" type="button">Clear</button>
       </div>
+      <div class="shortcut-hint">Ctrl+Enter = Generate &middot; Ctrl+Z = Undo &middot; Esc = Clear</div>
 
-      <pre id="output">Fill the form then Generate…</pre>
-      <div class="hint">Outputs match your <code>videos.json</code> item format.</div>
+      <pre id="output">Fill the form then Generate...</pre>
     </div>
 
-    <!-- Import / Export -->
-    <details open>
-      <summary>📥 Import / 📤 Export</summary>
-
-      <div class="dropzone" id="dropzone">
-        <div class="help">
-          Import an existing <code>videos.json</code> (drag & drop) or choose a file. This loads into the batch list so you can edit older items.
-        </div>
-        <div class="btns" style="margin-top:2px;">
-          <input id="fileInput" type="file" accept=".json,application/json" />
-          <button class="btn small" id="importFromLocalBtn" type="button">Import from file</button>
-        </div>
-        <div class="help" id="importStatus"></div>
+    <div class="section" id="importSection">
+      <div class="section-header" data-toggle="importSection">
+        Import / Export <span class="chevron">&#9660;</span>
       </div>
-
-      <div class="btns" style="margin-top:10px;">
-        <button class="btn small" id="downloadVideosJSON" type="button">Download videos.json</button>
-        <button class="btn small" id="downloadVideosArray" type="button">Download videos[] only</button>
-        <button class="btn small" id="copyFullJSON" type="button">Copy videos.json</button>
-      </div>
-
-      <div class="help">
-        Exported JSON format: <code>{"popup":{...},"videos":[...]}</code> if popup is enabled, otherwise <code>{"videos":[...]}</code>.
-      </div>
-    </details>
-
-    <!-- Batch panel -->
-    <details id="batchPanel" open>
-      <summary>📦 Batch Builder (Edit + Reorder + Bulk)</summary>
-
-      <div class="batch-tools">
-        <div class="left">
-          <button class="btn small primary" id="addBatch" type="button">Add to Batch</button>
-          <button class="btn small" id="newItem" type="button">New Item</button>
-          <button class="btn small" id="cloneItem" type="button">Clone Current</button>
+      <div class="section-body">
+        <div class="dropzone" id="dropzone">
+          <div class="field-help">Drag & drop a <code>videos.json</code> or choose a file to import into the batch list.</div>
+          <div class="btn-row" style="margin-top:6px;">
+            <input id="fileInput" type="file" accept=".json,application/json" style="max-width:240px;" />
+            <button class="btn small" id="importFromLocalBtn" type="button">Import</button>
+          </div>
+          <div class="field-help" id="importStatus"></div>
         </div>
-        <div class="right">
-          <button class="btn small" id="genBatch" type="button">Generate Batch JSON</button>
-          <button class="btn small" id="copyBatch" type="button">Copy</button>
-          <button class="btn small danger" id="clearBatch" type="button">Clear</button>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn small" id="downloadVideosJSON" type="button">Download videos.json</button>
+          <button class="btn small" id="downloadVideosArray" type="button">Download videos[] only</button>
+          <button class="btn small" id="copyFullJSON" type="button">Copy Full JSON</button>
         </div>
       </div>
+    </div>
 
-      <!-- Bulk actions -->
-      <details style="margin-top:10px;">
-        <summary>🧰 Bulk Actions</summary>
-        <div class="help">Select items using the checkboxes in the batch list, then run an action.</div>
+    <div class="section" id="batchSection">
+      <div class="section-header" data-toggle="batchSection">
+        Batch Builder <span class="badge" id="batchCount">0</span>
+        <span class="chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="btn-row between" style="margin-bottom:10px;">
+          <div class="btn-row">
+            <button class="btn small primary" id="addBatch" type="button">Add to Batch</button>
+            <button class="btn small" id="newItem" type="button">New</button>
+            <button class="btn small" id="cloneItem" type="button">Clone</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn small" id="genBatch" type="button">Gen Batch JSON</button>
+            <button class="btn small" id="copyBatch" type="button">Copy</button>
+            <button class="btn small danger" id="clearBatch" type="button">Clear All</button>
+          </div>
+        </div>
 
-        <div class="grid" style="margin-top:10px;">
+        <div class="section" id="bulkSection" style="margin-bottom:10px;">
+          <div class="section-header" data-toggle="bulkSection">
+            Bulk Actions <span class="chevron">&#9660;</span>
+          </div>
+          <div class="section-body">
+            <div class="grid">
+              <div class="field-group">
+                <label class="field-label">Bulk Tag</label>
+                <input id="bulkTag" placeholder="Single tag" />
+              </div>
+              <div class="field-group">
+                <label class="field-label">Bulk Category</label>
+                <input id="bulkCategory" placeholder="Single category" />
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:8px;">
+              <button class="btn small" id="bulkAddTag" type="button">+Tag</button>
+              <button class="btn small" id="bulkRemoveTag" type="button">-Tag</button>
+              <button class="btn small" id="bulkAddCategory" type="button">+Cat</button>
+              <button class="btn small" id="bulkSetPinned" type="button">Pin</button>
+              <button class="btn small" id="bulkUnsetPinned" type="button">Unpin</button>
+              <button class="btn small" id="bulkSetFeatured" type="button">Feature</button>
+              <button class="btn small" id="bulkUnsetFeatured" type="button">Unfeature</button>
+              <button class="btn small danger" id="bulkDelete" type="button">Delete Sel.</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section" id="cleanupSection" style="margin-bottom:10px;">
+          <div class="section-header" data-toggle="cleanupSection">
+            Cleanup Tools <span class="chevron">&#9660;</span>
+          </div>
+          <div class="section-body">
+            <div class="btn-row">
+              <button class="btn small" id="cleanupTrim" type="button">Trim</button>
+              <button class="btn small" id="cleanupNormalizeTags" type="button">Normalize Tags</button>
+              <button class="btn small" id="cleanupDedupe" type="button">Deduplicate</button>
+              <button class="btn small" id="cleanupSortAZ" type="button">Sort A-Z</button>
+              <button class="btn small" id="cleanupSortNewest" type="button">Sort Newest</button>
+            </div>
+          </div>
+        </div>
+
+        <input class="batch-search" id="batchSearch" placeholder="Search batch items..." />
+        <div class="batch-stats" id="batchStats"></div>
+        <div id="batchList" class="batch-list">No items in batch yet.</div>
+      </div>
+    </div>
+
+    <div class="section collapsed" id="popupSection">
+      <div class="section-header" data-toggle="popupSection">
+        Popup Settings <span class="chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="row-checks" style="margin-bottom:8px;">
+          <label><input type="checkbox" id="popupEnabled"> Enabled</label>
+        </div>
+        <textarea id="popupMsg" placeholder="Popup message (multi-line supported)"></textarea>
+        <div class="field-help">Only included in batch export.</div>
+      </div>
+    </div>
+
+    <div class="section collapsed" id="catSection">
+      <div class="section-header" data-toggle="catSection">
+        Category Manager <span class="chevron">&#9660;</span>
+      </div>
+      <div class="section-body">
+        <div class="field-help" style="margin-bottom:8px;">Rename, merge, or delete saved categories.</div>
+        <div class="cat-grid">
           <div>
-            <input id="bulkTag" placeholder="Tag (single) e.g. prophecy" />
-            <div class="help">Used for “Add tag” or “Remove tag”.</div>
+            <div class="field-label" style="margin-bottom:6px;">Saved Categories</div>
+            <div id="catList" class="cat-list"></div>
           </div>
           <div>
-            <input id="bulkCategory" placeholder="Category (single) e.g. bible" />
-            <div class="help">Used for “Add category”.</div>
+            <div class="field-label" style="margin-bottom:6px;">Rename / Merge</div>
+            <div class="field-group">
+              <input id="catFrom" placeholder="From (existing)" />
+            </div>
+            <div class="field-group" style="margin-top:6px;">
+              <input id="catTo" placeholder="To (new name)" />
+            </div>
+            <div class="btn-row" style="margin-top:8px;">
+              <button class="btn small" id="catRename" type="button">Rename</button>
+              <button class="btn small" id="catMergeBatch" type="button">Apply to Batch</button>
+              <button class="btn small danger" id="catDelete" type="button">Delete</button>
+            </div>
           </div>
         </div>
-
-        <div class="btns" style="margin-top:10px;">
-          <button class="btn small" id="bulkAddTag" type="button">Add Tag</button>
-          <button class="btn small" id="bulkRemoveTag" type="button">Remove Tag</button>
-          <button class="btn small" id="bulkAddCategory" type="button">Add Category</button>
-          <button class="btn small" id="bulkSetPinned" type="button">Set Pinned</button>
-          <button class="btn small" id="bulkUnsetPinned" type="button">Unset Pinned</button>
-          <button class="btn small" id="bulkSetFeatured" type="button">Set Featured</button>
-          <button class="btn small" id="bulkUnsetFeatured" type="button">Unset Featured</button>
-          <button class="btn small danger" id="bulkDelete" type="button">Delete Selected</button>
-        </div>
-      </details>
-
-      <!-- Cleanup tools -->
-      <details style="margin-top:10px;">
-        <summary>🧹 Cleanup Tools (Optional)</summary>
-        <div class="btns" style="margin-top:10px;">
-          <button class="btn small" id="cleanupTrim" type="button">Trim Whitespace</button>
-          <button class="btn small" id="cleanupNormalizeTags" type="button">Normalize Tags (lowercase + remove #)</button>
-          <button class="btn small" id="cleanupDedupe" type="button">Remove Duplicates (youtube_id/url)</button>
-          <button class="btn small" id="cleanupSortAZ" type="button">Sort A–Z</button>
-          <button class="btn small" id="cleanupSortNewest" type="button">Sort Newest</button>
-        </div>
-        <div class="help">These change the batch list, and they are Undoable.</div>
-      </details>
-
-      <div id="batchList" class="batch-list">No items in batch yet.</div>
-    </details>
-
-    <!-- Popup panel -->
-    <details id="popupPanel">
-      <summary>🔔 Popup Settings</summary>
-      <div class="row">
-        <label><input type="checkbox" id="popupEnabled"> Enabled</label>
       </div>
-      <textarea id="popupMsg" placeholder="Popup message (only included in batch export)"></textarea>
-      <div class="muted">Multi-line supported. This panel doesn’t affect single-item JSON.</div>
-    </details>
-
-    <!-- Category Manager -->
-    <details id="catManager">
-      <summary>🗂 Category Manager</summary>
-      <div class="help">Rename/merge/delete categories. You can apply changes to the current batch too.</div>
-
-      <div class="cat-grid" style="margin-top:10px;">
-        <div>
-          <h3>Saved Categories</h3>
-          <div id="catList" class="cat-list"></div>
-        </div>
-        <div>
-          <h3>Rename / Merge</h3>
-          <input id="catFrom" placeholder="From (existing category)" />
-          <div class="help">Example: <code>Prophecy</code></div>
-          <input id="catTo" placeholder="To (new category)" style="margin-top:8px;" />
-          <div class="help">Example: <code>PROPHECY</code> or <code>prophecy</code></div>
-          <div class="btns" style="margin-top:10px;">
-            <button class="btn small" id="catRename" type="button">Rename (saved)</button>
-            <button class="btn small" id="catMergeBatch" type="button">Apply Rename to Batch</button>
-            <button class="btn small danger" id="catDelete" type="button">Delete (saved)</button>
-          </div>
-          <div class="help">“Apply Rename to Batch” will update categories inside batch items too.</div>
-        </div>
-      </div>
-    </details>
+    </div>
 
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast"></div>
 
 <script>
-/* =========================================================
-   EDITOR V4 — Netlify-friendly (no server)
-   ========================================================= */
-
-/* ========================
-   UTIL
-   ======================== */
 const $ = (id)=>document.getElementById(id);
 const toastEl = $("toast");
 function toast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 1600);
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(()=>toastEl.classList.remove("show"), 1800);
 }
 function escapeHTML(s){
-  return String(s ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#39;");
+  return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 }
 function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
 
-/* ========================
-   THEME PERSISTENCE
-   ======================== */
+document.querySelectorAll("[data-toggle]").forEach(hdr=>{
+  hdr.addEventListener("click", ()=>{
+    const sec = document.getElementById(hdr.getAttribute("data-toggle"));
+    if(sec) sec.classList.toggle("collapsed");
+  });
+});
+
 (function(){
   const select = $("themeSelect");
-  const saved = localStorage.getItem("editor:theme") || "dark";
+  const saved = localStorage.getItem("editor:theme") || "terminal";
   document.body.className = saved;
   select.value = saved;
   select.addEventListener("change", () => {
-    const val = select.value || "dark";
-    document.body.className = val;
-    localStorage.setItem("editor:theme", val);
+    document.body.className = select.value || "dark";
+    localStorage.setItem("editor:theme", select.value);
   });
 })();
 
-/* ========================
-   HISTORY (UNDO/REDO) — #11
-   ======================== */
 const HISTORY_LIMIT = 25;
 let history = [];
 let historyIndex = -1;
@@ -797,7 +757,6 @@ function restoreState(s){
 }
 function pushHistory(label="change"){
   const snap = snapshotState();
-  // cut any redo branch
   history = history.slice(0, historyIndex + 1);
   history.push(snap);
   if(history.length > HISTORY_LIMIT) history.shift();
@@ -827,9 +786,6 @@ function updateUndoRedoUI(){
 $("undoBtn").addEventListener("click", undo);
 $("redoBtn").addEventListener("click", redo);
 
-/* ========================
-   STATE / STORAGE
-   ======================== */
 const form = {
   title: $("title"),
   yt: $("yt"),
@@ -842,7 +798,7 @@ const form = {
 };
 
 let batch = [];
-let editingIndex = null; // null = new, number = editing existing
+let editingIndex = null;
 let savedCats = new Set(JSON.parse(localStorage.getItem("editor:savedCats") || "[]"));
 let savedTags = new Set(JSON.parse(localStorage.getItem("editor:savedTags") || "[]"));
 
@@ -850,9 +806,6 @@ const savedCatsEl = $("savedCategories");
 const outputEl = $("output");
 const batchListEl = $("batchList");
 
-/* ========================
-   PERSISTENCE
-   ======================== */
 function persistAll(){
   localStorage.setItem("editor:batch", JSON.stringify(batch));
   localStorage.setItem("editor:savedCats", JSON.stringify(Array.from(savedCats)));
@@ -861,19 +814,11 @@ function persistAll(){
   localStorage.setItem("editor:popupMsg", $("popupMsg").value);
 }
 function restoreAll(){
-  // batch
-  try {
-    const s = localStorage.getItem("editor:batch");
-    if(s) batch = JSON.parse(s) || [];
-  } catch { batch = []; }
-
-  // popup
+  try { const s = localStorage.getItem("editor:batch"); if(s) batch = JSON.parse(s) || []; } catch { batch = []; }
   const en = localStorage.getItem("editor:popupEnabled");
   const msg = localStorage.getItem("editor:popupMsg") || "";
   if(en !== null) $("popupEnabled").checked = en === "true";
   $("popupMsg").value = msg;
-
-  // form draft
   const fs = localStorage.getItem("editor:form");
   if(fs){
     try{
@@ -886,8 +831,6 @@ function restoreAll(){
     } catch {}
   }
 }
-
-/* autosave form */
 function saveFormDraft(){
   const state = {};
   Object.entries(form).forEach(([k,el])=>{
@@ -896,9 +839,6 @@ function saveFormDraft(){
   localStorage.setItem("editor:form", JSON.stringify(state));
 }
 
-/* ========================
-   CATEGORIES + TAGS HELPERS
-   ======================== */
 function refreshDatalists(){
   savedCatsEl.innerHTML = "";
   Array.from(savedCats).sort((a,b)=>a.localeCompare(b)).forEach(c=>{
@@ -908,18 +848,8 @@ function refreshDatalists(){
   });
 }
 
-function cleanTag(t){
-  return String(t||"").trim().replace(/^#+/,"").trim();
-}
-
-function parseCommaList(raw){
-  return String(raw||"")
-    .split(",")
-    .map(x=>x.trim())
-    .filter(Boolean);
-}
-
-// multi-category parser (comma-separated across both fields)
+function cleanTag(t){ return String(t||"").trim().replace(/^#+/,"").trim(); }
+function parseCommaList(raw){ return String(raw||"").split(",").map(x=>x.trim()).filter(Boolean); }
 function parseCategories(){
   const set = new Set();
   [form.category1.value, form.category2.value].forEach(raw=>{
@@ -936,107 +866,46 @@ function parseTags(){
   return Array.from(set);
 }
 
-/* ========================
-   YOUTUBE PARSING + VALIDATION — #2
-   ======================== */
 function extractYoutubeId(raw){
   const ytVal = (raw || "").trim();
   if(!ytVal) return "";
-
-  // ID only
   if(!ytVal.includes("youtube.com") && !ytVal.includes("youtu.be")) return ytVal;
-
   try{
     const url = new URL(ytVal);
-
-    // playlist
-    if(url.searchParams.get("list") && (url.pathname.startsWith("/playlist") || !url.searchParams.get("v"))){
+    if(url.searchParams.get("list") && (url.pathname.startsWith("/playlist") || !url.searchParams.get("v")))
       return url.searchParams.get("list") || "";
-    }
-
-    // watch?v=
     if(url.searchParams.get("v")) return url.searchParams.get("v");
-
-    // shorts/<id>
     if(url.pathname.includes("/shorts/")){
       const parts = url.pathname.split("/").filter(Boolean);
-      const idx = parts.indexOf("shorts");
-      return parts[idx+1] || "";
+      return parts[parts.indexOf("shorts")+1] || "";
     }
-
-    // live/<id>
     if(url.pathname.includes("/live/")){
       const parts = url.pathname.split("/").filter(Boolean);
-      const idx = parts.indexOf("live");
-      return parts[idx+1] || "";
+      return parts[parts.indexOf("live")+1] || "";
     }
-
-    // youtu.be/<id>
-    const last = url.pathname.split("/").filter(Boolean).pop() || "";
-    return last;
-  } catch {
-    return ytVal;
-  }
+    return url.pathname.split("/").filter(Boolean).pop() || "";
+  } catch { return ytVal; }
 }
 
-function isYoutubeVideoId(s){
-  return typeof s === "string" && /^[\w-]{11}$/.test(s.trim());
-}
-function looksPlaylistId(s){
-  return typeof s === "string" && /^PL[\w-]{16,}$/.test(s.trim());
-}
+function isYoutubeVideoId(s){ return typeof s === "string" && /^[\w-]{11}$/.test(s.trim()); }
+function looksPlaylistId(s){ return typeof s === "string" && /^PL[\w-]{16,}$/.test(s.trim()); }
 
 function normalizeYoutubeInput(raw){
   const v = (raw||"").trim();
   if(!v) return "";
-
-  // If it's a playlist ID only
   if(looksPlaylistId(v)) return `https://www.youtube.com/playlist?list=${v}`;
-
-  // If it's a video ID only
   if(isYoutubeVideoId(v)) return `https://www.youtube.com/watch?v=${v}`;
-
-  // If it's a URL, normalize common cases
   if(v.includes("youtube.com") || v.includes("youtu.be")){
     try{
       const u = new URL(v);
-
-      // shorts -> watch?v=
-      if(u.pathname.includes("/shorts/")){
-        const id = extractYoutubeId(v);
-        return isYoutubeVideoId(id) ? `https://www.youtube.com/watch?v=${id}` : v;
-      }
-
-      // live -> watch?v=
-      if(u.pathname.includes("/live/")){
-        const id = extractYoutubeId(v);
-        return isYoutubeVideoId(id) ? `https://www.youtube.com/watch?v=${id}` : v;
-      }
-
-      // youtu.be -> watch?v=
-      if(u.host.includes("youtu.be")){
-        const id = extractYoutubeId(v);
-        return isYoutubeVideoId(id) ? `https://www.youtube.com/watch?v=${id}` : v;
-      }
-
-      // playlist -> keep playlist
-      if(u.pathname.startsWith("/playlist") && u.searchParams.get("list")){
-        return `https://www.youtube.com/playlist?list=${u.searchParams.get("list")}`;
-      }
-
-      // watch -> keep watch with v
-      if(u.pathname.startsWith("/watch") && u.searchParams.get("v")){
-        const id = u.searchParams.get("v");
-        return `https://www.youtube.com/watch?v=${id}`;
-      }
-
-      // fallback to original
+      if(u.pathname.includes("/shorts/")){ const id = extractYoutubeId(v); return isYoutubeVideoId(id) ? `https://www.youtube.com/watch?v=${id}` : v; }
+      if(u.pathname.includes("/live/")){ const id = extractYoutubeId(v); return isYoutubeVideoId(id) ? `https://www.youtube.com/watch?v=${id}` : v; }
+      if(u.host.includes("youtu.be")){ const id = extractYoutubeId(v); return isYoutubeVideoId(id) ? `https://www.youtube.com/watch?v=${id}` : v; }
+      if(u.pathname.startsWith("/playlist") && u.searchParams.get("list")) return `https://www.youtube.com/playlist?list=${u.searchParams.get("list")}`;
+      if(u.pathname.startsWith("/watch") && u.searchParams.get("v")) return `https://www.youtube.com/watch?v=${u.searchParams.get("v")}`;
       return v;
-    } catch {
-      return v;
-    }
+    } catch { return v; }
   }
-
   return v;
 }
 
@@ -1044,70 +913,29 @@ function updateYTStatusPill(){
   const pill = $("ytPill");
   const raw = form.yt.value.trim();
   const id = extractYoutubeId(raw);
-
-  if(!raw){
-    pill.className = "pill";
-    pill.textContent = "Paste a link…";
-    $("ytStatus").textContent = "";
-    return;
-  }
-
-  if(looksPlaylistId(id)){
-    pill.className = "pill good";
-    pill.textContent = "✅ Playlist detected";
-    $("ytStatus").textContent = `playlist id: ${id}`;
-    return;
-  }
-
-  if(isYoutubeVideoId(id)){
-    pill.className = "pill good";
-    pill.textContent = "✅ Video detected";
-    $("ytStatus").textContent = `video id: ${id}`;
-    return;
-  }
-
-  pill.className = "pill bad";
-  pill.textContent = "⚠️ Not recognized";
-  $("ytStatus").textContent = "Tip: paste a full YouTube URL or an 11-char ID.";
+  if(!raw){ pill.className = "pill"; pill.textContent = "Paste a link..."; $("ytStatus").textContent = ""; return; }
+  if(looksPlaylistId(id)){ pill.className = "pill good"; pill.textContent = "Playlist detected"; $("ytStatus").textContent = `playlist: ${id}`; return; }
+  if(isYoutubeVideoId(id)){ pill.className = "pill good"; pill.textContent = "Video detected"; $("ytStatus").textContent = `video: ${id}`; return; }
+  pill.className = "pill bad"; pill.textContent = "Not recognized"; $("ytStatus").textContent = "Paste a full YouTube URL or 11-char ID.";
 }
 
 $("normalizeBtn").addEventListener("click", ()=>{
-  const before = form.yt.value;
-  const after = normalizeYoutubeInput(before);
-  form.yt.value = after;
-  updateYTStatusPill();
-  updatePreview();
-  saveFormDraft();
-  toast("Normalized");
+  form.yt.value = normalizeYoutubeInput(form.yt.value);
+  updateYTStatusPill(); updatePreview(); saveFormDraft(); toast("Normalized");
 });
+form.yt.addEventListener("input", ()=>{ updateYTStatusPill(); updatePreview(); saveFormDraft(); });
 
-form.yt.addEventListener("input", ()=>{
-  updateYTStatusPill();
-  updatePreview();
-  saveFormDraft();
-});
-
-/* ========================
-   BUILD VIDEO OBJECT
-   ======================== */
 function buildVideoObject(){
   const youtube_id = extractYoutubeId(form.yt.value);
   const cats = parseCategories();
   const tags = parseTags();
-
-  // learn categories/tags
   cats.forEach(c=> savedCats.add(c));
   tags.forEach(t=> savedTags.add(t));
-  refreshDatalists();
-  persistAll();
-
+  refreshDatalists(); persistAll();
   let category = undefined;
   if(cats.length === 1) category = cats[0];
   else if(cats.length > 1) category = cats;
-
-  // optional thumb stored from oEmbed
   const thumb = (currentMeta?.thumbnail_url || "").trim();
-
   const obj = {
     "title": form.title.value.trim(),
     "youtube_id": youtube_id || "",
@@ -1118,10 +946,7 @@ function buildVideoObject(){
     "featured": form.featured.checked,
     "pinned": form.pinned.checked
   };
-
-  if(thumb) obj.thumb = thumb; // optional extra field (safe to ignore in hub)
-
-  // optional: channel name stored as tag? (we do NOT auto-add unless tags empty during autofill)
+  if(thumb) obj.thumb = thumb;
   return obj;
 }
 
@@ -1130,188 +955,106 @@ function validate(obj){
   if(!obj.title) errors.push("Title is required.");
   if(!(obj.youtube_id || obj.url)) errors.push("Provide a YouTube link/ID or a direct URL.");
   if(obj.url && !/^https?:\/\/.+/i.test(obj.url)) errors.push("Direct URL must start with http(s)://");
-  // if youtube_id exists and isn't playlist or video id, warn
-  if(obj.youtube_id && !(isYoutubeVideoId(obj.youtube_id) || looksPlaylistId(obj.youtube_id))){
-    errors.push("YouTube field doesn't look like a valid video ID or playlist ID.");
-  }
+  if(obj.youtube_id && !(isYoutubeVideoId(obj.youtube_id) || looksPlaylistId(obj.youtube_id)))
+    errors.push("YouTube field doesn't look like a valid video/playlist ID.");
   return errors;
 }
 
-function leftPadTwo(jsonStr){
-  return jsonStr.split("\n").map(line=>"  "+line).join("\n");
-}
+function leftPadTwo(jsonStr){ return jsonStr.split("\n").map(line=>"  "+line).join("\n"); }
 
-/* ========================
-   LIVE PREVIEW + THUMB
-   ======================== */
 const previewEmbed = $("previewEmbed");
 const previewMeta  = $("previewMeta");
 const previewTags  = $("previewTags");
 const thumbLine    = $("thumbLine");
 const thumbImg     = $("thumbImg");
 const thumbText    = $("thumbText");
-
-let currentMeta = null; // oEmbed metadata
+let currentMeta = null;
 
 function updatePreview(){
   const obj = buildVideoObject();
-
-  // embed
   if(obj.youtube_id){
     if(String(obj.youtube_id).startsWith("PL")){
-      previewEmbed.innerHTML =
-        `<iframe src="https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(obj.youtube_id)}"
-          allowfullscreen loading="lazy"></iframe>`;
+      previewEmbed.innerHTML = `<iframe src="https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(obj.youtube_id)}" allowfullscreen loading="lazy"></iframe>`;
     } else {
-      previewEmbed.innerHTML =
-        `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(obj.youtube_id)}"
-          allowfullscreen loading="lazy"></iframe>`;
+      previewEmbed.innerHTML = `<iframe src="https://www.youtube.com/embed/${encodeURIComponent(obj.youtube_id)}" allowfullscreen loading="lazy"></iframe>`;
     }
   } else if(obj.url){
     previewEmbed.innerHTML = `<video src="${escapeHTML(obj.url)}" controls preload="metadata"></video>`;
   } else {
-    previewEmbed.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#888;">No source yet</div>`;
+    previewEmbed.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(0,255,65,.2);font-size:.9rem;">No source yet</div>`;
   }
-
   const cats = parseCategories();
-  previewMeta.textContent =
-    `Category: ${cats.join(", ") || "—"} • Featured: ${form.featured.checked ? "Yes":"No"} • Pinned: ${form.pinned.checked ? "Yes":"No"}`;
-
+  previewMeta.textContent = `Category: ${cats.join(", ") || "\u2014"} \u2022 Featured: ${form.featured.checked?"Yes":"No"} \u2022 Pinned: ${form.pinned.checked?"Yes":"No"}`;
   const tags = parseTags();
   previewTags.innerHTML = tags.map(t=>`<span class="preview-tag">#${escapeHTML(t)}</span>`).join("");
-
-  // thumbnail preview if we have it
   const thumb = (currentMeta?.thumbnail_url || "").trim();
-  if(thumb){
-    thumbLine.style.display = "";
-    thumbImg.src = thumb;
-    thumbText.textContent = (currentMeta?.author_name ? `by ${currentMeta.author_name}` : "");
-  } else {
-    thumbLine.style.display = "none";
-    thumbImg.removeAttribute("src");
-    thumbText.textContent = "";
-  }
+  if(thumb){ thumbLine.style.display = ""; thumbImg.src = thumb; thumbText.textContent = currentMeta?.author_name ? `by ${currentMeta.author_name}` : ""; }
+  else { thumbLine.style.display = "none"; thumbImg.removeAttribute("src"); thumbText.textContent = ""; }
 }
 
 Object.values(form).forEach(el=>{
-  el.addEventListener("input", ()=>{
-    updatePreview();
-    saveFormDraft();
-  });
-  if(el.type === "checkbox"){
-    el.addEventListener("change", ()=>{
-      updatePreview();
-      saveFormDraft();
-    });
-  }
+  el.addEventListener("input", ()=>{ updatePreview(); saveFormDraft(); });
+  if(el.type === "checkbox") el.addEventListener("change", ()=>{ updatePreview(); saveFormDraft(); });
 });
 
-/* ========================
-   YOUTUBE AUTOFILL (oEmbed) — #1
-   ======================== */
 async function fetchYouTubeMeta(){
   const statusEl = $("ytStatus");
   let val = form.yt.value.trim();
-  if(!val){
-    statusEl.textContent = "Paste a YouTube link or ID first.";
-    return;
-  }
-
+  if(!val){ statusEl.textContent = "Paste a YouTube link or ID first."; return; }
   val = normalizeYoutubeInput(val);
-
-  // If it's a playlist URL, oEmbed may fail. We still try; if fails, we keep going.
-  statusEl.textContent = "Fetching…";
+  statusEl.textContent = "Fetching...";
   currentMeta = null;
-
   try{
     const res = await fetch("https://www.youtube.com/oembed?url=" + encodeURIComponent(val) + "&format=json");
     if(!res.ok) throw new Error("Not found");
     const data = await res.json();
-
     currentMeta = data;
-
-    if(!form.title.value.trim() && data.title){
-      form.title.value = data.title;
-    }
-
-    // Optional: if tags empty, add channel name as tag (cleaned)
-    if(!form.tags.value.trim() && data.author_name){
-      const suggested = data.author_name.replace(/\s+/g,"-").toLowerCase();
-      form.tags.value = suggested;
-    }
-
-    statusEl.textContent = "Autofilled from YouTube ✓";
-    updateYTStatusPill();
-    updatePreview();
-    saveFormDraft();
-    toast("Autofilled");
+    if(!form.title.value.trim() && data.title) form.title.value = data.title;
+    if(!form.tags.value.trim() && data.author_name) form.tags.value = data.author_name.replace(/\s+/g,"-").toLowerCase();
+    statusEl.textContent = "Autofilled from YouTube";
+    updateYTStatusPill(); updatePreview(); saveFormDraft(); toast("Autofilled");
   } catch(e){
     console.error(e);
-    statusEl.textContent = "Could not fetch YouTube info (CORS / playlist / blocked).";
-    updateYTStatusPill();
-    updatePreview();
+    statusEl.textContent = "Could not fetch (CORS / playlist / blocked).";
+    updateYTStatusPill(); updatePreview();
   }
 }
 $("fetchMetaBtn").addEventListener("click", fetchYouTubeMeta);
 
-/* ========================
-   TAG SUGGESTIONS — #3
-   ======================== */
 const tagSuggestBox = $("tagSuggest");
 let activeSuggestIndex = -1;
 
 function getAllTagSuggestions(){
-  // union: savedTags + tags in batch
   const set = new Set(savedTags);
   batch.forEach(v => (v.tags||[]).forEach(t => set.add(cleanTag(t))));
   return Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b));
 }
-
 function currentTagToken(inputValue){
-  // return the last token user is typing after last comma
   const parts = String(inputValue||"").split(",");
-  const last = parts[parts.length - 1] ?? "";
-  return last.trim().replace(/^#+/,"");
+  return (parts[parts.length - 1] ?? "").trim().replace(/^#+/,"");
 }
-
 function setLastTagToken(newToken){
   const parts = String(form.tags.value||"").split(",");
-  if(parts.length === 0) return;
+  if(!parts.length) return;
   parts[parts.length - 1] = " " + newToken;
-  form.tags.value = parts.map(s=>s.trim()).filter((s,i)=> i===0 ? true : true).join(", ");
+  form.tags.value = parts.map(s=>s.trim()).join(", ");
 }
-
 function showTagSuggestions(){
   const token = currentTagToken(form.tags.value).toLowerCase();
   const list = getAllTagSuggestions();
-  const filtered = token
-    ? list.filter(t => t.toLowerCase().includes(token)).slice(0, 12)
-    : list.slice(0, 12);
-
-  if(!filtered.length){
-    tagSuggestBox.style.display = "none";
-    tagSuggestBox.innerHTML = "";
-    activeSuggestIndex = -1;
-    return;
-  }
-
-  tagSuggestBox.innerHTML = filtered.map((t,i)=>
-    `<div class="suggest-item" data-i="${i}" data-v="${escapeHTML(t)}">#${escapeHTML(t)}</div>`
-  ).join("");
+  const filtered = token ? list.filter(t => t.toLowerCase().includes(token)).slice(0, 12) : list.slice(0, 12);
+  if(!filtered.length){ tagSuggestBox.style.display = "none"; tagSuggestBox.innerHTML = ""; activeSuggestIndex = -1; return; }
+  tagSuggestBox.innerHTML = filtered.map((t,i)=>`<div class="suggest-item" data-i="${i}" data-v="${escapeHTML(t)}">#${escapeHTML(t)}</div>`).join("");
   tagSuggestBox.style.display = "block";
   activeSuggestIndex = -1;
-
   tagSuggestBox.querySelectorAll(".suggest-item").forEach(item=>{
     item.addEventListener("click", ()=>{
-      const v = item.getAttribute("data-v") || "";
-      setLastTagToken(v);
+      setLastTagToken(item.getAttribute("data-v") || "");
       tagSuggestBox.style.display = "none";
-      updatePreview();
-      saveFormDraft();
+      updatePreview(); saveFormDraft();
     });
   });
 }
-
 function moveSuggest(delta){
   const items = Array.from(tagSuggestBox.querySelectorAll(".suggest-item"));
   if(!items.length) return;
@@ -1321,174 +1064,93 @@ function moveSuggest(delta){
 function acceptSuggest(){
   const items = Array.from(tagSuggestBox.querySelectorAll(".suggest-item"));
   if(activeSuggestIndex < 0 || activeSuggestIndex >= items.length) return;
-  const v = items[activeSuggestIndex].getAttribute("data-v") || "";
-  setLastTagToken(v);
+  setLastTagToken(items[activeSuggestIndex].getAttribute("data-v") || "");
   tagSuggestBox.style.display = "none";
-  updatePreview();
-  saveFormDraft();
+  updatePreview(); saveFormDraft();
 }
-
 form.tags.addEventListener("input", showTagSuggestions);
 form.tags.addEventListener("blur", ()=> setTimeout(()=> tagSuggestBox.style.display = "none", 120));
 form.tags.addEventListener("keydown", (e)=>{
   if(tagSuggestBox.style.display !== "block") return;
   if(e.key === "ArrowDown"){ e.preventDefault(); moveSuggest(1); }
   if(e.key === "ArrowUp"){ e.preventDefault(); moveSuggest(-1); }
-  if(e.key === "Enter" || e.key === "Tab"){
-    if(activeSuggestIndex >= 0){
-      e.preventDefault();
-      acceptSuggest();
-    }
-  }
-  if(e.key === "Escape"){
-    tagSuggestBox.style.display = "none";
-  }
+  if(e.key === "Enter" || e.key === "Tab"){ if(activeSuggestIndex >= 0){ e.preventDefault(); acceptSuggest(); } }
+  if(e.key === "Escape") tagSuggestBox.style.display = "none";
 });
 
-/* ========================
-   FORM RESET
-   ======================== */
 function resetForm(keepCatsAndTags=false){
-  form.title.value="";
-  form.yt.value="";
-  form.url.value="";
-  form.featured.checked=false;
-  form.pinned.checked=false;
+  form.title.value=""; form.yt.value=""; form.url.value="";
+  form.featured.checked=false; form.pinned.checked=false;
   currentMeta = null;
-
-  if(!keepCatsAndTags){
-    form.category1.value="";
-    form.category2.value="";
-    form.tags.value="";
-  }
-  updateYTStatusPill();
-  updatePreview();
-  saveFormDraft();
+  if(!keepCatsAndTags){ form.category1.value=""; form.category2.value=""; form.tags.value=""; }
+  updateYTStatusPill(); updatePreview(); saveFormDraft();
 }
 
-/* ========================
-   SINGLE JSON
-   ======================== */
 $("genOne").addEventListener("click", ()=>{
   const obj = buildVideoObject();
   const errs = validate(obj);
   if(errs.length){ toast(errs[0]); return; }
-
-  const formatted = leftPadTwo(JSON.stringify(obj, null, 2));
-  outputEl.textContent = formatted + ",";
+  outputEl.textContent = leftPadTwo(JSON.stringify(obj, null, 2)) + ",";
   toast("Generated");
 });
-
 $("copyOne").addEventListener("click", ()=>{
   const txt = outputEl.textContent.trim();
   if(!txt){ toast("Nothing to copy"); return; }
   navigator.clipboard.writeText(txt).then(()=>toast("Copied")).catch(()=>toast("Copy failed"));
 });
-
 $("clearForm").addEventListener("click", ()=>{
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  resetForm(false);
-  outputEl.textContent="Fill the form then Generate…";
-  toast("Cleared");
+  editingIndex = null; $("addBatch").textContent = "Add to Batch";
+  resetForm(false); outputEl.textContent="Fill the form then Generate..."; toast("Cleared");
 });
 
-/* ========================
-   BATCH CORE + EDITING + CLONE — #7
-   ======================== */
 function loadBatchItemIntoForm(index){
   const item = batch[index];
   if(!item) return;
-
   editingIndex = index;
   $("addBatch").textContent = "Update Item";
-
   form.title.value = item.title || "";
   form.yt.value = item.youtube_id || "";
   form.url.value = item.url || "";
-
-  const cats = Array.isArray(item.category)
-    ? item.category
-    : (item.category ? [item.category] : []);
-
-  if(cats.length <= 2){
-    form.category1.value = cats[0] || "";
-    form.category2.value = cats[1] || "";
-  } else {
-    const mid = Math.ceil(cats.length/2);
-    form.category1.value = cats.slice(0,mid).join(", ");
-    form.category2.value = cats.slice(mid).join(", ");
-  }
-
+  const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
+  if(cats.length <= 2){ form.category1.value = cats[0] || ""; form.category2.value = cats[1] || ""; }
+  else { const mid = Math.ceil(cats.length/2); form.category1.value = cats.slice(0,mid).join(", "); form.category2.value = cats.slice(mid).join(", "); }
   form.tags.value = (item.tags || []).join(", ");
   form.featured.checked = !!item.featured;
   form.pinned.checked = !!item.pinned;
-
-  // thumb in editor state (preview only)
-  if(item.thumb){
-    currentMeta = { thumbnail_url: item.thumb, author_name: "" };
-  } else {
-    currentMeta = null;
-  }
-
-  updateYTStatusPill();
-  updatePreview();
-  saveFormDraft();
+  if(item.thumb) currentMeta = { thumbnail_url: item.thumb, author_name: "" };
+  else currentMeta = null;
+  updateYTStatusPill(); updatePreview(); saveFormDraft();
   toast(`Loaded #${index+1}`);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 $("cloneItem").addEventListener("click", ()=>{
-  if(editingIndex === null){
-    toast("Load an item to clone");
-    return;
-  }
+  if(editingIndex === null){ toast("Load an item to clone"); return; }
   pushHistory("clone");
   const cloned = deepClone(batch[editingIndex]);
   cloned.added = new Date().toISOString();
   batch.splice(editingIndex + 1, 0, cloned);
-  persistAll();
-  renderBatchList();
-  toast("Cloned");
+  persistAll(); renderBatchList(); toast("Cloned");
 });
 
 $("addBatch").addEventListener("click", ()=>{
   const obj = buildVideoObject();
   const errs = validate(obj);
   if(errs.length){ toast(errs[0]); return; }
-
   pushHistory("batch change");
-
-  if(editingIndex === null){
-    batch.push(obj);
-    toast("Added");
-  } else {
-    batch[editingIndex] = obj;
-    toast(`Updated #${editingIndex+1}`);
-  }
-
-  // learn tags/cats
+  if(editingIndex === null){ batch.push(obj); toast("Added"); }
+  else { batch[editingIndex] = obj; toast(`Updated #${editingIndex+1}`); }
   parseCategories().forEach(c=> savedCats.add(c));
   parseTags().forEach(t=> savedTags.add(t));
-  refreshDatalists();
-  persistAll();
-
-  renderBatchList();
-
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  resetForm(true);
+  refreshDatalists(); persistAll(); renderBatchList();
+  editingIndex = null; $("addBatch").textContent = "Add to Batch"; resetForm(true);
 });
 
 $("newItem").addEventListener("click", ()=>{
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  resetForm(true);
-  toast("New item");
+  editingIndex = null; $("addBatch").textContent = "Add to Batch";
+  resetForm(true); toast("New item");
 });
 
-/* ========================
-   REORDER (DRAG/DROP) — #8
-   ======================== */
 function moveBatchItem(from, to){
   if(from === to) return;
   const item = batch.splice(from, 1)[0];
@@ -1496,201 +1158,150 @@ function moveBatchItem(from, to){
 }
 
 function renderBatchList(){
+  const countEl = $("batchCount");
+  if(countEl) countEl.textContent = batch.length;
+
+  const statsEl = $("batchStats");
+  if(batch.length){
+    const featured = batch.filter(v=>v.featured).length;
+    const pinned = batch.filter(v=>v.pinned).length;
+    const cats = new Set();
+    batch.forEach(v=>{
+      const c = Array.isArray(v.category) ? v.category : (v.category ? [v.category] : []);
+      c.forEach(x=>cats.add(x));
+    });
+    statsEl.innerHTML = `<span>${batch.length} items</span><span>${featured} featured</span><span>${pinned} pinned</span><span>${cats.size} categories</span>`;
+  } else {
+    statsEl.innerHTML = "";
+  }
+
+  const searchTerm = ($("batchSearch").value || "").trim().toLowerCase();
+
   if(!batch.length){
     batchListEl.textContent = "No items in batch yet.";
-    persistAll();
-    refreshCategoryManager();
+    persistAll(); refreshCategoryManager(); return;
+  }
+
+  const filtered = batch.map((o,i)=>({o,i})).filter(({o})=>{
+    if(!searchTerm) return true;
+    const hay = [o.title, o.youtube_id, o.url, ...(Array.isArray(o.category)?o.category:(o.category?[o.category]:[])), ...(o.tags||[])].join(" ").toLowerCase();
+    return hay.includes(searchTerm);
+  });
+
+  if(!filtered.length){
+    batchListEl.innerHTML = `<div class="field-help" style="text-align:center;padding:16px;">No matches for "${escapeHTML(searchTerm)}"</div>`;
     return;
   }
 
-  batchListEl.innerHTML = batch.map((o,i)=>{
+  batchListEl.innerHTML = filtered.map(({o,i})=>{
     const id = o.youtube_id || o.url || "";
     const cats = Array.isArray(o.category) ? o.category : (o.category ? [o.category] : []);
-    const catStr = cats.join(", ");
     const tagStr = (o.tags||[]).join(", ");
-
     return `
-      <div class="batch-item" draggable="true" data-idx="${i}">
+      <div class="batch-item${editingIndex===i?' editing':''}" draggable="true" data-idx="${i}">
         <div class="main">
-          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <span class="drag-handle" title="Drag to reorder">\u2807</span>
           <input class="check" type="checkbox" data-select="${i}">
           <div class="meta">
             <div class="title">${escapeHTML(o.title || "Untitled")}</div>
-            <div class="sub">
-              <span style="opacity:.8">#${i+1}</span>
-              ${id ? " • " + escapeHTML(id) : ""}
-              ${catStr ? " • cats: " + escapeHTML(catStr) : ""}
-              ${tagStr ? " • tags: " + escapeHTML(tagStr) : ""}
-            </div>
+            <div class="sub">#${i+1}${id ? " \u2022 " + escapeHTML(id.substring(0,28)) : ""}${cats.length ? " \u2022 " + escapeHTML(cats.join(", ")) : ""}${tagStr ? " \u2022 " + escapeHTML(tagStr.substring(0,40)) : ""}</div>
           </div>
         </div>
         <div class="actions">
           <button class="mini-btn${editingIndex===i?' current':''}" data-edit="${i}">Edit</button>
-          <button class="mini-btn" data-up="${i}">↑</button>
-          <button class="mini-btn" data-down="${i}">↓</button>
-          <button class="mini-btn danger" data-del="${i}">Delete</button>
+          <button class="mini-btn" data-up="${i}">\u2191</button>
+          <button class="mini-btn" data-down="${i}">\u2193</button>
+          <button class="mini-btn danger" data-del="${i}">Del</button>
         </div>
       </div>
     `;
   }).join("");
 
-  // wire edit/delete/up/down
   batchListEl.querySelectorAll("[data-edit]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const i = Number(btn.getAttribute("data-edit"));
-      loadBatchItemIntoForm(i);
-      renderBatchList();
-    });
+    btn.addEventListener("click", ()=>{ loadBatchItemIntoForm(Number(btn.getAttribute("data-edit"))); renderBatchList(); });
   });
-
   batchListEl.querySelectorAll("[data-del]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const i = Number(btn.getAttribute("data-del"));
-      pushHistory("delete");
-      batch.splice(i,1);
-      if(editingIndex === i){
-        editingIndex = null;
-        $("addBatch").textContent = "Add to Batch";
-        resetForm(false);
-      } else if(editingIndex !== null && i < editingIndex){
-        editingIndex -= 1;
-      }
-      persistAll();
-      renderBatchList();
-      toast("Deleted");
+      pushHistory("delete"); batch.splice(i,1);
+      if(editingIndex === i){ editingIndex = null; $("addBatch").textContent = "Add to Batch"; resetForm(false); }
+      else if(editingIndex !== null && i < editingIndex) editingIndex -= 1;
+      persistAll(); renderBatchList(); toast("Deleted");
     });
   });
-
   batchListEl.querySelectorAll("[data-up]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const i = Number(btn.getAttribute("data-up"));
-      if(i <= 0) return;
-      pushHistory("reorder");
-      moveBatchItem(i, i-1);
-      persistAll();
-      renderBatchList();
+      if(i <= 0) return; pushHistory("reorder"); moveBatchItem(i, i-1); persistAll(); renderBatchList();
     });
   });
-
   batchListEl.querySelectorAll("[data-down]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const i = Number(btn.getAttribute("data-down"));
-      if(i >= batch.length-1) return;
-      pushHistory("reorder");
-      moveBatchItem(i, i+1);
-      persistAll();
-      renderBatchList();
+      if(i >= batch.length-1) return; pushHistory("reorder"); moveBatchItem(i, i+1); persistAll(); renderBatchList();
     });
   });
 
-  // drag/drop
   let dragFrom = null;
   batchListEl.querySelectorAll(".batch-item").forEach(row=>{
-    row.addEventListener("dragstart", (e)=>{
-      dragFrom = Number(row.getAttribute("data-idx"));
-      row.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
-    });
-    row.addEventListener("dragend", ()=>{
-      row.classList.remove("dragging");
-    });
-    row.addEventListener("dragover", (e)=>{
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-    });
+    row.addEventListener("dragstart", (e)=>{ dragFrom = Number(row.getAttribute("data-idx")); row.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+    row.addEventListener("dragend", ()=>{ row.classList.remove("dragging"); });
+    row.addEventListener("dragover", (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect = "move"; });
     row.addEventListener("drop", (e)=>{
       e.preventDefault();
       const to = Number(row.getAttribute("data-idx"));
-      if(dragFrom === null || Number.isNaN(to)) return;
-      if(dragFrom === to) return;
-      pushHistory("reorder");
-      moveBatchItem(dragFrom, to);
-      dragFrom = null;
-      persistAll();
-      renderBatchList();
+      if(dragFrom === null || Number.isNaN(to) || dragFrom === to) return;
+      pushHistory("reorder"); moveBatchItem(dragFrom, to); dragFrom = null; persistAll(); renderBatchList();
     });
   });
 
-  persistAll();
-  refreshCategoryManager();
+  persistAll(); refreshCategoryManager();
 }
 
-/* ========================
-   BULK ACTIONS — #9
-   ======================== */
+$("batchSearch").addEventListener("input", renderBatchList);
+
 function getSelectedIndexes(){
   const selected = [];
   batchListEl.querySelectorAll("[data-select]").forEach(chk=>{
-    if(chk.checked){
-      selected.push(Number(chk.getAttribute("data-select")));
-    }
+    if(chk.checked) selected.push(Number(chk.getAttribute("data-select")));
   });
   return selected.filter(n=>Number.isFinite(n));
 }
-
 function bulkApply(fn, emptyMsg="Select items first"){
   const idxs = getSelectedIndexes();
   if(!idxs.length){ toast(emptyMsg); return; }
   pushHistory("bulk");
   idxs.forEach(i=> fn(batch[i], i));
-  persistAll();
-  renderBatchList();
-  toast("Done");
+  persistAll(); renderBatchList(); toast("Done");
 }
 
 $("bulkAddTag").addEventListener("click", ()=>{
   const t = cleanTag($("bulkTag").value);
   if(!t) return toast("Enter a tag");
-  bulkApply((item)=>{
-    item.tags = Array.isArray(item.tags) ? item.tags : [];
-    const set = new Set(item.tags.map(cleanTag));
-    set.add(t);
-    item.tags = Array.from(set).filter(Boolean);
-    savedTags.add(t);
-  });
+  bulkApply((item)=>{ item.tags = Array.isArray(item.tags) ? item.tags : []; const set = new Set(item.tags.map(cleanTag)); set.add(t); item.tags = Array.from(set).filter(Boolean); savedTags.add(t); });
 });
-
 $("bulkRemoveTag").addEventListener("click", ()=>{
   const t = cleanTag($("bulkTag").value);
   if(!t) return toast("Enter a tag");
-  bulkApply((item)=>{
-    item.tags = (item.tags||[]).map(cleanTag).filter(Boolean).filter(x=>x !== t);
-  });
+  bulkApply((item)=>{ item.tags = (item.tags||[]).map(cleanTag).filter(Boolean).filter(x=>x !== t); });
 });
-
 $("bulkAddCategory").addEventListener("click", ()=>{
   const c = String($("bulkCategory").value||"").trim();
   if(!c) return toast("Enter a category");
-  bulkApply((item)=>{
-    const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
-    const set = new Set(cats.map(x=>String(x).trim()).filter(Boolean));
-    set.add(c);
-    const arr = Array.from(set);
-    item.category = arr.length === 1 ? arr[0] : arr;
-    savedCats.add(c);
-  });
+  bulkApply((item)=>{ const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []); const set = new Set(cats.map(x=>String(x).trim()).filter(Boolean)); set.add(c); const arr = Array.from(set); item.category = arr.length === 1 ? arr[0] : arr; savedCats.add(c); });
 });
-
 $("bulkSetPinned").addEventListener("click", ()=> bulkApply((item)=> item.pinned = true));
 $("bulkUnsetPinned").addEventListener("click", ()=> bulkApply((item)=> item.pinned = false));
 $("bulkSetFeatured").addEventListener("click", ()=> bulkApply((item)=> item.featured = true));
 $("bulkUnsetFeatured").addEventListener("click", ()=> bulkApply((item)=> item.featured = false));
-
 $("bulkDelete").addEventListener("click", ()=>{
   const idxs = getSelectedIndexes().sort((a,b)=>b-a);
   if(!idxs.length) return toast("Select items first");
-  pushHistory("bulk delete");
-  idxs.forEach(i=> batch.splice(i,1));
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  persistAll();
-  renderBatchList();
-  toast("Deleted selected");
+  pushHistory("bulk delete"); idxs.forEach(i=> batch.splice(i,1));
+  editingIndex = null; $("addBatch").textContent = "Add to Batch";
+  persistAll(); renderBatchList(); toast("Deleted selected");
 });
 
-/* ========================
-   CLEANUP TOOLS — #10
-   ======================== */
 $("cleanupTrim").addEventListener("click", ()=>{
   if(!batch.length) return toast("Batch empty");
   pushHistory("trim");
@@ -1698,21 +1309,12 @@ $("cleanupTrim").addEventListener("click", ()=>{
     if(item.title) item.title = String(item.title).trim();
     if(item.youtube_id) item.youtube_id = String(item.youtube_id).trim();
     if(item.url) item.url = String(item.url).trim();
-    // categories
-    if(Array.isArray(item.category)){
-      item.category = item.category.map(c=>String(c).trim()).filter(Boolean);
-      if(item.category.length === 1) item.category = item.category[0];
-    } else if(item.category){
-      item.category = String(item.category).trim();
-    }
-    // tags
+    if(Array.isArray(item.category)){ item.category = item.category.map(c=>String(c).trim()).filter(Boolean); if(item.category.length === 1) item.category = item.category[0]; }
+    else if(item.category) item.category = String(item.category).trim();
     item.tags = (item.tags||[]).map(t=>String(t).trim()).filter(Boolean);
   });
-  persistAll();
-  renderBatchList();
-  toast("Trimmed");
+  persistAll(); renderBatchList(); toast("Trimmed");
 });
-
 $("cleanupNormalizeTags").addEventListener("click", ()=>{
   if(!batch.length) return toast("Batch empty");
   pushHistory("normalize tags");
@@ -1721,415 +1323,220 @@ $("cleanupNormalizeTags").addEventListener("click", ()=>{
     item.tags = Array.from(set);
     item.tags.forEach(t=> savedTags.add(t));
   });
-  persistAll();
-  renderBatchList();
-  toast("Normalized tags");
+  persistAll(); renderBatchList(); toast("Normalized tags");
 });
-
 $("cleanupDedupe").addEventListener("click", ()=>{
   if(!batch.length) return toast("Batch empty");
   pushHistory("dedupe");
   const seen = new Set();
   batch = batch.filter(item=>{
-    const key = (item.youtube_id ? "yt:"+item.youtube_id : (item.url ? "url:"+item.url : "none:"+Math.random()));
-    if(seen.has(key)) return false;
-    seen.add(key);
-    return true;
+    const key = item.youtube_id ? "yt:"+item.youtube_id : (item.url ? "url:"+item.url : "none:"+Math.random());
+    if(seen.has(key)) return false; seen.add(key); return true;
   });
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  persistAll();
-  renderBatchList();
-  toast("Deduped");
+  editingIndex = null; $("addBatch").textContent = "Add to Batch";
+  persistAll(); renderBatchList(); toast("Deduped");
 });
-
 $("cleanupSortAZ").addEventListener("click", ()=>{
   if(!batch.length) return toast("Batch empty");
-  pushHistory("sort az");
-  batch.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
-  persistAll();
-  renderBatchList();
-  toast("Sorted A–Z");
+  pushHistory("sort az"); batch.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
+  persistAll(); renderBatchList(); toast("Sorted A-Z");
 });
-
 $("cleanupSortNewest").addEventListener("click", ()=>{
   if(!batch.length) return toast("Batch empty");
   pushHistory("sort newest");
-  const byDate = x => new Date(x.added||0).getTime()||0;
-  batch.sort((a,b)=> byDate(b)-byDate(a));
-  persistAll();
-  renderBatchList();
-  toast("Sorted newest");
+  batch.sort((a,b)=> (new Date(b.added||0).getTime()||0) - (new Date(a.added||0).getTime()||0));
+  persistAll(); renderBatchList(); toast("Sorted newest");
 });
 
-/* ========================
-   GENERATE / COPY BATCH JSON — #6
-   ======================== */
 function buildFinalExportObject(){
   const popupEnabled = $("popupEnabled").checked;
   const popupMsg = $("popupMsg").value.trim();
-
-  if(popupEnabled && popupMsg){
-    return {
-      popup: { enabled:true, message: popupMsg },
-      videos: batch
-    };
-  }
+  if(popupEnabled && popupMsg) return { popup: { enabled:true, message: popupMsg }, videos: batch };
   return { videos: batch };
 }
 
 $("genBatch").addEventListener("click", ()=>{
-  if(!batch.length){
-    toast("Batch empty");
-    return;
-  }
-  const finalObj = buildFinalExportObject();
-  const json = JSON.stringify(finalObj, null, 2);
-  // replace batch list area with json text (as you liked before)
-  batchListEl.textContent = json;
+  if(!batch.length){ toast("Batch empty"); return; }
+  batchListEl.textContent = JSON.stringify(buildFinalExportObject(), null, 2);
   toast("Batch JSON ready");
 });
-
 $("copyBatch").addEventListener("click", ()=>{
   const txt = batchListEl.textContent.trim();
   if(!txt){ toast("Nothing to copy"); return; }
   navigator.clipboard.writeText(txt).then(()=>toast("Copied")).catch(()=>toast("Copy failed"));
 });
-
 $("clearBatch").addEventListener("click", ()=>{
-  pushHistory("clear batch");
-  batch = [];
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  persistAll();
-  renderBatchList();
-  toast("Batch cleared");
+  pushHistory("clear batch"); batch = []; editingIndex = null;
+  $("addBatch").textContent = "Add to Batch"; persistAll(); renderBatchList(); toast("Batch cleared");
 });
 
-/* download helpers */
 function downloadText(filename, text){
   const blob = new Blob([text], { type:"application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  const a = document.createElement("a"); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-$("downloadVideosJSON").addEventListener("click", ()=>{
-  const obj = buildFinalExportObject();
-  downloadText("videos.json", JSON.stringify(obj, null, 2));
-  toast("Downloaded");
-});
-$("downloadVideosArray").addEventListener("click", ()=>{
-  downloadText("videos-array.json", JSON.stringify(batch, null, 2));
-  toast("Downloaded");
-});
+$("downloadVideosJSON").addEventListener("click", ()=>{ downloadText("videos.json", JSON.stringify(buildFinalExportObject(), null, 2)); toast("Downloaded"); });
+$("downloadVideosArray").addEventListener("click", ()=>{ downloadText("videos-array.json", JSON.stringify(batch, null, 2)); toast("Downloaded"); });
 $("copyFullJSON").addEventListener("click", ()=>{
-  const obj = buildFinalExportObject();
-  navigator.clipboard.writeText(JSON.stringify(obj, null, 2))
-    .then(()=>toast("Copied videos.json"))
-    .catch(()=>toast("Copy failed"));
+  navigator.clipboard.writeText(JSON.stringify(buildFinalExportObject(), null, 2)).then(()=>toast("Copied")).catch(()=>toast("Copy failed"));
 });
 
-/* ========================
-   IMPORT videos.json — #5
-   ======================== */
 function normalizeVideosPayload(d){
-  // Accept: Array<Video> | {popup,videos} | [ {popup,videos} ]
   let popup = { enabled:false, message:"" };
   let videos = [];
-
   if(Array.isArray(d)){
     if(d.length === 1 && d[0] && typeof d[0] === "object" && Array.isArray(d[0].videos)){
-      popup = d[0].popup || popup;
-      videos = d[0].videos || [];
-    } else {
-      videos = d;
-    }
+      popup = d[0].popup || popup; videos = d[0].videos || [];
+    } else { videos = d; }
   } else if(d && typeof d === "object"){
-    popup = d.popup || popup;
-    videos = Array.isArray(d.videos) ? d.videos : [];
+    popup = d.popup || popup; videos = Array.isArray(d.videos) ? d.videos : [];
   }
-
   return { popup, videos };
 }
 
 async function importJSONText(text){
   let parsed;
-  try{
-    parsed = JSON.parse(text);
-  } catch {
-    toast("Invalid JSON");
-    return;
-  }
-
+  try{ parsed = JSON.parse(text); } catch { toast("Invalid JSON"); return; }
   const { popup, videos } = normalizeVideosPayload(parsed);
-  if(!Array.isArray(videos)){
-    toast("No videos[] found");
-    return;
-  }
-
+  if(!Array.isArray(videos)){ toast("No videos[] found"); return; }
   pushHistory("import");
-
   batch = videos.map(v=>({
-    title: v.title || "",
-    youtube_id: v.youtube_id || "",
-    ...(v.url ? { url: v.url } : {}),
-    ...(v.category ? { category: v.category } : {}),
+    title: v.title || "", youtube_id: v.youtube_id || "",
+    ...(v.url ? { url: v.url } : {}), ...(v.category ? { category: v.category } : {}),
     tags: Array.isArray(v.tags) ? v.tags : [],
     added: v.added || new Date().toISOString(),
-    featured: !!v.featured,
-    pinned: !!v.pinned,
+    featured: !!v.featured, pinned: !!v.pinned,
     ...(v.thumb ? { thumb: v.thumb } : {})
   }));
-
-  // apply popup if present
-  if(popup && popup.enabled && popup.message){
-    $("popupEnabled").checked = true;
-    $("popupMsg").value = popup.message;
-  }
-
-  // learn categories/tags
+  if(popup && popup.enabled && popup.message){ $("popupEnabled").checked = true; $("popupMsg").value = popup.message; }
   batch.forEach(item=>{
     const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
-    cats.forEach(c=> savedCats.add(String(c).trim()).delete);
     cats.forEach(c=> savedCats.add(String(c).trim()));
     (item.tags||[]).forEach(t=> savedTags.add(cleanTag(t)));
   });
-
-  editingIndex = null;
-  $("addBatch").textContent = "Add to Batch";
-  persistAll();
-  refreshDatalists();
-  renderBatchList();
-  refreshCategoryManager();
+  editingIndex = null; $("addBatch").textContent = "Add to Batch";
+  persistAll(); refreshDatalists(); renderBatchList(); refreshCategoryManager();
   toast(`Imported ${batch.length} items`);
 }
 
 $("importFromLocalBtn").addEventListener("click", async ()=>{
   const f = $("fileInput").files && $("fileInput").files[0];
   if(!f) return toast("Choose a file first");
-  const text = await f.text();
-  await importJSONText(text);
+  await importJSONText(await f.text());
 });
-
 const dropzone = $("dropzone");
-dropzone.addEventListener("dragover", (e)=>{
-  e.preventDefault();
-  dropzone.classList.add("dragover");
-});
-dropzone.addEventListener("dragleave", ()=>{
-  dropzone.classList.remove("dragover");
-});
+dropzone.addEventListener("dragover", (e)=>{ e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", ()=>{ dropzone.classList.remove("dragover"); });
 dropzone.addEventListener("drop", async (e)=>{
-  e.preventDefault();
-  dropzone.classList.remove("dragover");
+  e.preventDefault(); dropzone.classList.remove("dragover");
   const f = e.dataTransfer.files && e.dataTransfer.files[0];
-  if(!f) return;
-  const text = await f.text();
-  await importJSONText(text);
+  if(!f) return; await importJSONText(await f.text());
 });
 
-/* ========================
-   CATEGORY MANAGER — #4
-   ======================== */
 function categoryCounts(){
   const map = new Map();
   batch.forEach(item=>{
     const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
-    cats.map(c=>String(c).trim()).filter(Boolean).forEach(c=>{
-      map.set(c, (map.get(c)||0)+1);
-    });
+    cats.map(c=>String(c).trim()).filter(Boolean).forEach(c=>{ map.set(c, (map.get(c)||0)+1); });
   });
   return map;
 }
-
 function refreshCategoryManager(){
   const list = $("catList");
   if(!list) return;
-
   const counts = categoryCounts();
   const cats = Array.from(savedCats).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-
-  if(!cats.length){
-    list.innerHTML = `<div class="help">No saved categories yet.</div>`;
-    return;
-  }
-
+  if(!cats.length){ list.innerHTML = `<div class="field-help">No saved categories.</div>`; return; }
   list.innerHTML = cats.map(c=>{
     const n = counts.get(c) || 0;
-    return `
-      <div class="cat-row">
-        <div>
-          <div class="name">${escapeHTML(c)}</div>
-          <div class="count">${n} in batch</div>
-        </div>
-        <div class="btns">
-          <button class="mini-btn" data-cat-pick="${escapeHTML(c)}">Pick</button>
-        </div>
-      </div>
-    `;
+    return `<div class="cat-row"><div><div class="name">${escapeHTML(c)}</div><div class="count">${n} in batch</div></div><div><button class="mini-btn" data-cat-pick="${escapeHTML(c)}">Pick</button></div></div>`;
   }).join("");
-
   list.querySelectorAll("[data-cat-pick]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const c = btn.getAttribute("data-cat-pick") || "";
-      $("catFrom").value = c;
-      toast("Picked");
-    });
+    btn.addEventListener("click", ()=>{ $("catFrom").value = btn.getAttribute("data-cat-pick") || ""; toast("Picked"); });
   });
 }
 
 function renameCategorySaved(from, to){
-  if(!from || !to) return false;
-  if(!savedCats.has(from)) return false;
-  savedCats.delete(from);
-  savedCats.add(to);
-  return true;
+  if(!from || !to || !savedCats.has(from)) return false;
+  savedCats.delete(from); savedCats.add(to); return true;
 }
-
 function applyCategoryRenameToBatch(from, to){
   batch.forEach(item=>{
     const cats = Array.isArray(item.category) ? item.category : (item.category ? [item.category] : []);
     const next = cats.map(c=>String(c).trim()).filter(Boolean).map(c=> c === from ? to : c);
-    const set = new Set(next);
-    const arr = Array.from(set);
+    const arr = Array.from(new Set(next));
     if(!arr.length) delete item.category;
     else item.category = arr.length === 1 ? arr[0] : arr;
   });
 }
 
 $("catRename").addEventListener("click", ()=>{
-  const from = $("catFrom").value.trim();
-  const to = $("catTo").value.trim();
+  const from = $("catFrom").value.trim(), to = $("catTo").value.trim();
   if(!from || !to) return toast("Fill From and To");
   if(from === to) return toast("Same value");
-  if(!savedCats.has(from)) return toast("From not found in saved categories");
-
-  pushHistory("cat rename");
-  renameCategorySaved(from,to);
-  persistAll();
-  refreshDatalists();
-  refreshCategoryManager();
-  toast("Renamed (saved)");
+  if(!savedCats.has(from)) return toast("Not found");
+  pushHistory("cat rename"); renameCategorySaved(from,to);
+  persistAll(); refreshDatalists(); refreshCategoryManager(); toast("Renamed");
 });
-
 $("catMergeBatch").addEventListener("click", ()=>{
-  const from = $("catFrom").value.trim();
-  const to = $("catTo").value.trim();
+  const from = $("catFrom").value.trim(), to = $("catTo").value.trim();
   if(!from || !to) return toast("Fill From and To");
-
   pushHistory("cat merge");
-  // ensure saved has to
-  if(savedCats.has(from)){
-    renameCategorySaved(from,to);
-  } else {
-    savedCats.add(to);
-  }
+  if(savedCats.has(from)) renameCategorySaved(from,to); else savedCats.add(to);
   applyCategoryRenameToBatch(from,to);
-  persistAll();
-  refreshDatalists();
-  renderBatchList();
-  refreshCategoryManager();
-  toast("Applied to batch");
+  persistAll(); refreshDatalists(); renderBatchList(); refreshCategoryManager(); toast("Applied");
 });
-
 $("catDelete").addEventListener("click", ()=>{
   const from = $("catFrom").value.trim();
-  if(!from) return toast("Enter a category to delete");
+  if(!from) return toast("Enter a category");
   if(!savedCats.has(from)) return toast("Not found");
-  pushHistory("cat delete");
-  savedCats.delete(from);
-  persistAll();
-  refreshDatalists();
-  refreshCategoryManager();
-  toast("Deleted (saved)");
+  pushHistory("cat delete"); savedCats.delete(from);
+  persistAll(); refreshDatalists(); refreshCategoryManager(); toast("Deleted");
 });
 
-/* ========================
-   TEMPLATES — #14
-   ======================== */
 const templates = {
   prophecy: { categories:["Prophecy"], tags:["prophecy","bible"] },
   truth: { categories:["Truth"], tags:["truth","news"] },
   generic: { categories:["General"], tags:["matrix"] }
 };
-
 document.querySelectorAll("[data-template]").forEach(btn=>{
   btn.addEventListener("click", ()=>{
-    const key = btn.getAttribute("data-template");
-    const t = templates[key];
+    const t = templates[btn.getAttribute("data-template")];
     if(!t) return;
     form.category1.value = (t.categories||[]).join(", ");
     form.category2.value = "";
     form.tags.value = (t.tags||[]).join(", ");
-    updatePreview();
-    saveFormDraft();
-    toast("Template applied");
+    updatePreview(); saveFormDraft(); toast("Template applied");
   });
 });
 
-/* ========================
-   TEST IN HUB — #15
-   ======================== */
 $("testInHubBtn").addEventListener("click", ()=>{
   const obj = buildVideoObject();
   const errs = validate(obj);
   if(errs.length){ toast(errs[0]); return; }
-
-  // Save a preview item for the hub to optionally pick up later
   localStorage.setItem("hubPreviewItem", JSON.stringify(obj));
-
-  // Open hub (you can later add logic in videos.js to read hubPreviewItem)
-  window.open("videos.html", "_blank", "noopener");
-  toast("Opened hub");
+  window.open("videos.html", "_blank", "noopener"); toast("Opened hub");
 });
 
-/* ========================
-   POPUP SAVE
-   ======================== */
 $("popupEnabled").addEventListener("change", ()=>{ persistAll(); });
 $("popupMsg").addEventListener("input", ()=>{ persistAll(); });
 
-/* ========================
-   KEYBOARD SHORTCUTS
-   ======================== */
 document.addEventListener("keydown", (e)=>{
-  if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
-    e.preventDefault();
-    $("genOne").click();
-  }
-  if((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")){
-    e.preventDefault();
-    undo();
-  }
-  if((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && (e.key === "Z" || e.key === "z")))){
-    e.preventDefault();
-    redo();
-  }
-  if(e.key === "Escape"){
-    e.preventDefault();
-    $("clearForm").click();
-  }
+  if((e.ctrlKey || e.metaKey) && e.key === "Enter"){ e.preventDefault(); $("genOne").click(); }
+  if((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")){ e.preventDefault(); undo(); }
+  if((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.shiftKey && (e.key === "Z" || e.key === "z")))){ e.preventDefault(); redo(); }
+  if(e.key === "Escape"){ e.preventDefault(); $("clearForm").click(); }
 });
 
-/* ========================
-   INIT
-   ======================== */
-restoreAll();
-refreshDatalists();
-renderBatchList();
-refreshCategoryManager();
-updateYTStatusPill();
-updatePreview();
+restoreAll(); refreshDatalists(); renderBatchList(); refreshCategoryManager();
+updateYTStatusPill(); updatePreview();
+pushHistory("init"); updateUndoRedoUI();
 
-// seed initial history
-pushHistory("init");
-updateUndoRedoUI();
+["templateSection","bulkSection","cleanupSection"].forEach(id=>{
+  document.getElementById(id)?.classList.add("collapsed");
+});
 </script>
 </body>
 </html>

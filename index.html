@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LISTEN AND CHOOSE</title>
-  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <link rel="icon" href="assets/favicon-32x32.png" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     :root { box-sizing: border-box; }
@@ -16,178 +16,348 @@
       font-family: 'Share Tech Mono', monospace;
     }
 
-    /* Fade-to-black page transition */
     .fadeout { animation: fadeToBlack .35s ease forwards; }
     @keyframes fadeToBlack { to { opacity: 0; } }
 
-    /* Backdrop with subtle neon vignette */
-    .backdrop {
-      position: fixed; inset: 0; display: grid; place-items: center;
-      background: radial-gradient(1200px 800px at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.88) 60%, #000 100%);
+    @keyframes glitch {
+      0%,100%  { text-shadow: 0 0 8px rgba(0,255,65,.25); transform: none; }
+      20%      { text-shadow: -2px 0 rgba(255,0,65,.7), 2px 0 rgba(0,255,200,.7); transform: translate(-1px,0); }
+      21%      { text-shadow: 2px 0 rgba(255,0,65,.7), -2px 0 rgba(0,255,200,.7); transform: translate(1px,0); }
+      22%      { text-shadow: 0 0 8px rgba(0,255,65,.25); transform: none; }
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ===== Full-viewport video stage ===== */
+    .vid-stage {
+      position: fixed; inset: 0; background: #000;
+      border: none; outline: none;
+    }
+    .vid-stage:fullscreen,
+    .vid-stage:-webkit-full-screen,
+    .vid-stage:-moz-full-screen,
+    .vid-stage:-ms-fullscreen {
+      border: none; outline: none; box-shadow: none;
+      background: #000;
     }
 
-    /* Code rain canvas (same style vibe as choice) */
-    #codeRain {
-      position: absolute; inset: 0; z-index: 0;
-      opacity: .18; filter: blur(.2px); /* keep it subtle */
-    }
-
-    /* Centered modal for the intro video */
-    .modal {
-      position: relative; z-index: 1;
-      width: min(90vw, 900px);
-      aspect-ratio: 16 / 9;
-      background: #000; border-radius: 14px; overflow: hidden;
-      border: 1px solid rgba(255,255,255,.08);
-      box-shadow:
-        0 18px 60px rgba(0,0,0,.6),
-        0 0 0 1px rgba(255,255,255,.06) inset,
-        0 0 44px rgba(0,255,65,.25);
-      transform: translateY(6px) scale(.985);
-      opacity: 0;
-      animation: modalIn .5s cubic-bezier(.2,.8,.2,1) .05s forwards;
-    }
-    @keyframes modalIn { to { transform: translateY(0) scale(1); opacity: 1; } }
-
-    /* Fit video fully (no cropping) */
-    video {
+    .vid-stage video {
+      position: absolute; inset: 0;
       width: 100%; height: 100%;
-      object-fit: contain; background: #000; display: block;
+      object-fit: cover; display: block; background: #000;
+      border: none; outline: none;
+      filter: brightness(.92) saturate(.7) sepia(.15) hue-rotate(90deg) contrast(1.1);
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform;
+    }
+    video:fullscreen, video:-webkit-full-screen,
+    video:-moz-full-screen, video:-ms-fullscreen {
+      border: none; outline: none; box-shadow: none;
+    }
+    ::backdrop { background: #000; }
+    ::-webkit-media-controls { display: none !important; }
+
+    .vid-rain {
+      position: absolute; inset: 0; z-index: 1;
+      opacity: .08; pointer-events: none;
+      mix-blend-mode: screen;
+      will-change: transform;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
     }
 
-    /* Red glowing exit button */
-    .icon-btn {
-      position: absolute; top: 10px; right: 10px;
-      min-width: 42px; height: 38px; padding: 0 12px;
-      display: inline-grid; place-items: center;
-      border: 1px solid rgba(255, 0, 55, .65);
-      background: rgba(0,0,0,.45);
-      color: #fff; border-radius: 999px; cursor: pointer; z-index: 2;
-      font: 700 13px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      text-transform: uppercase; letter-spacing: .06em;
-      box-shadow: 0 0 18px rgba(255,0,55,.35), inset 0 0 12px rgba(255,0,55,.15);
-      backdrop-filter: blur(6px);
-    }
-    .icon-btn::before { content: "EXIT"; }
-    .icon-btn:hover {
-      background: rgba(255,0,55,.12);
-      box-shadow: 0 0 26px rgba(255,0,55,.55), inset 0 0 14px rgba(255,0,55,.2);
+    .vid-scanlines {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom, transparent 0px, transparent 2px,
+        rgba(0,0,0,.10) 2px, rgba(0,0,0,.10) 3px
+      );
     }
 
-    /* Unmute chip (small, bottom-left) */
+    .vid-scanbar {
+      position: absolute; left: 0; right: 0; height: 4px; z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(to bottom,
+        transparent,
+        rgba(0,255,65,.08) 40%,
+        rgba(255,255,255,.04) 50%,
+        rgba(0,255,65,.08) 60%,
+        transparent
+      );
+      animation: scanBarMove 4s linear infinite;
+    }
+    @keyframes scanBarMove {
+      from { top: -4px; }
+      to   { top: 100%; }
+    }
+
+    .vid-vignette {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.65) 100%);
+    }
+
+    .vid-green-tint {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: rgba(0,255,65,.03);
+      mix-blend-mode: overlay;
+    }
+
+    .vid-flicker {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      animation: flicker 3s ease-in-out infinite;
+      background: transparent;
+      will-change: opacity;
+    }
+    @keyframes flicker {
+      0%,100% { opacity: 1; }
+      92%     { opacity: .98; }
+      93%     { opacity: .96; }
+      94%     { opacity: 1; }
+    }
+
+    /* HUD corner brackets */
+    .hud-corner {
+      position: absolute; z-index: 3; pointer-events: none;
+      width: 50px; height: 50px;
+      border-color: rgba(0,255,65,.20);
+      border-style: solid;
+      border-width: 0;
+    }
+    .hud-tl { top: 20px; left: 20px; border-top-width: 1px; border-left-width: 1px; }
+    .hud-tr { top: 20px; right: 20px; border-top-width: 1px; border-right-width: 1px; }
+    .hud-bl { bottom: 20px; left: 20px; border-bottom-width: 1px; border-left-width: 1px; }
+    .hud-br { bottom: 20px; right: 20px; border-bottom-width: 1px; border-right-width: 1px; }
+
+    /* HUD data readouts */
+    .hud-top {
+      position: absolute; top: 22px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 700 clamp(9px, 1.6vw, 12px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.35);
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      text-shadow: 0 0 6px rgba(0,255,65,.2);
+    }
+    .hud-bottom {
+      position: absolute; bottom: 22px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 400 clamp(8px, 1.4vw, 10px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.25);
+      letter-spacing: .15em;
+      text-shadow: 0 0 4px rgba(0,255,65,.15);
+    }
+    .hud-bottom span {
+      color: rgba(255,40,40,.5);
+      animation: blink 1.2s step-end infinite;
+    }
+
+    .hud-left {
+      position: absolute; top: 50%; left: 22px; z-index: 4;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font: 400 clamp(7px, 1vw, 9px)/1.6 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.18);
+      letter-spacing: .1em;
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+      text-shadow: 0 0 4px rgba(0,255,65,.1);
+    }
+    .hud-right {
+      position: absolute; top: 50%; right: 22px; z-index: 4;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font: 400 clamp(7px, 1vw, 9px)/1.6 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.18);
+      letter-spacing: .1em;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      text-shadow: 0 0 4px rgba(0,255,65,.1);
+    }
+
+    /* Unmute chip */
     .chip {
-      position: absolute; left: 10px; bottom: 10px;
+      position: absolute; left: 14px; bottom: 14px; z-index: 5;
       display: inline-flex; gap: 6px; align-items: center;
-      padding: 8px 10px; border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.28);
-      background: rgba(0,0,0,.45); color: #fff;
-      cursor: pointer; z-index: 2; backdrop-filter: blur(6px);
-      font: 600 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      transition: transform .15s ease;
+      padding: 8px 12px; border-radius: 4px;
+      border: 1px solid rgba(0,255,65,.3);
+      background: rgba(0,0,0,.6); color: rgba(255,255,255,.85);
+      cursor: pointer; backdrop-filter: blur(4px);
+      font: 600 12px/1 'Share Tech Mono', monospace;
+      transition: background .15s;
     }
-    .chip:hover { transform: translateY(-1px); }
+    .chip:hover { background: rgba(0,255,65,.08); }
     .hidden { display: none !important; }
 
-    /* Top instruction */
-    .topline {
-      position: absolute; inset: auto 0 100% 0;
-      text-align: center; color: #9fffb3;
-      font: 700 14px/1.3 'Share Tech Mono', monospace;
-      text-shadow: 0 0 8px rgba(0,255,65,.3);
-      margin-bottom: 12px;
-      z-index: 1;
+    /* Big center play overlay */
+    .play-overlay {
+      position: absolute; inset: 0; z-index: 6;
+      display: none; place-items: center;
+      cursor: pointer; background: rgba(0,0,0,.4);
+    }
+    .play-overlay.show { display: grid; }
+    .play-overlay span {
+      width: 80px; height: 80px;
+      border: 2px solid rgba(0,255,65,.6);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 32px; color: rgba(0,255,65,.9);
+      background: rgba(0,0,0,.5);
+      backdrop-filter: blur(4px);
+      transition: transform .15s, border-color .15s;
+    }
+    .play-overlay:hover span {
+      transform: scale(1.1);
+      border-color: rgba(0,255,65,.9);
     }
 
-    /* ===== First-visit popup (same scheme + rain vibe) ===== */
+    /* ===== First-visit popup ===== */
     .popup-wrap {
       position: fixed; inset: 0; display: none; place-items: center; z-index: 9999;
       background: radial-gradient(1100px 720px at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.88) 60%, #000 100%);
       backdrop-filter: blur(2px);
     }
-    .popup-rain { position:absolute; inset:0; opacity:.18; filter: blur(.2px); }
+    .popup-rain { position: fixed; inset: 0; opacity: .22; filter: blur(.3px); pointer-events: none; }
+
     .popup-box {
       position: relative; z-index: 1;
-      width: min(92vw, 720px);
-      background:#000; color:#e6ffe6;
-      border:1px solid rgba(0,255,65,.28);
-      border-radius: 14px; padding: 22px 20px;
-      box-shadow:
-        0 18px 60px rgba(0,0,0,.6),
-        0 0 0 1px rgba(255,255,255,.06) inset,
-        0 0 44px rgba(0,255,65,.25);
+      width: min(92vw, 580px);
+      background: #000; color: #e6ffe6;
+      border: 1px solid rgba(0,255,65,.20);
+      border-radius: 8px; overflow: hidden;
+      box-shadow: 0 20px 70px rgba(0,0,0,.7);
       text-align: center;
+      padding: 30px 24px;
+      transform: translateY(8px) scale(.98);
+      opacity: 0;
+      animation: popIn .45s cubic-bezier(.2,.8,.2,1) .1s forwards;
     }
-    .popup-box h2 {
-      margin: 0 0 8px; font-size: 1.15rem; color: #9fffb3;
-      text-shadow: 0 0 8px rgba(0,255,65,.25);
-    }
-    .popup-msg { line-height:1.7; white-space:pre-wrap; }
-    .popup-msg .verse { font-style:italic; color:#7bd58a; }
-    .popup-btn {
-      margin-top: 14px; padding: 10px 16px; border-radius: 999px;
-      border: 1px solid rgba(0,255,65,.6); background: rgba(0,0,0,.45);
-      color: #e6ffe6; cursor: pointer; font-weight: 700; letter-spacing:.02em;
-      box-shadow: 0 0 18px rgba(0,255,65,.28), inset 0 0 10px rgba(0,255,65,.12);
-    }
-    .popup-btn:hover { background: rgba(0,255,65,.12); }
+    @keyframes popIn { to { transform: translateY(0) scale(1); opacity: 1; } }
 
-    @media (max-width: 420px) {
-      .modal { width: 94vw; }
-      .icon-btn { height: 36px; min-width: 40px; font-size: 12px; }
-      .chip { font-size: 11px; padding: 7px 9px; }
-      .topline { font-size: 12px; padding: 0 10px; }
+    .popup-box::after {
+      content: '';
+      position: absolute; inset: 0; z-index: 5;
+      background: repeating-linear-gradient(
+        to bottom, transparent 0px, transparent 2px,
+        rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 3px
+      );
+      pointer-events: none;
+    }
+
+    .popup-title {
+      margin: 0 0 16px;
+      font: 700 clamp(16px, 3.5vw, 22px)/1.3 'Share Tech Mono', monospace;
+      color: #9fffb3;
+      text-shadow: 0 0 10px rgba(0,255,65,.3);
+      animation: glitch 5s infinite;
+    }
+
+    .popup-msg {
+      line-height: 1.8;
+      font-size: clamp(12px, 2.5vw, 14px);
+      color: #c0ffd0;
+      white-space: pre-wrap;
+    }
+
+    .signal-tag {
+      display: block;
+      font-size: clamp(9px, 1.8vw, 11px);
+      letter-spacing: .18em;
+      color: rgba(0,255,65,.40);
+      margin-top: 12px;
+      text-transform: uppercase;
+    }
+
+    .popup-btn {
+      margin-top: 18px; padding: 12px 32px; border-radius: 4px;
+      border: 1px solid rgba(0,255,65,.5); background: rgba(0,0,0,.5);
+      color: #e6ffe6; cursor: pointer; font-weight: 700; letter-spacing: .12em;
+      font-family: 'Share Tech Mono', monospace; font-size: clamp(14px, 2.5vw, 16px);
+      transition: background .15s, border-color .15s, transform .1s;
+    }
+    .popup-btn::after {
+      content: '_';
+      animation: blink .9s step-end infinite;
+      margin-left: 2px;
+    }
+    .popup-btn:hover {
+      background: rgba(0,255,65,.10);
+      border-color: rgba(0,255,65,.7);
+      transform: translateY(-1px);
+    }
+    .popup-btn:active { transform: translateY(0) scale(.98); }
+
+    @media (max-width: 600px) {
+      .chip { font-size: 11px; padding: 7px 9px; bottom: 10px; left: 10px; }
+      .hud-corner { width: 24px; height: 24px; }
+      .hud-tl { top: 10px; left: 10px; }
+      .hud-tr { top: 10px; right: 10px; }
+      .hud-bl { bottom: 10px; left: 10px; }
+      .hud-br { bottom: 10px; right: 10px; }
+      .hud-top { top: 12px; font-size: 9px; }
+      .hud-bottom { bottom: 12px; font-size: 8px; }
+      .hud-left, .hud-right { display: none; }
+      .popup-box { padding: 22px 16px; }
+      .popup-title { font-size: 16px; }
     }
   </style>
 </head>
 <body>
   <script>
-    // Skip splash (video) entirely if already seen previously
     if (localStorage.getItem("splashSeen") === "true") {
       window.location.replace("videos.html");
     }
   </script>
 
-  <!-- First-visit popup -->
   <div class="popup-wrap" id="firstPopup" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
     <canvas class="popup-rain" id="popupRain"></canvas>
     <div class="popup-box">
-      <h2 id="popupTitle">ARE YOU SURE YOU WANT TO EXIT THE MATRIX? 🤔</h2>
-      <div id="popupMsg" class="popup-msg">
-IF YOU ARE SURE YOU TRULY WANT TO EXIT THE MATRIX <BR> CLICK "YES" AND WATCH THE 1m30sec VIDEO THEN DECIDE WHICH PILL YOU CHOOSE <BR> GOOD LUCK!
-      </div>
+      <h2 class="popup-title" id="popupTitle">ARE YOU SURE YOU WANT TO EXIT THE MATRIX?</h2>
+      <div id="popupMsg" class="popup-msg">IF YOU ARE SURE YOU TRULY WANT TO EXIT THE MATRIX
+CLICK "YES" AND WATCH THE 1m30sec VIDEO THEN DECIDE WHICH PILL YOU CHOOSE
+GOOD LUCK!</div>
+      <span class="signal-tag" id="signalTag">[ SIGNAL DETECTED — AWAITING CONFIRMATION ]</span>
       <button id="popupClose" class="popup-btn">YES</button>
     </div>
   </div>
 
-  <div class="backdrop" id="backdrop">
-    <!-- Subtle code rain -->
-    <canvas id="codeRain"></canvas>
+  <div class="vid-stage" id="vidStage">
+    <video id="introVideo" muted playsinline preload="auto" autoplay
+           src="The-Matrix-Blue-Pill-or-Red-Pill.mp4">
+    </video>
 
-    <div class="topline">ARE YOU SURE YOU WANT TO EXIT THE MATRIX? 🤔</div>
+    <canvas class="vid-rain" id="vidRain"></canvas>
+    <div class="vid-scanlines"></div>
+    <div class="vid-scanbar"></div>
+    <div class="vid-vignette"></div>
+    <div class="vid-green-tint"></div>
+    <div class="vid-flicker"></div>
 
-    <div class="modal" id="modal">
-      <button class="icon-btn" id="exitBtn" aria-label="Exit"></button>
+    <div class="hud-corner hud-tl"></div>
+    <div class="hud-corner hud-tr"></div>
+    <div class="hud-corner hud-bl"></div>
+    <div class="hud-corner hud-br"></div>
 
-      <video id="introVideo" autoplay muted playsinline preload="auto"
-             poster="assets/splash-poster.jpg">
-        <source src="The-Matrix-Blue-Pill-or-Red-Pill.mp4" type="video/mp4">
-        <source src="The-Matrix-Blue-Pill-or-Red-Pill.webm" type="video/webm">
-        <source src="The-Matrix-Blue-Pill-or-Red-Pill.ogg" type="video/ogg">
-        Your browser does not support the video tag.
-      </video>
+    <div class="hud-top" id="hudTop">INCOMING TRANSMISSION</div>
+    <div class="hud-bottom" id="hudBottom">REC <span>●</span></div>
+    <div class="hud-left" id="hudLeft">SYS.MATRIX.FEED//01</div>
+    <div class="hud-right" id="hudRight">DECRYPT:ACTIVE</div>
 
-      <button class="chip" id="unmuteChip" aria-label="Enable sound">🔊 Tap to unmute</button>
-    </div>
+    <div class="play-overlay" id="playOverlay"><span>▶</span></div>
+    <button class="chip" id="unmuteChip" aria-label="Enable sound">🔊 Tap to unmute</button>
   </div>
 
   <script>
     (function(){
-      const video = document.getElementById("introVideo");
-      const exitBtn = document.getElementById("exitBtn");
-      const unmuteChip = document.getElementById("unmuteChip");
+      const video       = document.getElementById("introVideo");
+      const unmuteChip  = document.getElementById("unmuteChip");
+      const playOverlay = document.getElementById("playOverlay");
+      const hudTop      = document.getElementById("hudTop");
+      const hudBottom   = document.getElementById("hudBottom");
       const redirectURL = "choice.html";
       let redirected = false;
       let timeout;
+      let videoIsPlaying = false;
+      let videoStarted = false;
 
       function fadeAndGo(url){
         if (redirected) return;
@@ -199,92 +369,161 @@ IF YOU ARE SURE YOU TRULY WANT TO EXIT THE MATRIX <BR> CLICK "YES" AND WATCH THE
       }
       function goToChoice(){ fadeAndGo(redirectURL); }
 
-      // Autoplay kick (mobile-safe)
-      const ensurePlay = () => video.play().catch(()=>{ /* ignored */ });
-      video.addEventListener("canplay", ensurePlay, { once: true });
-      ensurePlay();
-
-      // Safe unmute on user action
-      function tryUnmute() {
-        if (!video.muted) return;
-        video.muted = false;
-        video.volume = 1;
-        video.play().then(() => {
-          unmuteChip.classList.add("hidden");
-        }).catch(()=>{
-          // Browser blocked; keep chip visible and audio muted
-          video.muted = true;
+      function doPlay() {
+        video.muted = true;
+        return video.play().then(function(){
+          videoIsPlaying = true;
+          playOverlay.classList.remove("show");
+          unmuteChip.classList.remove("hidden");
         });
       }
-      unmuteChip.addEventListener("click", tryUnmute, { passive:true });
-      video.addEventListener("pointerdown", tryUnmute, { once: true, passive:true });
 
-      // Exit paths → pill choice
-      exitBtn.addEventListener("click", goToChoice);
-      video.addEventListener("ended", goToChoice);
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") goToChoice();
+      function showPlayButton() {
+        playOverlay.classList.add("show");
+        unmuteChip.classList.add("hidden");
+      }
+
+      function startVideo() {
+        if (videoStarted) return;
+        videoStarted = true;
+
+        video.load();
+
+        doPlay().catch(function() {
+          showPlayButton();
+        });
+      }
+
+      playOverlay.addEventListener("click", function() {
+        doPlay().catch(function(){});
       });
-      window.addEventListener("blur", goToChoice);
-      window.addEventListener("pagehide", goToChoice);
 
-      // Safety timeout (~2m34s)
-      timeout = setTimeout(goToChoice, 154000);
+      unmuteChip.addEventListener("click", function() {
+        if (video.paused) {
+          doPlay().catch(function(){});
+          return;
+        }
+        video.muted = false;
+        video.volume = 1;
+        unmuteChip.classList.add("hidden");
+      });
 
-      /* ===== Code rain (page background) ===== */
-      function makeRain(canvas, speed=0.6, opacityFill=0.05){
-        const ctx = canvas.getContext('2d');
-        const chars = 'アカサタナハマヤラワ012345789abcdef';
+      video.addEventListener("click", function() {
+        if (video.paused) {
+          doPlay().catch(function(){});
+        } else if (video.muted) {
+          video.muted = false;
+          video.volume = 1;
+          unmuteChip.classList.add("hidden");
+        }
+      });
+
+      video.addEventListener("ended", goToChoice);
+
+      document.addEventListener("visibilitychange", function() {
+        if (videoIsPlaying && document.visibilityState === "hidden") goToChoice();
+      });
+      window.addEventListener("pagehide", function() {
+        if (videoIsPlaying) goToChoice();
+      });
+
+      video.addEventListener("playing", function arm(){
+        videoIsPlaying = true;
+        timeout = setTimeout(goToChoice, 154000);
+        video.removeEventListener("playing", arm);
+      });
+
+      /* HUD rotating messages */
+      const hudMsgs = [
+        'INCOMING TRANSMISSION',
+        'DECRYPTING FEED...',
+        'SOURCE: UNKNOWN',
+        'SIGNAL LOCKED',
+        'AWAITING RESPONSE',
+      ];
+      let hi = 0;
+      setInterval(()=>{
+        hi = (hi + 1) % hudMsgs.length;
+        hudTop.textContent = hudMsgs[hi];
+      }, 3500);
+
+      /* Matrix rain */
+      function makeRain(canvas, speed, opacityFill){
+        speed       = speed       ?? 0.6;
+        opacityFill = opacityFill ?? 0.05;
+        const ctx   = canvas.getContext('2d');
+        const chars = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ' +
+                       '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                       'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθ';
         let W=0, H=0, cols=0, drops=[], fontSize=16, running=true;
 
         function resize(){
-          W = canvas.width = window.innerWidth;
+          W = canvas.width  = window.innerWidth;
           H = canvas.height = window.innerHeight;
-          cols = Math.floor(W / fontSize);
-          drops = new Array(cols).fill(0).map(()=>Math.random()*H/fontSize);
+          cols  = Math.floor(W / fontSize);
+          drops = new Array(cols).fill(0).map(()=> -(Math.random() * (H / fontSize)));
           ctx.font = `${fontSize}px monospace`;
         }
         function tick(){
           if(!running){ requestAnimationFrame(tick); return; }
           ctx.fillStyle = `rgba(0,0,0,${opacityFill})`;
-          ctx.fillRect(0,0,W,H);
-          ctx.fillStyle = '#00ff41';
-          for (let i=0;i<cols;i++){
-            const txt = chars[Math.floor(Math.random()*chars.length)];
-            const x = i*fontSize;
-            const y = drops[i]*fontSize;
-            ctx.fillText(txt, x, y);
-            if (y > H && Math.random() > 0.987) drops[i] = 0;
+          ctx.fillRect(0, 0, W, H);
+
+          for (let i = 0; i < cols; i++){
+            const y = drops[i] * fontSize;
+            ctx.fillStyle = '#afffbf';
+            ctx.fillText(chars[(Math.random() * chars.length) | 0], i * fontSize, y);
+            ctx.fillStyle = '#00ff41';
+            ctx.fillText(chars[(Math.random() * chars.length) | 0], i * fontSize, y - fontSize);
+
+            if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 20);
             drops[i] += speed;
           }
           requestAnimationFrame(tick);
         }
-        resize(); tick();
-        window.addEventListener('resize', resize);
-        document.addEventListener('visibilitychange', ()=>{ running = document.visibilityState === 'visible'; });
+        resize();
+        tick();
+        window.addEventListener('resize', resize, { passive: true });
+        document.addEventListener('visibilitychange', ()=>{
+          running = document.visibilityState === 'visible';
+        });
       }
 
-      // Rain behind the video modal
-      makeRain(document.getElementById('codeRain'), 0.6, 0.05);
+      makeRain(document.getElementById('vidRain'), 0.5, 0.04);
 
-      // First-visit popup (same vibe) — shown BEFORE video if never seen
+      /* Signal tag scramble */
+      const signalTag = document.getElementById('signalTag');
+      if (signalTag) {
+        const msgs = [
+          '[ SIGNAL DETECTED — AWAITING CONFIRMATION ]',
+          '[ TRACING ORIGIN... ]',
+          '[ ENCRYPTION LAYER BYPASSED ]',
+          '[ IDENTITY UNVERIFIED ]',
+          '[ AWAITING YOUR DECISION ]',
+        ];
+        let si = 0;
+        setInterval(()=>{
+          si = (si + 1) % msgs.length;
+          signalTag.textContent = msgs[si];
+        }, 2800);
+      }
+
+      /* First-visit popup */
       const firstPopup = document.getElementById('firstPopup');
       const popupClose = document.getElementById('popupClose');
-      const popSeen = localStorage.getItem('indexPopupSeen') === 'true';
+      const popSeen    = localStorage.getItem('indexPopupSeen') === 'true';
 
-      if(!popSeen){
+      if (!popSeen) {
         firstPopup.style.display = 'grid';
-        // pause video visuals under popup to save battery (optional)
-        try { video.pause(); } catch {}
-        // rain for popup layer
         makeRain(document.getElementById('popupRain'), 0.55, 0.06);
 
         popupClose.addEventListener('click', ()=>{
           firstPopup.style.display = 'none';
           localStorage.setItem('indexPopupSeen', 'true');
-          // kick video again after closing
-          ensurePlay();
-        }, { once:true });
+          startVideo();
+        }, { once: true });
+      } else {
+        startVideo();
       }
     })();
   </script>

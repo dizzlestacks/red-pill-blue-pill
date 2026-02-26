@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SCRIPTURE HUB — BREAK OUT THE MATRIX</title>
+
+  <link rel="icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180x180.png">
+
+  <link href="themes.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    :root { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    html, body {
+      margin: 0; padding: 0; overflow-x: hidden;
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    #matrixRain {
+      position: fixed; inset: 0; z-index: -1;
+      display: block; pointer-events: none;
+      opacity: .12; filter: blur(.2px);
+    }
+
+    /* ===== Nav bar ===== */
+    .top-bar {
+      position: sticky; top: 0; z-index: 80;
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--bg) 78%, var(--accent) 8%, black),
+        color-mix(in srgb, var(--bg) 60%, var(--accent) 14%, black),
+        color-mix(in srgb, var(--bg) 78%, var(--accent) 8%, black)
+      );
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+      box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+      text-transform: uppercase;
+      letter-spacing: .10em;
+      font-size: .62rem;
+    }
+    .top-bar a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+      text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 22%, transparent);
+      padding: 2px 0;
+    }
+    .top-bar a:hover {
+      text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    .divider { opacity: .35; }
+    .top-bar select {
+      border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+      background: color-mix(in srgb, var(--card) 92%, var(--bg));
+      color: var(--fg);
+      border-radius: 10px;
+      padding: 2px 10px;
+      font-size: .62rem;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      outline: none;
+      font-family: inherit;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+
+    /* ===== Main layout ===== */
+    .wrap {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 40px 16px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+
+    /* ===== Page header ===== */
+    .page-header {
+      text-align: center;
+    }
+    .page-header h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.1rem, 4vw, 1.8rem);
+      color: var(--accent);
+      text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .page-header p {
+      margin: 0;
+      font-size: clamp(.80rem, 2vw, .95rem);
+      color: color-mix(in srgb, var(--fg) 60%, transparent);
+      line-height: 1.7;
+      max-width: 580px;
+    }
+
+    /* ===== Scripture section ===== */
+    .scripture-section {
+      width: 100%;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+      border-radius: 16px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--card) 85%, var(--bg));
+      box-shadow:
+        0 0 32px color-mix(in srgb, var(--accent) 14%, transparent),
+        0 0 0 1px rgba(255,255,255,.04) inset;
+    }
+    .scripture-header {
+      padding: 12px 20px;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--bg) 70%, var(--accent) 12%, black),
+        color-mix(in srgb, var(--bg) 55%, var(--accent) 18%, black),
+        color-mix(in srgb, var(--bg) 70%, var(--accent) 12%, black)
+      );
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+      text-align: center;
+    }
+    .scripture-header h2 {
+      margin: 0 0 4px;
+      font-size: .78rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+    .scripture-header p {
+      margin: 0;
+      font-size: .64rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--fg) 50%, transparent);
+    }
+
+    .scripture-btns {
+      display: flex;
+      gap: 14px;
+      padding: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .scripture-btn {
+      flex: 1 1 200px;
+      max-width: 260px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 18px 16px;
+      border-radius: 14px;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: color-mix(in srgb, var(--card) 78%, var(--bg));
+      color: var(--fg);
+      font-family: inherit;
+      text-decoration: none;
+      cursor: pointer;
+      text-align: center;
+      transition:
+        background .15s ease,
+        box-shadow .15s ease,
+        transform .10s ease,
+        border-color .15s ease;
+      box-shadow:
+        0 0 16px color-mix(in srgb, var(--accent) 10%, transparent),
+        inset 0 0 14px color-mix(in srgb, var(--accent) 5%, transparent);
+    }
+    .scripture-btn:hover {
+      background: color-mix(in srgb, var(--accent) 10%, var(--card));
+      border-color: var(--accent);
+      box-shadow:
+        0 0 28px color-mix(in srgb, var(--accent) 32%, transparent),
+        inset 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+      transform: translateY(-3px);
+    }
+    .scripture-btn:active {
+      transform: translateY(0) scale(.98);
+    }
+    .scripture-btn.disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .btn-icon {
+      font-size: 1.8rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 45%, transparent));
+    }
+    .btn-label {
+      font-size: .74rem;
+      font-weight: 700;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+      line-height: 1.4;
+    }
+    .btn-sub {
+      font-size: .60rem;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--fg) 45%, transparent);
+    }
+
+    footer {
+      font-size: .78rem;
+      color: color-mix(in srgb, var(--fg) 35%, transparent);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      .scripture-btns { padding: 14px 12px; gap: 10px; }
+      .scripture-btn { flex: 1 1 140px; padding: 14px 10px; }
+      .btn-icon { font-size: 1.4rem; }
+      .btn-label { font-size: .68rem; }
+    }
+  </style>
+</head>
+
+<body class="dark">
+  <canvas id="matrixRain"></canvas>
+
+  <!-- Nav -->
+  <div class="top-bar">
+    <a href="videos.html">← Video Hub</a>
+    <span class="divider">|</span>
+    <select id="themeSelect" title="Color Palette" aria-label="Theme"></select>
+  </div>
+
+  <div class="wrap">
+
+    <!-- Header -->
+    <div class="page-header">
+      <h1>Scripture Hub</h1>
+    </div>
+
+    <!-- PDF Buttons -->
+    <div class="scripture-section">
+      <div class="scripture-header">
+        <h2>📖 Scripture Downloads</h2>
+        <p>Free PDF resources — read the truth for yourself</p>
+      </div>
+      <div class="scripture-btns">
+
+        <a id="pdfKjvRestored" href="pdfs/kjv-restored-names.pdf" class="scripture-btn" download target="_blank" rel="noopener" aria-label="KJV With Restored Names PDF">
+          <span class="btn-icon">📜</span>
+          <span class="btn-label">KJV With<br>Restored Names</span>
+          <span class="btn-sub">⬇ Download PDF</span>
+        </a>
+
+        <a id="pdfApocrypha" href="pdfs/apocrypha.pdf" class="scripture-btn" download target="_blank" rel="noopener" aria-label="Apocrypha PDF">
+          <span class="btn-icon">📚</span>
+          <span class="btn-label">Apocrypha</span>
+          <span class="btn-sub">⬇ Download PDF</span>
+        </a>
+
+        <a id="pdfKjv1611" href="#" class="scripture-btn disabled" target="_blank" rel="noopener" aria-label="KJV 1611 Version PDF">
+          <span class="btn-icon">🕊</span>
+          <span class="btn-label">KJV 1611<br>Version</span>
+          <span class="btn-sub">Coming soon</span>
+        </a>
+
+      </div>
+    </div>
+
+    <footer id="footInfo"></footer>
+  </div>
+
+  <script>
+  (function(){
+    "use strict";
+
+    const THEMES = [
+      "dark","light","grey","pink","blue","vaporwave","solarized-dark","dracula","cyberpunk","sepia","midnight",
+      "facebook","mcdonalds","walmart","office","discord","netflix","apple","google","amazon","spotify","twitch",
+      "youtube","terminal","desert","ocean","forest","blood","gold","ice"
+    ];
+
+    const themeSelect = document.getElementById("themeSelect");
+    THEMES.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t; opt.textContent = t.toUpperCase();
+      themeSelect.appendChild(opt);
+    });
+
+    function setTheme(t){
+      document.body.className = t;
+      localStorage.setItem("preferredTheme", t);
+    }
+    const saved = localStorage.getItem("preferredTheme") || "terminal";
+    setTheme(saved);
+    themeSelect.value = saved;
+    themeSelect.addEventListener("change", () => {
+      if (THEMES.includes(themeSelect.value)) setTheme(themeSelect.value);
+    });
+
+    /* Matrix rain */
+    (function(){
+      const canvas = document.getElementById("matrixRain");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      let W=0, H=0, cols=0, drops=[];
+      const fontSize = 15;
+      const chars = "アカサタナハマヤラワ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+      function resize(){
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        cols = Math.floor(W / fontSize);
+        drops = new Array(cols).fill(0).map(() => Math.random() * H / fontSize);
+        ctx.font = fontSize + "px monospace";
+      }
+      window.addEventListener("resize", resize, { passive: true });
+      document.addEventListener("visibilitychange", () => { running = document.visibilityState === "visible"; });
+      resize();
+
+      let lastT = 0, running = true;
+      const frameMS = 1000 / 22;
+
+      function tick(ts){
+        requestAnimationFrame(tick);
+        if (!running || ts - lastT < frameMS) return;
+        lastT = ts;
+        ctx.fillStyle = "rgba(0,0,0,0.05)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#00ff41";
+        for (let i = 0; i < cols; i++){
+          const ch = chars[Math.floor(Math.random() * chars.length)];
+          ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+          if (drops[i] * fontSize > H && Math.random() > 0.987) drops[i] = 0;
+          drops[i] += 0.55;
+        }
+      }
+      requestAnimationFrame(tick);
+    })();
+
+    /* Footer clock */
+    function tick(){
+      const el = document.getElementById("footInfo");
+      if (el) el.textContent = new Date().toLocaleTimeString() + " — scripture hub";
+    }
+    tick();
+    setInterval(tick, 1000);
+
+  })();
+  </script>
+</body>
+</html>

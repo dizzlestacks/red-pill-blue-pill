@@ -551,6 +551,10 @@
     populateCategories();
     showPopupOnce();
     render();
+
+    document.dispatchEvent(new CustomEvent("videosloaded", {
+      detail: { videos: state.videos, popup: state.popup }
+    }));
   }
 
   /* ============================
