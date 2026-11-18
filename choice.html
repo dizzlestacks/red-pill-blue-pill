@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="offline.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>MOST IMPORTANT CHOICE OF YOUR LIFE</title>
+  <link rel="icon" href="assets/favicon-32x32.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root { box-sizing: border-box; }
+    *,*::before,*::after { box-sizing: inherit; }
+    html,body {
+      margin:0; height:100%; background:#000; color:#00FF41;
+      font-family:'Share Tech Mono', monospace;
+      overflow:hidden; user-select:none; -webkit-user-select:none;
+      cursor: default;
+    }
+
+    .fadeout { animation: fadeToBlack .35s ease forwards; }
+    @keyframes fadeToBlack { to { opacity:0; } }
+
+    @keyframes glitch {
+      0%,100%  { text-shadow: 0 0 8px rgba(0,255,65,.35); transform: none; }
+      18%      { text-shadow: -2px 0 rgba(255,0,65,.7), 2px 0 rgba(0,255,200,.7); transform: translate(-1px,0); }
+      19%      { text-shadow: 2px 0 rgba(255,0,65,.7), -2px 0 rgba(0,255,200,.7); transform: translate(1px,0); }
+      20%      { text-shadow: 0 0 8px rgba(0,255,65,.35); transform: none; }
+    }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+
+    .pill-stage {
+      position: fixed; inset: 0; background: #000;
+      border: none; outline: none;
+    }
+
+    .pill-stage img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: contain; display: block; background: #000;
+      border: none; outline: none;
+      pointer-events: none;
+      opacity: .65;
+      filter: brightness(.9) saturate(.8);
+    }
+
+    .pill-rain {
+      position: absolute; inset: 0; z-index: 1;
+      opacity: .08; pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .pill-scanlines {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom, transparent 0px, transparent 2px,
+        rgba(0,0,0,.10) 2px, rgba(0,0,0,.10) 3px
+      );
+    }
+
+    .pill-scanbar {
+      position: absolute; left: 0; right: 0; height: 4px; z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(to bottom,
+        transparent,
+        rgba(0,255,65,.08) 40%,
+        rgba(255,255,255,.04) 50%,
+        rgba(0,255,65,.08) 60%,
+        transparent
+      );
+      animation: scanBarMove 4s linear infinite;
+    }
+    @keyframes scanBarMove {
+      from { top: -4px; }
+      to   { top: 100%; }
+    }
+
+    .pill-vignette {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.65) 100%);
+    }
+
+    .pill-green-tint {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: rgba(0,255,65,.03);
+      mix-blend-mode: overlay;
+    }
+
+    .pill-flicker {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      animation: flicker 0.15s infinite;
+      background: transparent;
+    }
+    @keyframes flicker {
+      0%   { opacity: 1; }
+      50%  { opacity: .97; }
+      100% { opacity: 1; }
+    }
+
+    .hud-corner {
+      position: absolute; z-index: 3; pointer-events: none;
+      width: 50px; height: 50px;
+      border-color: rgba(0,255,65,.20);
+      border-style: solid;
+      border-width: 0;
+    }
+    .hud-tl { top: 20px; left: 20px; border-top-width: 1px; border-left-width: 1px; }
+    .hud-tr { top: 20px; right: 20px; border-top-width: 1px; border-right-width: 1px; }
+    .hud-bl { bottom: 20px; left: 20px; border-bottom-width: 1px; border-left-width: 1px; }
+    .hud-br { bottom: 20px; right: 20px; border-bottom-width: 1px; border-right-width: 1px; }
+
+    .hud-top {
+      position: absolute; top: 22px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 700 clamp(11px, 2.2vw, 16px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.5);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(0,255,65,.3);
+      animation: glitch 5s infinite;
+    }
+    .hud-sub {
+      position: absolute; top: 46px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 400 clamp(9px, 1.6vw, 12px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.3);
+      letter-spacing: .15em;
+    }
+    .hud-bottom {
+      position: absolute; bottom: 22px; left: 0; right: 0; z-index: 4;
+      text-align: center; pointer-events: none;
+      font: 400 clamp(8px, 1.4vw, 10px)/1 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.25);
+      letter-spacing: .15em;
+      text-shadow: 0 0 4px rgba(0,255,65,.15);
+    }
+    .hud-bottom span {
+      color: rgba(255,40,40,.5);
+      animation: blink 1.2s step-end infinite;
+    }
+    .hud-left {
+      position: absolute; top: 50%; left: 22px; z-index: 4;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font: 400 clamp(7px, 1vw, 9px)/1.6 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.18);
+      letter-spacing: .1em;
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+    }
+    .hud-right {
+      position: absolute; top: 50%; right: 22px; z-index: 4;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font: 400 clamp(7px, 1vw, 9px)/1.6 'Share Tech Mono', monospace;
+      color: rgba(0,255,65,.18);
+      letter-spacing: .1em;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+    }
+
+    .hotzone {
+      position: absolute; top: 0; bottom: 0; width: 50%; z-index: 5;
+      cursor: pointer;
+      transition: background .25s ease, box-shadow .25s ease;
+    }
+    .hotzone.left  { left: 0; }
+    .hotzone.right { right: 0; }
+    .hotzone.left:hover {
+      background: linear-gradient(135deg, rgba(255,30,30,.15) 0%, transparent 60%);
+      box-shadow: inset 0 0 80px rgba(255,0,0,.12);
+    }
+    .hotzone.right:hover {
+      background: linear-gradient(225deg, rgba(30,80,255,.15) 0%, transparent 60%);
+      box-shadow: inset 0 0 80px rgba(0,80,255,.12);
+    }
+
+    .pill-label {
+      position: absolute; bottom: 60px; z-index: 6;
+      padding: 8px 20px; border-radius: 4px;
+      font: 700 clamp(11px, 2vw, 14px)/1 'Share Tech Mono', monospace;
+      letter-spacing: .12em; text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .25s ease, transform .25s ease;
+      transform: translateY(6px);
+      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,.6);
+    }
+    .pill-label.red {
+      left: 15%; transform: translateY(6px);
+      color: #ff4444;
+      border: 1px solid rgba(255,0,55,.4);
+      text-shadow: 0 0 8px rgba(255,0,0,.4);
+    }
+    .pill-label.blue {
+      right: 15%; transform: translateY(6px);
+      color: #4488ff;
+      border: 1px solid rgba(60,100,255,.4);
+      text-shadow: 0 0 8px rgba(60,100,255,.4);
+    }
+
+    .hotzone.left:hover  ~ .pill-label.red  { opacity: 1; transform: translateY(0); }
+    .hotzone.right:hover ~ .pill-label.blue { opacity: 1; transform: translateY(0); }
+
+    .spinner {
+      position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
+      background: rgba(0,0,0,.5);
+      transition: opacity .2s ease;
+    }
+    .spinner.hide { opacity: 0; pointer-events: none; }
+    .ring {
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 3px solid rgba(0,255,65,.18); border-top-color: #00ff41;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes rumble {
+      0% { transform: translate(0,0); }
+      20% { transform: translate(-1px, 1px); }
+      40% { transform: translate(1px, -1px); }
+      60% { transform: translate(-1px, -1px); }
+      80% { transform: translate(1px, 1px); }
+      100% { transform: translate(0,0); }
+    }
+    .rumble { animation: rumble .15s linear; }
+
+    @media (max-width: 600px) {
+      .hud-corner { width: 24px; height: 24px; }
+      .hud-tl { top: 10px; left: 10px; }
+      .hud-tr { top: 10px; right: 10px; }
+      .hud-bl { bottom: 10px; left: 10px; }
+      .hud-br { bottom: 10px; right: 10px; }
+      .hud-top { top: 12px; font-size: 12px; }
+      .hud-sub { top: 34px; font-size: 9px; }
+      .hud-bottom { bottom: 12px; font-size: 8px; }
+      .hud-left, .hud-right { display: none; }
+      .pill-label { bottom: 40px; font-size: 10px; padding: 6px 14px; }
+      .pill-label.red { left: 8%; }
+      .pill-label.blue { right: 8%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="pill-stage" id="pillStage">
+    <div class="spinner" id="spinner"><div class="ring"></div></div>
+
+    <img
+      id="pillArt"
+      src="assets/pill-choice.png"
+      alt="Pill Choice"
+      draggable="false"
+    />
+
+    <canvas class="pill-rain" id="pillRain"></canvas>
+    <div class="pill-scanlines"></div>
+    <div class="pill-scanbar"></div>
+    <div class="pill-vignette"></div>
+    <div class="pill-green-tint"></div>
+    <div class="pill-flicker"></div>
+
+    <div class="hud-corner hud-tl"></div>
+    <div class="hud-corner hud-tr"></div>
+    <div class="hud-corner hud-bl"></div>
+    <div class="hud-corner hud-br"></div>
+
+    <div class="hud-top">WHICH PILL DO YOU CHOOSE?</div>
+    <div class="hud-sub">Choose wisely.</div>
+    <div class="hud-bottom">AWAITING INPUT <span>●</span></div>
+    <div class="hud-left">SYS.MATRIX.CHOICE//02</div>
+    <div class="hud-right">DECISION:PENDING</div>
+
+    <div class="hotzone left"  id="redPill"  aria-label="Red Pill"></div>
+    <div class="hotzone right" id="bluePill" aria-label="Blue Pill"></div>
+    <span class="pill-label red">Red Pill — Enter</span>
+    <span class="pill-label blue">Blue Pill — Leave</span>
+  </div>
+
+  <script>
+  (function(){
+    const stage   = document.getElementById('pillStage');
+    const art     = document.getElementById('pillArt');
+    const spinner = document.getElementById('spinner');
+    const red     = document.getElementById('redPill');
+    const blue    = document.getElementById('bluePill');
+
+    const BLUE_URL = "https://google.com";
+    const RED_URL  = "videos.html";
+
+    if (art.complete) spinner.classList.add('hide');
+    else art.addEventListener('load', ()=> spinner.classList.add('hide'));
+
+    function vibe(ms){ if (navigator.vibrate) try{ navigator.vibrate(ms); }catch{} }
+
+    function fadeAndGo(url){
+      document.body.classList.add('fadeout');
+      setTimeout(()=> { location.replace(url); }, 300);
+    }
+
+    red.addEventListener('click', ()=>{
+      stage.classList.add('rumble');
+      vibe(15);
+      localStorage.setItem("splashSeen", "true");
+      fadeAndGo(RED_URL);
+    });
+
+    blue.addEventListener('click', ()=>{
+      stage.classList.add('rumble');
+      vibe(15);
+      fadeAndGo(BLUE_URL);
+    });
+
+    const auto = setTimeout(()=> {
+      if (document.visibilityState === 'visible') fadeAndGo(BLUE_URL);
+    }, 30000);
+    function cancelAuto(){ clearTimeout(auto); }
+    red.addEventListener('click', cancelAuto);
+    blue.addEventListener('click', cancelAuto);
+
+    /* Matrix rain */
+    const cvs = document.getElementById('pillRain');
+    const ctx = cvs.getContext('2d');
+    const chars = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ' +
+                   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                   'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθ';
+    let W, H, cols, drops, fontSize = 16;
+
+    function resize(){
+      W = cvs.width  = window.innerWidth;
+      H = cvs.height = window.innerHeight;
+      cols = Math.floor(W / fontSize);
+      drops = new Array(cols).fill(0).map(() => -(Math.random() * (H / fontSize)));
+      ctx.font = `${fontSize}px monospace`;
+    }
+    window.addEventListener('resize', resize, { passive:true });
+    resize();
+
+    let running = true;
+    document.addEventListener('visibilitychange', ()=>{ running = document.visibilityState === 'visible'; });
+
+    (function tick(){
+      requestAnimationFrame(tick);
+      if (!running) return;
+      ctx.fillStyle = 'rgba(0,0,0,0.05)';
+      ctx.fillRect(0,0,W,H);
+      for (let i = 0; i < cols; i++){
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+        ctx.fillStyle = '#afffbf';
+        ctx.fillText(chars[(Math.random() * chars.length) | 0], x, y);
+        ctx.fillStyle = '#00ff41';
+        ctx.fillText(chars[(Math.random() * chars.length) | 0], x, y - fontSize);
+        if (y > H && Math.random() > 0.975) drops[i] = -(Math.random() * 20);
+        drops[i] += 0.6;
+      }
+    })();
+  })();
+  </script>
+</body>
+</html>

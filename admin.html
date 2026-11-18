@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Owner Console | Matrix Video Hub</title>
+  <link rel="icon" href="/assets/favicon-32x32.png" type="image/png">
+  <link rel="stylesheet" href="/themes.css">
+  <link rel="stylesheet" href="/admin.css">
+  <script defer src="/admin.js"></script>
+</head>
+<body class="dark">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">M</span><div>MATRIX VIDEO HUB<small>PERSONAL ARCHIVE / OWNER CONSOLE</small></div></div>
+    <div class="top-controls"><label class="theme-label" for="theme">Interface <select id="theme"></select></label><button id="logout" hidden type="button">Log out</button></div>
+  </header>
+  <main>
+    <div id="message" class="notice" role="status" aria-live="polite"></div>
+    <section id="login" class="login" aria-labelledby="login-heading">
+      <div class="login-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="eyebrow">Restricted access / 01</div>
+      <h1 id="login-heading">Your collection.<br>Your control.</h1>
+      <p class="muted">Manage videos, review imports, and keep your archive backed up. Sign in with your owner password.</p>
+      <form id="login-form" class="stack">
+        <label for="password">Owner password<input id="password" type="password" autocomplete="current-password" required disabled></label>
+        <button id="login-submit" class="primary" disabled>Checking access…</button>
+      </form>
+      <p id="login-status" class="help" aria-live="polite">Connecting to the owner service…</p>
+      <button id="session-retry" type="button" hidden style="margin-top:16px">Retry connection</button>
+    </section>
+    <div id="console" hidden>
+      <section class="intro"><div><div class="eyebrow">Archive control / owner access</div><h1>A place for everything worth keeping.</h1><p class="muted">Add a link. Make it findable. Keep a copy.</p></div><div class="online mono">Authenticated session</div></section>
+      <section class="stats" aria-label="Archive summary">
+        <div class="stat"><strong id="total-count">—</strong><span>videos in your collection</span></div>
+        <div class="stat"><strong id="backup-count">—</strong><span>verified media backups</span></div>
+        <div class="stat backup-stat"><div><strong id="missing-count">—</strong><span>without a verified backup</span></div><button id="backup-all" type="button" disabled>Back up missing</button></div>
+      </section>
+      <nav aria-label="Console sections" role="tablist"><button id="tab-library" role="tab" aria-selected="true" aria-controls="library" data-tab="library">01 / Collection</button><button id="tab-imports" role="tab" aria-selected="false" aria-controls="imports" data-tab="imports">02 / Imports</button><button id="tab-advanced" role="tab" aria-selected="false" aria-controls="advanced" data-tab="advanced">03 / Advanced</button></nav>
+      <section id="library" role="tabpanel" aria-labelledby="tab-library">
+        <div class="workspace">
+          <section class="panel"><header class="panel-head"><h2 id="form-heading">Add a video</h2><span class="badge" id="form-mode">New entry</span></header>
+            <form id="video-form" class="panel-body stack">
+              <label for="source">Source link<input id="source" required placeholder="YouTube or direct video URL" autocomplete="url"><span class="help">YouTube watch, Shorts, youtu.be, or an HTTPS media link.</span></label>
+              <label for="title">Title<input id="title" required placeholder="Give this video a useful name"></label>
+              <label for="categories">Categories<input id="categories" placeholder="Interviews, Research" list="category-options"><span class="help">Separate categories with commas.</span></label><datalist id="category-options"></datalist>
+              <label for="tags">Hashtags<input id="tags" placeholder="#ideas, #watchlater"><span class="help">Separate tags with commas or spaces.</span></label>
+              <div class="two"><label for="clip-start">Clip start<input id="clip-start" placeholder="0:00 or seconds" inputmode="decimal"></label><label for="clip-end">Clip end<input id="clip-end" placeholder="Optional" inputmode="decimal"></label></div>
+              <p class="form-note">Clip times are metadata only. They do not trim the file or change playback in the public hub.</p>
+              <label for="notes">Notes <span class="muted">(optional)</span><textarea id="notes" rows="3" placeholder="Context you want to keep with this video"></textarea></label>
+              <div class="checks"><label><input type="checkbox" id="featured"> Featured</label><label><input type="checkbox" id="pinned"> Pinned</label></div>
+              <div class="actions"><button id="save-video" class="primary" disabled>Save video</button><button id="reset-video" type="button">Clear form</button></div>
+              <p class="help">Existing dates and additional catalogue fields stay intact when you edit.</p>
+            </form>
+          </section>
+          <section class="panel"><header class="panel-head"><h2>Your collection</h2><button id="reload" type="button">Reload</button></header><div class="searchbox"><label for="search" class="help">Find a video</label><input id="search" type="search" placeholder="Search titles, categories, tags, or links"></div><div id="entries" aria-live="polite"><div class="skeleton"></div><div class="skeleton"></div></div></section>
+        </div>
+      </section>
+      <section id="imports" role="tabpanel" aria-labelledby="tab-imports" hidden>
+        <div class="queue-layout"><section class="panel"><header class="panel-head"><h2>Import from TikTok</h2><span class="badge">Review first</span></header><form id="import-form" class="panel-body stack"><p class="muted">Paste one TikTok link per line. Imports stay in the queue until you review and publish them.</p><label for="import-urls">Video links<textarea id="import-urls" rows="8" required placeholder="https://www.tiktok.com/@creator/video/…"></textarea></label><button id="import-submit" class="primary" disabled>Add to import queue</button><p id="connection-status" class="help" aria-live="polite">Checking import connection…</p><p id="storage-status" class="help"></p><p class="help">Queue status refreshes every 5 seconds. Your review edits are kept while you work.</p></form></section>
+        <section class="panel"><header class="panel-head"><h2>Import queue</h2><button id="queue-refresh" type="button">Refresh status</button></header><div id="queue"><div class="skeleton"></div></div></section></div>
+      </section>
+      <section id="advanced" class="advanced panel" role="tabpanel" aria-labelledby="tab-advanced" hidden><header class="panel-head"><h2>Raw catalogue</h2><span class="badge">Advanced</span></header><div class="panel-body stack"><p class="muted">The complete catalogue, including popup settings and additional fields. Paste a full object with a videos array. Saving replaces the current catalogue and requires confirmation.</p><div class="actions"><button id="load-raw" type="button">Load current JSON</button><button id="download" type="button">Download JSON</button></div><label for="raw">Catalogue JSON<textarea id="raw" spellcheck="false" placeholder="Load the current catalogue before editing"></textarea></label><div class="actions"><button id="overwrite" class="danger" type="button" disabled>Review &amp; overwrite catalogue</button></div><p class="form-note">Concurrent changes are protected by revision checks. If your version is stale, reload the catalogue; this console will not force an overwrite.</p></div></section>
+    </div>
+  </main>
+  <footer><span class="mono">MATRIX / VIDEO HUB · OWNER CONSOLE</span><span class="release">Release 2026.11.15.2</span></footer>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title">Confirm action</h2><p id="confirm-text"></p><div class="actions"><button id="confirm-cancel" type="button">Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></dialog>
+</body>
+</html>

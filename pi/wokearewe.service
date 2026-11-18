@@ -1,0 +1,24 @@
+[Unit]
+Description=WokeAreWe website and media backup worker
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=wokearewe
+Group=wokearewe
+WorkingDirectory=/opt/wokearewe/current
+EnvironmentFile=/etc/wokearewe/settings.env
+ExecStart=/usr/bin/python3 -u /opt/wokearewe/current/server.py
+Restart=always
+RestartSec=10
+TimeoutStopSec=120
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

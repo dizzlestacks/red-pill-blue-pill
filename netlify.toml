@@ -1,0 +1,13 @@
+[build]
+command = "python3 lite_site.py --catalog videos.json --output generated-artifacts/netlify-lite"
+publish = "generated-artifacts/netlify-lite"
+
+[[headers]]
+for = "/lite-data.js"
+[headers.values]
+Cache-Control = "no-cache"
+
+[[headers]]
+for = "/videos.json"
+[headers.values]
+Cache-Control = "no-cache"
