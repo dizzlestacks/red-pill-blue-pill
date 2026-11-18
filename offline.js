@@ -19,6 +19,7 @@
   const show = value => {
     limited=value;
     window.MATRIX_LIMITED=value;
+    if(value && !window.MATRIX_LITE)window.dispatchEvent(new Event('matrix-server-unavailable'));
     const banner=document.getElementById('limited-mode');
     if(banner)banner.hidden=!value;
     hideUnavailable();
@@ -72,7 +73,8 @@
     show(limited);
     new MutationObserver(()=>{if(limited)hideUnavailable();}).observe(document.body,{childList:true,subtree:true});
     if(!window.MATRIX_LITE && 'serviceWorker' in navigator && ['https:','http:'].includes(location.protocol)) {
-      navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+      navigator.serviceWorker.register('service-worker.js',{updateViaCache:'none'})
+        .then(registration=>registration.update()).catch(()=>{});
       navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='MATRIX_OFFLINE'){show(true);if(lastData)document.dispatchEvent(new CustomEvent('matrix-offline-catalog',{detail:strip(lastData)}));}});
       check(); setInterval(check,30000);
     }

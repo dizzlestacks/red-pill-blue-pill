@@ -3,6 +3,11 @@ command = "python3 lite_site.py --catalog videos.json --output generated-artifac
 publish = "generated-artifacts/netlify-lite"
 
 [[headers]]
+for = "/service-worker.js"
+[headers.values]
+Cache-Control = "no-store, no-cache, must-revalidate"
+
+[[headers]]
 for = "/lite-data.js"
 [headers.values]
 Cache-Control = "no-cache"

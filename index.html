@@ -322,7 +322,7 @@ GOOD LUCK!</div>
   </div>
 
   <div class="vid-stage" id="vidStage">
-    <video id="introVideo" muted playsinline preload="auto" autoplay
+    <video id="introVideo" muted playsinline preload="none"
            src="The-Matrix-Blue-Pill-or-Red-Pill.mp4">
     </video>
 
@@ -359,12 +359,14 @@ GOOD LUCK!</div>
       let timeout;
       let videoIsPlaying = false;
       let videoStarted = false;
+      let startWatchdog;
 
       function fadeAndGo(url){
         if (redirected) return;
         redirected = true;
         clearTimeout(timeout);
-        localStorage.setItem("splashSeen", "true");
+        clearTimeout(startWatchdog);
+        try { localStorage.setItem("splashSeen", "true"); } catch {}
         document.body.classList.add('fadeout');
         setTimeout(()=>window.location.replace(url), 320);
       }
@@ -387,7 +389,10 @@ GOOD LUCK!</div>
       function startVideo() {
         if (videoStarted) return;
         videoStarted = true;
-
+        if (!navigator.onLine) { goToChoice(); return; }
+        startWatchdog = setTimeout(() => {
+          if (!videoIsPlaying) showPlayButton();
+        }, 3000);
         video.load();
 
         doPlay().catch(function() {
@@ -420,6 +425,15 @@ GOOD LUCK!</div>
       });
 
       video.addEventListener("ended", goToChoice);
+      video.addEventListener("error", goToChoice);
+      window.addEventListener("offline", () => { if (!videoIsPlaying) goToChoice(); });
+      window.addEventListener("matrix-server-unavailable", () => { if (!videoIsPlaying) goToChoice(); });
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener("message", event => {
+          if (event.data?.type === 'MATRIX_OFFLINE' && !videoIsPlaying) goToChoice();
+        });
+      }
+      if (!navigator.onLine || video.error) goToChoice();
 
       document.addEventListener("visibilitychange", function() {
         if (videoIsPlaying && document.visibilityState === "hidden") goToChoice();
@@ -430,6 +444,8 @@ GOOD LUCK!</div>
 
       video.addEventListener("playing", function arm(){
         videoIsPlaying = true;
+        clearTimeout(startWatchdog);
+        playOverlay.classList.remove("show");
         timeout = setTimeout(goToChoice, 154000);
         video.removeEventListener("playing", arm);
       });

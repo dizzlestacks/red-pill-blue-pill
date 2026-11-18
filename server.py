@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.1."""
+"""Matrix Video Hub / admin release 2026.11.15.3."""
 import hashlib
 import hmac
 import http.cookies
@@ -40,6 +40,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         print(self.command, urlparse(self.path).path, flush=True)
 
     def end_headers(self):
+        if urlparse(self.path).path in ("/service-worker.js", "/offline.js"):
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         if urlparse(self.path).path.startswith(("/admin", "/api/admin")):
@@ -160,6 +162,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 subdir = path.startswith(("/assets/", "/pdfs/"))
                 if not safe or not allowed or not (root_file or subdir) or not target.is_file():
                     return self.reply({"error": "Not found"}, 404)
+            target = (store.ROOT / path.lstrip("/")).resolve()
+            if target.suffix.lower() in (".mp4", ".pdf") and target.is_file():
+                return self.serve_public_file(target, head)
             if head:
                 return super().do_HEAD()
             return super().do_GET()
@@ -167,6 +172,44 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.reply({"error": "Not found"}, 404)
         except Exception:
             self.reply({"error": "Unable to read requested data"}, 500)
+
+    def serve_public_file(self, file, head=False):
+        size = file.stat().st_size
+        start, end = 0, size - 1
+        ranged = self.headers.get("Range")
+        if ranged:
+            match = re.fullmatch(r"bytes=(\d*)-(\d*)", ranged)
+            if not match or not any(match.groups()):
+                start = size
+            elif match[1]:
+                start = int(match[1])
+                end = min(end, int(match[2])) if match[2] else end
+            else:
+                start = max(0, size - int(match[2]))
+            if start >= size or start > end:
+                self.send_response(416)
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+        self.send_response(206 if ranged else 200)
+        self.send_header("Content-Type", mimetypes.guess_type(str(file))[0] or "application/octet-stream")
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(end - start + 1))
+        if ranged:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        if not head:
+            with file.open("rb") as source:
+                source.seek(start)
+                remaining = end - start + 1
+                while remaining:
+                    chunk = source.read(min(256 * 1024, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
 
     def serve_media(self, key, download=False, head=False):
         with store.db() as c:

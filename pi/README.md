@@ -1,4 +1,4 @@
-# WokeAreWe Pi kit — release 2026.11.15.2
+# WokeAreWe Pi kit — release 2026.11.15.3
 
 ## What this runs
 The Pi runs the website, password admin and one background import/backup worker.
@@ -131,7 +131,13 @@ The root bundled videos.json is only an initial seed and can become stale.
 The HTTPS Pi site caches public pages and the catalogue in a service worker.
 Visitors who loaded it successfully before can reopen the same URL and see a
 limited hub if the Pi is unreachable. Admin/private APIs/media backups are never
-cached. Intro/PDF caching is best effort because browsers enforce storage quotas.
+cached. Intro video, PDFs and all range requests bypass the service worker entirely.
+They are never pre-downloaded. Only small public resources use the short timeout.
+The worker script is served with no-store headers and checks for updates on visits.
+Old public caches are removed when the new worker activates.
+If your reverse proxy overrides caching, exclude /service-worker.js from its cache.
+An unavailable offline intro skips to the pill choice; stalled startup shows play
+after three seconds.
 
 Service workers require HTTPS (localhost is the development exception). Private
 browsing, cleared/evicted storage, an unfinished first visit, or a different
