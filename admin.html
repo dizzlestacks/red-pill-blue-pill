@@ -37,6 +37,10 @@
         <div class="stat"><strong id="backup-count">—</strong><span>verified media backups</span></div>
         <div class="stat backup-stat"><div><strong id="missing-count">—</strong><span>without a verified backup</span></div><button id="backup-all" type="button" disabled>Back up missing</button></div>
       </section>
+      <section class="panel" aria-label="Public site sync">
+        <header class="panel-head"><h2>Public site sync</h2><button id="sync-now" type="button">Sync now</button></header>
+        <div class="panel-body"><p id="sync-state" aria-live="polite">Checking sync…</p><p id="sync-last" class="help"></p></div>
+      </section>
       <nav aria-label="Console sections" role="tablist"><button id="tab-library" role="tab" aria-selected="true" aria-controls="library" data-tab="library">01 / Collection</button><button id="tab-imports" role="tab" aria-selected="false" aria-controls="imports" data-tab="imports">02 / Imports</button><button id="tab-advanced" role="tab" aria-selected="false" aria-controls="advanced" data-tab="advanced">03 / Advanced</button></nav>
       <section id="library" role="tabpanel" aria-labelledby="tab-library">
         <div class="workspace">

@@ -13,7 +13,8 @@
   const hideUnavailable = () => {
     document.querySelectorAll('[data-backup],a[href*="/media/"],a[href="/admin"],a[href="editor.html"]').forEach(el=>{
       el.dataset.limitedControl='';
-      el.hidden=limited;
+      const backup=el.matches('[data-backup]');
+      el.hidden=limited && !(backup && window.MATRIX_LITE && window.MATRIX_PI_REACHABLE);
     });
   };
   const show = value => {

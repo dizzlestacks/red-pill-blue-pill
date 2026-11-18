@@ -168,6 +168,7 @@
      SHARE / OPEN
      ============================ */
   function shareLink(v) {
+    if(window.MATRIX_LITE && !v.youtube_id && v.backup_url)return location.origin+location.pathname+'#video='+encodeURIComponent(v.id||'');
     if (v.youtube_id) {
       if (isPlaylist(v)) return `https://www.youtube.com/playlist?list=${v.youtube_id}`;
       return `https://youtu.be/${v.youtube_id}`;
@@ -494,7 +495,9 @@
       el.onclick = () => {
         const key = el.getAttribute("data-open");
         const v = keyToVideo.get(key);
-        if (v) window.open(shareLink(v), "_blank", "noopener");
+        if(v && window.MATRIX_LITE && !v.youtube_id && v.backup_url){
+          window.matrixPlayBackup(el.closest('.card').querySelector('.thumb-wrap'),v);
+        } else if (v) window.open(shareLink(v), "_blank", "noopener");
       };
     });
 

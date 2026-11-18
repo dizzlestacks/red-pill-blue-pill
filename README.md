@@ -20,11 +20,14 @@ settings. Alternatively, use a separate Netlify preview site without adding the
 live custom domain.
 
 The output contains public pages, the seed catalogue, intro, themes and Scripture
-PDFs. It is always in limited mode. YouTube requires internet. Pi admin, local
-video backups and their downloads are unavailable in this static preview.
+PDFs. It is always in limited mode. YouTube requires internet. Pi admin and
+backup downloads are hidden. Configured Pi backups play inline while reachable.
 
-The catalogue is the release seed, not a live connection to the Pi. Future Pi
-edits do not automatically update this GitHub branch or Netlify deployment.
+The bundled catalogue is the initial seed. Optional Pi GitHub sync commits only
+the sanitized public catalogue to the configured branch, triggering Netlify's
+normal build. See pi/README.md for token setup and conflict handling.
+Optional PI_PUBLIC_URL enables inline published-backup playback from the public
+Video Hub without exposing admin access or navigating visitors to the Pi site.
 
 ## Pi source
 

@@ -19,6 +19,8 @@ import durable_state
 import lite_site
 import disk_storage
 import tiktok_links
+import public_sync
+import public_catalog
 
 SESSIONS = {}
 ATTEMPTS = []
@@ -41,6 +43,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         print(self.command, urlparse(self.path).path, flush=True)
 
     def end_headers(self):
+        if urlparse(self.path).path == "/api/public/backups":
+            origin = self.headers.get("Origin", "")
+            allowed = os.environ.get("PUBLIC_SITE_ORIGIN", "https://wokearewe.com")
+            if origin == allowed:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
         if urlparse(self.path).path in ("/service-worker.js", "/offline.js", "/admin", "/admin.html", "/admin.js", "/admin.css"):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -99,6 +107,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self, head=False):
         path = unquote(urlparse(self.path).path)
         try:
+            if path == "/api/public/backups":
+                base = public_catalog.pi_origin()
+                cat, _, _ = store.hydrated()
+                return self.reply({"backups": {str(v["id"]): base+v["backup_url"]
+                    for v in cat["videos"] if base and v.get("backup_available") and v.get("backup_url")}})
             if path == "/healthz":
                 alive = worker_thread is not None and worker_thread.is_alive()
                 return self.reply({"status": "ok" if alive else "degraded", "release": store.RELEASE,
@@ -119,6 +132,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if path.startswith("/api/admin/"):
                 if not self.session():
                     return self.reply({"error": "Please log in"}, 401)
+                if path == "/api/admin/sync":
+                    return self.reply(public_sync.status())
                 if path == "/api/admin/catalog":
                     cat, revision, count = store.hydrated()
                     return self.reply({"catalog": cat, "revision": revision, "backed_up": count, "total": len(cat["videos"])})
@@ -315,6 +330,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 revision = store.save_catalog(body.get("catalog"), body.get("revision"))
                 checkpointed = durable_state.checkpoint()
                 return self.reply({"ok": True, "revision": revision, "durable_state": checkpointed})
+            if path == "/api/admin/sync":
+                public_sync.now()
+                return self.reply(public_sync.status())
             if path == "/api/admin/queue":
                 urls = body.get("urls", [])
                 if not isinstance(urls, list) or not 1 <= len(urls) <= 500:
@@ -386,6 +404,7 @@ def main():
     global worker_thread
     worker_thread = threading.Thread(target=worker.run, daemon=True)
     worker_thread.start()
+    threading.Thread(target=public_sync.run, daemon=True).start()
     threading.Thread(target=supervise_worker, daemon=True).start()
     http.server.ThreadingHTTPServer((os.environ.get("BIND_HOST", "0.0.0.0"), int(os.environ.get("PORT", "5000"))), Handler).serve_forever()
 

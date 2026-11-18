@@ -8,13 +8,22 @@ import threading
 import admin_store as store
 
 PAGES = ("index.html", "choice.html", "videos.html", "learn.html", "readonly.html", "reset.html")
-ASSETS = ("themes.css", "videos.js", "offline.js", "The-Matrix-Blue-Pill-or-Red-Pill.mp4")
+ASSETS = ("themes.css", "videos.js", "offline.js", "backup-player.js", "public-backups.js", "The-Matrix-Blue-Pill-or-Red-Pill.mp4")
 LAST_ERROR = ""
 _lock = threading.Lock()
 
 
 def limited_catalog(catalog):
-    result = json.loads(json.dumps(catalog))
+    import public_catalog
+    result = public_catalog.export(catalog)
+    # Netlify has no Pi environment settings; use the explicit public origin
+    # from the already-sanitized GitHub catalogue.
+    if not result["public_pi_url"]:
+        from urllib.parse import urlparse
+        origin = catalog.get("public_pi_url", "")
+        p = urlparse(origin)
+        if p.scheme == "https" and p.hostname and not p.username and not p.password and not p.path and not p.query and not p.fragment:
+            result["public_pi_url"] = origin
     for video in result.get("videos", []):
         for name in ("backup", "backup_url", "backup_available", "backup_status"):
             video.pop(name, None)
@@ -47,7 +56,8 @@ def generate(catalog=None, output=None):
         dest.mkdir(parents=True, exist_ok=True)
         for name in PAGES:
             text = (store.ROOT / name).read_text()
-            text = text.replace('<script src="backup-player.js"></script>', "")
+            if name == "videos.html":
+                text = text.replace('<script src="videos.js"></script>', '<script src="videos.js"></script><script src="public-backups.js"></script>')
             text = text.replace("<head>", '<head>\n<script src="lite-data.js"></script>')
             write_atomic(dest / name, text.encode())
         for name in ASSETS:
@@ -66,7 +76,7 @@ def generate(catalog=None, output=None):
         # Embedded data avoids fetch() restrictions when HTML is opened from disk.
         write_atomic(dest / "lite-data.js", ("window.MATRIX_LITE=true;window.MATRIX_LITE_CATALOG=" + payload + ";").encode())
         write_atomic(dest / "videos.json", (payload + "\n").encode())
-        write_atomic(dest / "README.txt", b"Open index.html directly, or upload this entire folder to any static host.\nYouTube needs internet. No Pi/admin/download features exist in this edition.\n")
+        write_atomic(dest / "README.txt", b"Open index.html directly, or upload this entire folder to any static host.\nYouTube needs internet. Optional configured Pi backups play inline when reachable; no admin access is included.\n")
         return dest
 
 

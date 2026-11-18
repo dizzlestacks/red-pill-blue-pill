@@ -26,6 +26,11 @@
     container.removeAttribute('role'); container.removeAttribute('tabindex');
     if (message) container.setAttribute('aria-label', message);
     player.addEventListener('error', () => {
+      if(window.MATRIX_LITE){
+        container.replaceChildren();
+        window.dispatchEvent(new Event('matrix-backup-failed'));
+        return;
+      }
       const error = document.createElement('p'); error.textContent = 'Backup storage is unavailable. Please try again later.';
       container.append(error);
     });

@@ -73,7 +73,8 @@
   async function signedIn(csrf) {
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
     await Promise.allSettled([loadCatalog(),loadQueue()]);
-    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>loadQueue(true),5000);
+    loadSync();
+    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();},5000);
   }
   async function session() {
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
@@ -283,5 +284,20 @@
     try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='publish'?'Import published.':operation==='review'?'Review saved.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
     catch(error) { notice(error.message,true); } finally { record.busy=false;record.controlsSignature=null; await loadQueue(true); record.save.disabled=false; }
   }
+  async function loadSync(){
+    if(!state.signedIn)return;
+    try{
+      const data=await api('/api/admin/sync');
+      $('sync-state').textContent=data.status+(data.reason?' — '+data.reason:'');
+      $('sync-last').textContent=data.last_success?'Last successful sync: '+new Date(data.last_success*1000).toLocaleString():'No successful sync yet.';
+      if(data.status==='failed' && state.syncError!==data.reason)notice('Public site sync failed: '+data.reason,true);
+      if(state.syncSeen && data.last_success && data.last_success!==state.syncLast)notice('Public catalogue synced to GitHub.');
+      state.syncSeen=true;state.syncLast=data.last_success;state.syncError=data.status==='failed'?data.reason:null;
+    }catch(error){$('sync-state').textContent=error.message;}
+  }
+  $('sync-now').addEventListener('click',async()=>{
+    try{const result=await api('/api/admin/sync',{});notice(result.status==='not set up'?'GitHub sync is not set up on the Pi.':'Sync requested. Checking GitHub shortly.');await loadSync();}
+    catch(error){notice(error.message,true);}
+  });
   session();
 })();

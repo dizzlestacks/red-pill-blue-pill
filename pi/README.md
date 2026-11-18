@@ -120,8 +120,9 @@ No DNS or Netlify deployment is performed by this kit.
 On the Pi, **DATA_DIR/lite/** regenerates after each catalogue save and on startup.
 It includes intro, pill choice, Video Hub, Scripture PDFs and Read Only.
 Open `index.html` directly from disk or upload the whole folder to any static host.
-YouTube needs internet; Pi-only clips say they need the Pi. Admin, saved-copy
-playback and downloads are unavailable, with a visible limited-mode notice.
+YouTube needs internet. Admin and saved-copy downloads are hidden. Optional
+configured Pi backup playback is available inline while the Pi is reachable.
+The notice says only “Limited view”; unavailable controls are hidden.
 
 To manually regenerate:
 
@@ -131,8 +132,62 @@ To update Netlify, deploy the contents of DATA_DIR/lite as the static site using
 your normal Netlify upload/deploy process. Alternatively, deliberately copy the
 current DATA_DIR/videos.json into the GitHub source catalogue and commit/push;
 Netlify's build generates its lite output from that committed catalogue.
-**Generating on the Pi does not automatically push to GitHub or deploy Netlify.**
+Generating a lite folder alone does not deploy it. Configure automatic catalogue
+sync below to make Pi edits trigger your GitHub-connected Netlify build.
 The root bundled videos.json is only an initial seed and can become stale.
+
+## Automatic public-site sync (optional)
+
+Visitors use wokearewe.com. The Pi is the owner/admin and backup engine.
+On GitHub, open your avatar → Settings → Developer settings → Personal access
+tokens → Fine-grained tokens → Generate new token. Choose the repository owner,
+**Only select repositories**, and `red-pill-blue-pill`. Set **Contents: Read and
+write**; Metadata read is automatic. No workflow, administration or other
+repository access is needed. Set an expiry and keep the token private.
+
+On the Pi, edit `sudo nano /etc/wokearewe/settings.env`. Add these settings
+(installer updates preserve your existing file, so add missing keys yourself):
+
+    GITHUB_SYNC_REPO="dizzlestacks/red-pill-blue-pill"
+    GITHUB_SYNC_BRANCH="the-branch-Netlify-actually-builds"
+    GITHUB_SYNC_TOKEN=""
+    PI_PUBLIC_URL="https://your-pi-backup-hostname.example"
+    PUBLIC_SITE_ORIGIN="https://wokearewe.com"
+
+Paste the token between its quotes **on the Pi**, not in GitHub, chat, or source
+files. Use the branch shown in Netlify's production branch setting; do not assume
+it is main. Test a disposable branch first. Restart:
+
+    sudo systemctl restart wokearewe
+
+The public sync panel in /admin shows not set up, pending, synced or failed,
+the last successful time and a Sync now button. Missing settings do not prevent
+editing or importing. Changes are detected within three seconds, grouped after
+15 seconds without another change, and retried with increasing waits up to
+15 minutes. Sync now bypasses the wait, **not** conflict protection.
+Only videos.json is committed. Only public display fields and the public Pi
+origin are exported, never notes, source URLs, queues, media records or secrets.
+Netlify performs its normal build after the commit; “synced” means GitHub
+accepted the catalogue, not that Netlify's build has finished.
+
+The first sync expects GitHub's public catalogue to match the bundled seed or
+the current Pi public catalogue. Subsequent updates compare GitHub's file SHA
+with the last acknowledged SHA and use it in the write. Newer GitHub changes
+stop the sync. Review both copies: apply the reviewed GitHub public fields to
+the Pi using the admin forms, then Sync now to acknowledge an identical public
+catalogue before making further edits. Do not blindly paste the stripped public
+JSON over your private source metadata. Conflicts are never force-overwritten.
+Unrelated GitHub code changes do not block a catalogue sync.
+
+PI_PUBLIC_URL must be an HTTPS origin without a path or credentials, reachable
+from visitors' browsers. Your reverse proxy must preserve video byte-range
+requests. PUBLIC_SITE_ORIGIN permits the public site's cross-origin availability
+check; use a preview origin only while testing, then restore wokearewe.com.
+When reachable, published saved copies can play inline on the Video Hub, including
+YouTube-failure fallback. When unreachable the backup controls disappear quietly;
+the notice remains just “Limited view.” This does not relay files through Netlify:
+the browser streams directly from the Pi while the visitor stays on the public site.
+Admin APIs and cookies are never used for public playback.
 
 ## Returning visitors during a Pi outage
 The HTTPS Pi site caches public pages and the catalogue in a service worker.

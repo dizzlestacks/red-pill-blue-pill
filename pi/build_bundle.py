@@ -14,7 +14,7 @@ import lite_site
 
 FILES = [
     "server.py", "admin_store.py", "media_worker.py", "durable_state.py",
-    "disk_storage.py", "tiktok_links.py", "lite_site.py", "admin.html", "admin.css", "admin.js",
+    "disk_storage.py", "tiktok_links.py", "public_sync.py", "public_catalog.py", "public-backups.js", "lite_site.py", "admin.html", "admin.css", "admin.js",
     "editor.html", "index.html", "choice.html", "videos.html", "learn.html",
     "readonly.html", "reset.html", "videos.js", "themes.css", "backup-player.js",
     "offline.js", "service-worker.js", "videos.json",
