@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
   <title>Owner Console | Matrix Video Hub</title>
   <link rel="icon" href="/assets/favicon-32x32.png" type="image/png">
@@ -62,13 +62,39 @@
         </div>
       </section>
       <section id="imports" role="tabpanel" aria-labelledby="tab-imports" hidden>
+        <section class="panel watcher-panel" aria-labelledby="watcher-heading">
+          <header class="panel-head"><h2 id="watcher-heading">Profile watcher</h2><span id="watcher-badge" class="badge">Connecting</span></header>
+          <div class="panel-body watcher-layout">
+            <form id="watcher-form" class="stack">
+              <p class="muted">Watch your TikTok profile for new posts. Review each import, or choose automatic publishing.</p>
+              <label class="end-card-control"><input id="watcher-enabled" type="checkbox"> Watch for new posts</label>
+              <label for="watcher-profile">TikTok profile URL<input id="watcher-profile" type="url" placeholder="https://www.tiktok.com/@yourprofile"></label>
+              <div class="watcher-grid">
+                <label for="watcher-interval">Check every<select id="watcher-interval"><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label>
+                <label for="watcher-limit">Imports / hour<input id="watcher-limit" type="number" min="1" max="60" step="1" value="6" required></label>
+                <label for="watcher-disk">Keep free (GB)<input id="watcher-disk" type="number" min="1" max="1024" step="1" value="5" required></label>
+              </div>
+              <div class="checks"><label><input id="watcher-auto-publish" type="checkbox"> Auto-publish imports</label><label><input id="watcher-end-card" type="checkbox" checked> Add end-card</label></div>
+              <p class="help">Auto-publish skips manual review.</p><p id="watcher-end-card-help" class="help">End-card settings apply to new requests only.</p>
+              <div class="actions"><button id="watcher-save" type="submit" class="primary" disabled>Save watcher settings</button><button id="watcher-reset" type="button" disabled>Discard edits</button></div>
+              <p id="watcher-edit-status" class="help" aria-live="polite">Loading saved settings…</p>
+            </form>
+            <div class="watcher-readout">
+              <p id="watcher-status" role="status" aria-live="polite">Checking watcher…</p>
+              <p id="watcher-error" class="help error" role="status" aria-live="polite"></p>
+              <p id="watcher-last" class="help">No check loaded yet.</p><p id="watcher-next" class="help"></p><p id="watcher-free" class="help"></p><p id="watcher-history" class="help"></p>
+              <div class="actions"><button id="watcher-check" type="button" disabled>Check now</button><button id="watcher-older" type="button" disabled>Import older posts</button><button id="watcher-refresh" type="button">Refresh watcher</button></div>
+              <p class="help">Older posts are scheduled in batches. Existing imports are not duplicated.</p>
+            </div>
+          </div>
+        </section>
         <div class="queue-layout"><section class="panel"><header class="panel-head"><h2>Import from TikTok</h2><span class="badge">Review first</span></header><form id="import-form" class="panel-body stack"><p class="muted">Paste one TikTok link per line. Imports stay in the queue until you review and publish them.</p><label for="import-urls">Video links<textarea id="import-urls" rows="8" required placeholder="https://www.tiktok.com/@creator/video/…"></textarea></label><button id="import-submit" class="primary" disabled>Add to import queue</button><p id="connection-status" class="help" aria-live="polite">Checking import connection…</p><p id="storage-status" class="help"></p><p class="help">Queue status refreshes every 5 seconds. Your review edits are kept while you work.</p></form></section>
         <section class="panel"><header class="panel-head"><h2>Import queue</h2><button id="queue-refresh" type="button">Refresh status</button></header><div id="queue"><div class="skeleton"></div></div></section></div>
       </section>
       <section id="advanced" class="advanced panel" role="tabpanel" aria-labelledby="tab-advanced" hidden><header class="panel-head"><h2>Raw catalogue</h2><span class="badge">Advanced</span></header><div class="panel-body stack"><p class="muted">The complete catalogue, including popup settings and additional fields. Paste a full object with a videos array. Saving replaces the current catalogue and requires confirmation.</p><div class="actions"><button id="load-raw" type="button">Load current JSON</button><button id="download" type="button">Download JSON</button></div><label for="raw">Catalogue JSON<textarea id="raw" spellcheck="false" placeholder="Load the current catalogue before editing"></textarea></label><div class="actions"><button id="overwrite" class="danger" type="button" disabled>Review &amp; overwrite catalogue</button></div><p class="form-note">Concurrent changes are protected by revision checks. If your version is stale, reload the catalogue; this console will not force an overwrite.</p></div></section>
     </div>
   </main>
-  <footer><span class="mono">WOKEAREWE / MATRIX VIDEO HUB · OWNER CONSOLE</span><span class="release">Release 2026.11.15.4</span></footer>
-  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title">Confirm action</h2><p id="confirm-text"></p><div class="actions"><button id="confirm-cancel" type="button">Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></dialog>
+   <footer><span class="mono">WOKEAREWE / MATRIX VIDEO HUB · OWNER CONSOLE</span><span class="release">Release 2026.11.15.5</span></footer>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title">Confirm action</h2><div class="dialog-content"><p id="confirm-text"></p><div id="dialog-message" role="status" aria-live="polite"></div></div><div class="actions"><button id="confirm-cancel" type="button" autofocus>Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></dialog>
 </body>
 </html>

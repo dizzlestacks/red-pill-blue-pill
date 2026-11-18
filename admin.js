@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const themes = ['dark','light','grey','pink','blue','vaporwave','solarized-dark','dracula','cyberpunk','sepia','midnight','facebook','mcdonalds','walmart','office','discord','netflix','apple','google','amazon','spotify','twitch','youtube','terminal','desert','ocean','forest','blood','gold','ice'];
-  const state = { csrf:'', signedIn:false, catalog:null, revision:null, editing:null, stale:false, busy:false, queueBusy:false, poll:null, queue:new Map(), drafts:new Map(), connection:false, storage:false };
+  const state = { csrf:'', signedIn:false, catalog:null, revision:null, editing:null, stale:false, busy:false, queueBusy:false, poll:null, queue:new Map(), drafts:new Map(), connection:false, storage:false, watcher:null, watcherDirty:false, watcherBusy:false, watcherLoading:false };
   let authGeneration = 0;
   for (const name of themes) { const option = document.createElement('option'); option.value = name; option.textContent = name.split('-').map(s => s[0].toUpperCase()+s.slice(1)).join(' '); $('theme').append(option); }
   let savedTheme = 'terminal';
@@ -10,7 +10,23 @@
   $('theme').value = themes.includes(savedTheme) ? savedTheme : 'terminal';
   document.body.className = $('theme').value;
   $('theme').addEventListener('change', () => { document.body.className = $('theme').value; try { localStorage.setItem('admin:theme',$('theme').value); } catch {} });
-  function notice(message, error=false) { $('message').textContent=message; $('message').classList.toggle('error',error); $('message').classList.toggle('success',!!message&&!error&&message!=='Working…'); $('message').setAttribute('role',error?'alert':'status'); $('message').setAttribute('aria-live',error?'assertive':'polite'); }
+  function notice(message, error=false) {
+    for(const target of [$('message'),$('dialog-message')]) {
+      target.textContent=message; target.classList.toggle('error',error); target.classList.toggle('success',!!message&&!error&&message!=='Working…'); target.setAttribute('role',error?'alert':'status'); target.setAttribute('aria-live',error?'assertive':'polite');
+    }
+    $('message').hidden=$('confirm-dialog').open;
+  }
+  function updateViewport() {
+    const viewport=window.visualViewport, root=document.documentElement.style;
+    root.setProperty('--visual-top',`${viewport?.offsetTop||0}px`);
+    root.setProperty('--visual-left',`${viewport?.offsetLeft||0}px`);
+    root.setProperty('--visual-height',`${viewport?.height||window.innerHeight}px`);
+    root.setProperty('--visual-width',`${viewport?.width||window.innerWidth}px`);
+  }
+  window.visualViewport?.addEventListener('resize',updateViewport);
+  window.visualViewport?.addEventListener('scroll',updateViewport);
+  window.addEventListener('resize',updateViewport);
+  updateViewport();
   let pressedButton=null;
   document.addEventListener('click',event=>{
     const button=event.target.closest('button');
@@ -50,7 +66,7 @@
     let body; try { body=await response.json(); } catch { throw new Error('The owner service returned an unreadable response. Check that the admin API is connected.'); }
     if(generation!==authGeneration) throw new Error('Session changed. Please sign in again.');
     if(!response.ok) {
-      if(response.status===409) { state.stale=true; updateControls(); throw new Error('The catalogue changed in another session. Reload the catalogue before saving; nothing was overwritten.'); }
+      if(response.status===409 && path==='/api/videos') { state.stale=true; updateControls(); throw new Error('The catalogue changed in another session. Reload the catalogue before saving; nothing was overwritten.'); }
       if(response.status===401 && state.signedIn) clearSession();
       throw new Error(body.error || `Request failed (${response.status}).`);
     }
@@ -67,20 +83,22 @@
     $('import-submit').disabled=!state.signedIn || state.busy || !!state.importBusy;
   }
   function clearSession() {
+    if($('confirm-dialog').open) finishConfirm(false);
+    state.watcher=null; state.watcherDirty=false; $('watcher-form').reset(); watcherControls();
     authGeneration++; clearInterval(state.poll); state.poll=null; state.signedIn=false; state.csrf=''; state.catalog=null; state.revision=null; state.queue.clear(); state.drafts.clear(); state.editing=null; state.stale=false; state.connection=false; state.storage=false;
     $('console').hidden=true; $('logout').hidden=true; $('login').hidden=false; $('entries').replaceChildren(); $('queue').replaceChildren(); $('raw').value=''; $('import-urls').value=''; $('video-form').reset(); resetForm(); $('password').value=''; $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Your session is signed out.'; updateControls();
   }
   async function signedIn(csrf) {
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
-    await Promise.allSettled([loadCatalog(),loadQueue()]);
+    await Promise.allSettled([loadCatalog(),loadQueue(),loadWatcher()]);
     loadSync();
-    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();},5000);
+    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);},5000);
   }
   async function session() {
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.4');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.5');
       if(!result.configured) { $('login-submit').textContent='Admin password not configured'; $('login-status').textContent='Admin access is disabled. Set ADMIN_PASSWORD in Secrets, then retry. No login or saves are permitted until it is configured.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Password-protected owner access. No public registration.';
@@ -190,14 +208,34 @@
     } catch(error) { notice(error.message,true); return false; }
     finally { state.busy=false; updateControls(); renderEntries(); }
   }
-  let pendingConfirm=null;
+  let pendingConfirm=null, confirmTrigger=null, scrollLock=null;
+  function unlockDialog() {
+    if(scrollLock) {
+      const saved=scrollLock; scrollLock=null;
+      document.body.style.position=saved.position; document.body.style.top=saved.top; document.body.style.left=saved.left; document.body.style.width=saved.width; document.body.style.overflow=saved.overflow;
+      document.documentElement.style.scrollBehavior='auto'; window.scrollTo(saved.x,saved.y); document.documentElement.style.scrollBehavior=saved.scrollBehavior;
+    }
+    $('message').hidden=false;
+    if(confirmTrigger?.isConnected) confirmTrigger.focus({preventScroll:true});
+    confirmTrigger=null; updateViewport();
+  }
   function confirmAction(title,text,label='Confirm') {
     if(pendingConfirm) return Promise.resolve(false);
-    $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-accept').textContent=label; $('confirm-dialog').showModal(); $('confirm-cancel').focus();
+    confirmTrigger=pressedButton||document.activeElement;
+    // Action wrappers mark their trigger busy before awaiting confirmation.
+    // The native modal makes it inert; keep it focusable for a reliable return.
+    if(confirmTrigger?.tagName==='BUTTON') {confirmTrigger.disabled=false;confirmTrigger.removeAttribute('aria-busy');}
+    const style=document.body.style;
+    scrollLock={x:window.scrollX,y:window.scrollY,position:style.position,top:style.top,left:style.left,width:style.width,overflow:style.overflow,scrollBehavior:document.documentElement.style.scrollBehavior};
+    style.position='fixed';style.top=`-${scrollLock.y}px`;style.left=`-${scrollLock.x}px`;style.width='100%';style.overflow='hidden';
+    updateViewport();
+    $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-accept').textContent=label; $('dialog-message').textContent=$('message').textContent; $('message').hidden=true;
+    $('confirm-dialog').showModal(); $('confirm-cancel').focus({preventScroll:true}); $('confirm-dialog').querySelector('.dialog-content').scrollTop=0;
     return new Promise(resolve=>{pendingConfirm=resolve;});
   }
-  function finishConfirm(value) { $('confirm-dialog').close(); notice(value?'Confirmed. Working…':'Cancelled. Nothing changed.'); const callback=pendingConfirm; pendingConfirm=null; if(callback) callback(value); }
+  function finishConfirm(value) { const callback=pendingConfirm; pendingConfirm=null; $('confirm-dialog').close(); unlockDialog(); notice(value?'Confirmed. Working…':'Cancelled. Nothing changed.'); if(callback) callback(value); }
   $('confirm-cancel').addEventListener('click',()=>finishConfirm(false)); $('confirm-accept').addEventListener('click',()=>finishConfirm(true)); $('confirm-dialog').addEventListener('cancel',event=>{event.preventDefault();finishConfirm(false);});
+  $('confirm-dialog').addEventListener('close',()=>{if(scrollLock){const callback=pendingConfirm;pendingConfirm=null;unlockDialog();if(callback)callback(false);}});
   function reportResults(result,fallback) {
     const results=Array.isArray(result.results)?result.results:[];
     if(!results.length) return fallback;
@@ -234,13 +272,103 @@
     finally { state.queueBusy=false;if(state.queueRefreshRequested){state.queueRefreshRequested=false;$('queue-refresh').disabled=false;$('queue-refresh').removeAttribute('aria-busy');} }
   }
   $('queue-refresh').addEventListener('click',()=>loadQueue());
+  const watcherFields=['watcher-enabled','watcher-profile','watcher-interval','watcher-limit','watcher-disk','watcher-auto-publish','watcher-end-card'];
+  let watcherEditVersion=0;
+  function watcherControls() {
+    const unavailable=!state.signedIn||!state.watcher, busy=state.watcherBusy;
+    watcherFields.forEach(id=>{$(id).disabled=unavailable||busy;});
+    $('watcher-save').disabled=unavailable||busy;
+    $('watcher-reset').disabled=unavailable||busy||!state.watcherDirty;
+    const status=String(state.watcher?.status||'').toLowerCase();
+    const blocked=unavailable||busy||status==='unsupported'||/no[ _-]?token|missing[ _-]?token|not configured/.test(status);
+    $('watcher-check').disabled=blocked;
+    $('watcher-older').disabled=blocked||!!state.watcher?.history_done;
+    $('watcher-refresh').disabled=busy||state.watcherLoading;
+    for(const id of ['watcher-save','watcher-check','watcher-older']) {
+      if(busy && $(id).dataset.activeRequest) $(id).setAttribute('aria-busy','true');
+      else $(id).removeAttribute('aria-busy');
+    }
+  }
+  function fillWatcher() {
+    const data=state.watcher;if(!data)return;
+    $('watcher-enabled').checked=!!data.enabled; $('watcher-profile').value=data.profile||'';
+    $('watcher-interval').value=String(data.interval_minutes??15);
+    $('watcher-limit').value=data.hourly_limit??6; $('watcher-disk').value=data.min_free_gb??5;
+    $('watcher-auto-publish').checked=!!data.auto_publish; $('watcher-end-card').checked=data.add_end_card??true;
+    $('watcher-edit-status').textContent='Saved settings loaded. Status refreshes every 5 seconds.';
+  }
+  function watcherTime(value) {
+    if(!value)return 'Not yet';
+    const date=new Date(typeof value==='number'?value*1000:value);
+    return Number.isNaN(date.getTime())?String(value):date.toLocaleString();
+  }
+  function renderWatcher(data) {
+    state.watcher=data;
+    const status=String(data.status||'idle'), normalized=status.toLowerCase();
+    $('watcher-badge').textContent=status;
+    $('watcher-status').textContent=normalized==='unsupported'?'watching not available yet':/no[ _-]?token|missing[ _-]?token|not configured/.test(normalized)?'No token: configure the import connection before watching.':`${data.enabled?'Watcher enabled':'Watcher paused'} — ${status}`;
+    $('watcher-error').textContent=data.error?`Watcher error: ${data.error}`:'';
+    $('watcher-end-card-help').textContent=data.end_card_supported===false?'End-card choice is not supported by the import service yet. Requests with an explicit choice are blocked until support is documented; the choice is never silently ignored.':'End-card settings apply to new requests only.';
+    $('watcher-last').textContent=`Last check: ${watcherTime(data.last_check)} / New posts: ${data.last_count??'Not checked'}`;
+    $('watcher-next').textContent=`Next check: ${data.next_check?watcherTime(data.next_check):'Not scheduled'}`;
+    const free=data.free_gb==null?null:Number(data.free_gb);
+    const low=free!==null&&Number.isFinite(free)&&free<Number(data.min_free_gb);
+    $('watcher-free').textContent=free===null?'Free disk: unavailable':`${low?'Disk warning: ':''}${Number.isFinite(free)?free.toFixed(1):'Unknown'} GB free / reserve ${data.min_free_gb??'—'} GB${low?' — imports may be paused.':''}`;
+    $('watcher-free').classList.toggle('error',low);
+    $('watcher-history').textContent=data.history_done?'Older-post history complete.':`Older-post history: ${data.history_cursor?'more batches available':'not completed'}`;
+    if(!state.watcherDirty&&!state.watcherBusy)fillWatcher();
+    watcherControls();
+  }
+  async function loadWatcher(silent=false) {
+    if(!state.signedIn||state.watcherLoading||state.watcherBusy)return;
+    state.watcherLoading=true;watcherControls();
+    if(!silent)$('watcher-refresh').setAttribute('aria-busy','true');
+    try {const data=await api('/api/admin/watcher');if(state.signedIn)renderWatcher(data);}
+    catch(error){$('watcher-error').textContent=error.message;if(!state.watcher){$('watcher-status').textContent='Watcher unavailable. Use Refresh watcher to retry.';$('watcher-badge').textContent='Unavailable';}if(!silent)notice(error.message,true);}
+    finally{state.watcherLoading=false;$('watcher-refresh').removeAttribute('aria-busy');watcherControls();}
+  }
+  $('watcher-form').addEventListener('input',()=>{watcherEditVersion++;state.watcherDirty=true;$('watcher-edit-status').textContent='Unsaved watcher settings. Live status continues to refresh; your edits are kept.';watcherControls();});
+  $('watcher-reset').addEventListener('click',()=>{watcherEditVersion++;state.watcherDirty=false;fillWatcher();watcherControls();notice('Watcher edits discarded.');});
+  $('watcher-refresh').addEventListener('click',()=>loadWatcher());
+  async function watcherRequest(operation,data,button) {
+    if(state.watcherBusy)return;
+    const version=watcherEditVersion;
+    state.watcherBusy=true;button.dataset.activeRequest='true';watcherControls();
+    try {
+      const result=await api('/api/admin/watcher'+operation,data);
+      if(!state.signedIn)return;
+      if(!operation&&version===watcherEditVersion)state.watcherDirty=false;
+      renderWatcher(result);
+      const text=(!operation?'Watcher settings saved. ': 'Watcher check scheduled. ') + (result.error?`Watcher status: ${result.error}`:result.status==='unsupported'?'watching not available yet':operation?'Status will update shortly.':'');
+      notice(text,!!result.error);
+    }catch(error){$('watcher-error').textContent=error.message;notice(error.message,true);}
+    finally{state.watcherBusy=false;delete button.dataset.activeRequest;watcherControls();if(!state.watcherDirty)fillWatcher();}
+  }
+  $('watcher-form').addEventListener('submit',event=>{
+    event.preventDefault();
+    const interval_minutes=Number($('watcher-interval').value),hourly_limit=Number($('watcher-limit').value),min_free_gb=Number($('watcher-disk').value);
+    if(![5,15,30,60].includes(interval_minutes)||!Number.isInteger(hourly_limit)||hourly_limit<1||hourly_limit>60||!Number.isInteger(min_free_gb)||min_free_gb<1||min_free_gb>1024)return notice('Check the watcher interval, hourly limit, and free disk reserve.',true);
+    const profile=$('watcher-profile').value.trim();
+    if(profile){try{const url=new URL(profile);if(url.protocol!=='https:'||!['www.tiktok.com','tiktok.com','m.tiktok.com'].includes(url.hostname)||!/^\/@[^/]+\/?$/.test(url.pathname))throw new Error();}catch{return notice('Enter a TikTok profile URL such as https://www.tiktok.com/@yourprofile.',true);}}
+    if($('watcher-enabled').checked&&!profile)return notice('Enter your TikTok profile before enabling the watcher.',true);
+    watcherRequest('',{enabled:$('watcher-enabled').checked,profile,interval_minutes,hourly_limit,min_free_gb,auto_publish:$('watcher-auto-publish').checked,add_end_card:$('watcher-end-card').checked},$('watcher-save'));
+  });
+  $('watcher-check').addEventListener('click',()=>watcherRequest('/check',{},$('watcher-check')));
+  $('watcher-older').addEventListener('click',()=>watcherRequest('/older',{},$('watcher-older')));
+  const importEndCard=node('input'); importEndCard.type='checkbox'; importEndCard.id='import-end-card'; importEndCard.checked=true;
+  const importEndLabel=node('label',undefined,'end-card-control'); importEndLabel.htmlFor=importEndCard.id; importEndLabel.append(importEndCard,document.createTextNode('Add end-card to these imports'));
+  const importProviderDefault=node('input');importProviderDefault.type='checkbox';importProviderDefault.id='import-provider-default';
+  const importProviderLabel=node('label',undefined,'end-card-control');importProviderLabel.htmlFor=importProviderDefault.id;importProviderLabel.append(importProviderDefault,document.createTextNode('Use service default (end-card choice unavailable)'));
+  const importEndHelp=node('p','Explicit end-card choices are blocked until the import service documents support; they are never silently ignored. Select Use service default to import without an end-card guarantee.','help');
+  importProviderDefault.addEventListener('change',()=>{importEndCard.disabled=importProviderDefault.checked;});
+  $('import-submit').before(importEndLabel,importProviderLabel,importEndHelp);
   $('import-form').addEventListener('submit',async event=>{
     event.preventDefault(); const urls=[...new Set($('import-urls').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean))];
     if(!urls.length) return notice('Paste at least one TikTok link.',true);
     if(urls.some(value=>{try {const u=new URL(value); return !['http:','https:'].includes(u.protocol) || !(u.hostname==='tiktok.com'||u.hostname.endsWith('.tiktok.com'));} catch{return true;}})) return notice('Enter only valid TikTok URLs, one per line.',true);
     if(state.importBusy)return;
     state.importBusy=true; updateControls();
-    try { const result=await api('/api/admin/queue',{urls}); await loadQueue(true);notice(reportResults(result,'Import request processed. Check queue status below.')); }
+    try { const data=importProviderDefault.checked?{urls,use_provider_default:true}:{urls,add_end_card:importEndCard.checked}; const result=await api('/api/admin/queue',data); await loadQueue(true);notice(reportResults(result,'Import request processed. Check queue status below.')); }
     catch(error) { notice(error.message,true); } finally { state.importBusy=false;updateControls(); }
   });
   function queueField(label,value,type,id) { const wrapper=node('label',label); const input=node('input'); input.type='text'; input.value=value; input.id=id; wrapper.htmlFor=id; input.dataset.field=type; wrapper.append(input); return {wrapper,input}; }
@@ -252,23 +380,38 @@
       const key=String(item.id); present.add(key); let record=state.queue.get(key);
       if(!record) {
         const el=node('article',undefined,'queue-card'),head=node('div',undefined,'entry-top'),title=node('h3'),badge=node('span',undefined,'badge'),url=node('p',undefined,'queue-url muted'),reason=node('p',undefined,'reason help'),preview=node('div'),controls=node('div',undefined,'actions'),form=node('form',undefined,'stack');
-        const draft=state.drafts.get(key)||{title:item.title||'',tags:list(item.tags),dirty:false};
+        const draft=state.drafts.get(key)||{title:item.title||'',tags:list(item.tags),add_end_card:item.add_end_card??true,use_provider_default:false,dirty:false};
         const titleField=queueField('Review title',draft.title,'title',`review-title-${key}`),tagField=queueField('Review hashtags',draft.tags,'tags',`review-tags-${key}`);
         titleField.input.required=true; const save=node('button','Save review'); save.type='submit'; const reviewStatus=node('p','Review title and tags before publishing.','help');
-        form.append(titleField.wrapper,tagField.wrapper,save,reviewStatus); head.append(title,badge); el.append(head,url,reason,preview,form,controls);
-        record={el,title,badge,url,reason,preview,controls,form,titleInput:titleField.input,tagsInput:tagField.input,save,reviewStatus,draft,previewURL:'',busy:false,item};
+        const endCard=node('input'); endCard.type='checkbox'; endCard.id=`review-end-card-${key}`; endCard.checked=draft.add_end_card;
+        const endLabel=node('label',undefined,'end-card-control'); endLabel.htmlFor=endCard.id; endLabel.append(endCard,document.createTextNode('Add end-card'));
+        const providerDefault=node('input');providerDefault.type='checkbox';providerDefault.id=`review-provider-default-${key}`;providerDefault.checked=!!draft.use_provider_default;
+        const providerLabel=node('label',undefined,'end-card-control');providerLabel.htmlFor=providerDefault.id;providerLabel.append(providerDefault,document.createTextNode('Use service default (end-card choice unavailable)'));
+        const endHelp=node('p',undefined,'help');
+        form.append(titleField.wrapper,tagField.wrapper,endLabel,providerLabel,endHelp,save,reviewStatus); head.append(title,badge); el.append(head,url,reason,preview,form,controls);
+        record={el,title,badge,url,reason,preview,controls,form,endCard,providerDefault,endHelp,titleInput:titleField.input,tagsInput:tagField.input,save,reviewStatus,draft,previewURL:'',busy:false,item};
         state.queue.set(key,record);
-        const markDirty=()=>{draft.title=titleField.input.value; draft.tags=tagField.input.value; draft.dirty=true; state.drafts.set(key,draft); reviewStatus.textContent='Unsaved review changes'; const publish=controls.querySelector('[data-publish]'); if(publish) publish.disabled=true; };
+        const markDirty=()=>{draft.title=titleField.input.value; draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked;endCard.disabled=providerDefault.checked||requestLocked(record.item); draft.dirty=true; state.drafts.set(key,draft); reviewStatus.textContent='Unsaved review changes'; const publish=controls.querySelector('[data-publish]'); if(publish) publish.disabled=true; };
         titleField.input.addEventListener('input',markDirty); tagField.input.addEventListener('input',markDirty);
-        form.addEventListener('submit',async e=>{e.preventDefault(); if(!titleField.input.value.trim()) return; await queueMutation(record,'review',{title:titleField.input.value.trim(),tags:tags(tagField.input.value)},()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; reviewStatus.textContent='Review saved. Ready to publish when the import is complete.';});});
+        endCard.addEventListener('change',markDirty);
+        providerDefault.addEventListener('change',markDirty);
+        form.addEventListener('submit',async e=>{e.preventDefault(); if(record.item.status==='imported'&&!titleField.input.value.trim()) return; const data={title:titleField.input.value.trim(),tags:tags(tagField.input.value)}; if(!requestLocked(record.item)){if(providerDefault.checked)data.use_provider_default=true;else data.add_end_card=endCard.checked;} await queueMutation(record,'review',data,()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked; reviewStatus.textContent='Review saved.';});});
         container.append(el);
       }
       record.item=item; record.title.textContent=item.title||'TikTok import'; record.badge.textContent=item.status||'Pending'; record.url.textContent=item.url||''; record.reason.textContent=item.reason||'';
-      if(!record.draft.dirty && !record.busy) { record.titleInput.value=item.title||''; record.tagsInput.value=list(item.tags); }
+      const locked=requestLocked(item);
+      if(!record.draft.dirty && !record.busy) { record.titleInput.value=item.title||''; record.tagsInput.value=list(item.tags); record.endCard.checked=item.add_end_card??true; }
+      if(locked) {record.endCard.checked=item.add_end_card===true;record.draft.add_end_card=item.add_end_card;record.providerDefault.checked=item.add_end_card==null;}
+      record.providerDefault.disabled=locked||record.busy;
+      record.endCard.disabled=locked||record.busy||record.providerDefault.checked;
+      record.endHelp.textContent=locked?(item.add_end_card==null?'Service-default / legacy request: end-card choice not guaranteed. Request already submitted; it cannot be changed.':'Request already submitted; end-card setting is locked.'):'Explicit end-card choices are blocked until service support is documented. Select Use service default to import without an end-card guarantee. Save before retrying.';
       const previewURL=safeURL(item.preview_url);
       if(previewURL!==record.previewURL) { record.preview.replaceChildren(); record.previewURL=previewURL; if(previewURL) { const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.src=previewURL; record.preview.append(video); video.addEventListener('error',()=>{ if(!record.preview.querySelector('p')) record.preview.append(node('p','Media preview unavailable. Retry the import if the file could not be retrieved.','help')); }); } }
-      const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=!imported;
-      record.save.disabled=record.busy;
+      const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=published;
+      record.titleInput.required=imported;
+      record.titleInput.disabled=record.busy||(!imported&&locked);record.tagsInput.disabled=record.busy||(!imported&&locked);
+      record.save.disabled=record.busy||(!imported&&locked);
+      record.reviewStatus.textContent=record.draft.dirty?'Unsaved review changes':imported?'Review title and tags before publishing.':locked?'Import in progress. Review will open when it completes.':'End-card preference can be saved before the import is submitted.';
       const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty]);
       if(record.controlsSignature===controlsSignature)continue;
       record.controlsSignature=controlsSignature;record.controls.replaceChildren();
@@ -279,10 +422,11 @@
     }
     for(const [key,record] of state.queue) if(!present.has(key)) {record.el.remove();state.queue.delete(key);state.drafts.delete(key);}
   }
+  function requestLocked(item) { return item.request_locked===true || item.payload!=null || item.upstream_id!=null; }
   async function queueMutation(record,operation,data,onSuccess) {
-    if(record.busy) return; record.busy=true; record.el.querySelectorAll('button').forEach(b=>b.disabled=true);
+    if(record.busy) return; record.busy=true; record.el.querySelectorAll('button,input').forEach(b=>b.disabled=true);
     try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='publish'?'Import published.':operation==='review'?'Review saved.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
-    catch(error) { notice(error.message,true); } finally { record.busy=false;record.controlsSignature=null; await loadQueue(true); record.save.disabled=false; }
+    catch(error) { notice(error.message,true); } finally { record.busy=false;record.controlsSignature=null; await loadQueue(true); record.save.disabled=requestLocked(record.item)&&record.item.status!=='imported';record.titleInput.disabled=record.save.disabled;record.tagsInput.disabled=record.save.disabled;record.providerDefault.disabled=requestLocked(record.item);record.endCard.disabled=requestLocked(record.item)||record.providerDefault.checked; }
   }
   async function loadSync(){
     if(!state.signedIn)return;

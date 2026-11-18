@@ -1,3 +1,7 @@
+# Release 2026.11.15.5
+
+See [automatic watching and mobile dialog release notes](RELEASE-2026.11.15.5.md), including the upstream documentation limitation and initial settings. Existing install/update steps below are unchanged.
+
 # WokeAreWe Pi kit — release 2026.11.15.4
 
 This release accepts TikTok short share links on vt.tiktok.com, vm.tiktok.com

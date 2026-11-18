@@ -29,7 +29,10 @@ import json,os
 values={"ADMIN_PASSWORD":os.environ["ADMIN_PASSWORD"],"YOU2MP3_API_KEY":os.environ["YOU2MP3_API_KEY"],
         "DATA_DIR":"/var/lib/wokearewe","MIRROR_DIR":"","STORAGE_BACKEND":"disk","PORT":"5002","BIND_HOST":"127.0.0.1",
         "GITHUB_SYNC_REPO":"","GITHUB_SYNC_BRANCH":"","GITHUB_SYNC_TOKEN":"",
-        "PI_PUBLIC_URL":"","PUBLIC_SITE_ORIGIN":"https://wokearewe.com"}
+        "PI_PUBLIC_URL":"","PUBLIC_SITE_ORIGIN":"https://wokearewe.com",
+        "TIKTOK_PROFILE":"https://www.tiktok.com/@wokearewe1","TIKTOK_WATCH_ENABLED":"true",
+        "TIKTOK_CHECK_MINUTES":"15","IMPORTS_PER_HOUR":"6","MIN_FREE_GB":"5",
+        "TIKTOK_AUTO_PUBLISH":"false","TIKTOK_ADD_END_CARD":"true"}
 with open("/etc/wokearewe/settings.env","w") as f:
     f.write("# Root-owned systemd settings. Edit with sudo; restart the service after changes.\n")
     for key,value in values.items(): f.write(key+"="+json.dumps(value,ensure_ascii=False)+"\n")

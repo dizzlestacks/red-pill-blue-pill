@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.4."""
+"""Matrix Video Hub / admin release 2026.11.15.5."""
 import hashlib
 import hmac
 import http.cookies
@@ -21,6 +21,7 @@ import disk_storage
 import tiktok_links
 import public_sync
 import public_catalog
+import tiktok_watch
 
 SESSIONS = {}
 ATTEMPTS = []
@@ -134,6 +135,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply({"error": "Please log in"}, 401)
                 if path == "/api/admin/sync":
                     return self.reply(public_sync.status())
+                if path == "/api/admin/watcher":
+                    return self.reply(tiktok_watch.status())
                 if path == "/api/admin/catalog":
                     cat, revision, count = store.hydrated()
                     return self.reply({"catalog": cat, "revision": revision, "backed_up": count, "total": len(cat["videos"])})
@@ -142,6 +145,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     with store.db() as c:
                         rows = [dict(r) for r in c.execute("SELECT * FROM jobs ORDER BY created DESC")]
                         for r in rows:
+                            r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
                             r["preview_url"] = "/api/admin/media/" + r["id"] if r["status"] in ("imported", "published") else None
                             for key in ("payload", "idempotency", "upstream_id", "source_key"):
@@ -333,6 +337,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if path == "/api/admin/sync":
                 public_sync.now()
                 return self.reply(public_sync.status())
+            if path == "/api/admin/watcher":
+                result = tiktok_watch.configure(body)
+                durable_state.checkpoint()
+                return self.reply(result)
+            if path in ("/api/admin/watcher/check", "/api/admin/watcher/older"):
+                result = tiktok_watch.request(older=path.endswith("/older"))
+                durable_state.checkpoint()
+                return self.reply(result)
             if path == "/api/admin/queue":
                 urls = body.get("urls", [])
                 if not isinstance(urls, list) or not 1 <= len(urls) <= 500:
@@ -341,7 +353,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 validated = [store.source(tiktok_links.resolve(url, deadline)) for url in urls]
                 if any(kind != "tiktok" for _, _, kind in validated):
                     raise ValueError("This import form accepts your TikTok links only")
-                results = [store.enqueue(url) for _, url, _ in validated]
+                end_card = body.get("add_end_card", tiktok_watch.settings()["add_end_card"])
+                if body.get("use_provider_default") is True:
+                    end_card = None
+                elif not isinstance(end_card, bool):
+                    raise ValueError("Choose Add end card on/off, or explicitly accept the service default")
+                results = [store.enqueue(url, add_end_card=end_card) for _, url, _ in validated]
                 durable_state.checkpoint()
                 return self.reply({"ok": True, "results": results})
             if path == "/api/admin/backup":
@@ -363,7 +380,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     title, tags = body.get("title"), body.get("tags")
                     if not isinstance(title, str) or not title.strip() or len(title) > 1000 or not isinstance(tags, list) or any(not isinstance(t, str) for t in tags):
                         raise ValueError("Enter a title and valid hashtags")
-                    store.update_job(jid, title=title.strip(), tags=json.dumps(tags))
+                    with store.LOCK:
+                        job = store.get_job(jid)
+                        updates = dict(title=title.strip(), tags=json.dumps(tags))
+                        if "add_end_card" in body or body.get("use_provider_default") is True:
+                            choice = None if body.get("use_provider_default") is True else body["add_end_card"]
+                            if choice is not None and not isinstance(choice, bool):
+                                raise ValueError("Add end card must be on or off")
+                            if (job["payload"] or job["upstream_id"]) and choice != job["add_end_card"]:
+                                raise ValueError("This request has already been submitted; its end-card choice cannot change")
+                            updates["add_end_card"] = choice
+                        store.update_job(jid, **updates)
                 elif action == "publish":
                     store.publish(jid)
                 elif action == "retry":
@@ -405,6 +432,7 @@ def main():
     worker_thread = threading.Thread(target=worker.run, daemon=True)
     worker_thread.start()
     threading.Thread(target=public_sync.run, daemon=True).start()
+    threading.Thread(target=tiktok_watch.run, daemon=True).start()
     threading.Thread(target=supervise_worker, daemon=True).start()
     http.server.ThreadingHTTPServer((os.environ.get("BIND_HOST", "0.0.0.0"), int(os.environ.get("PORT", "5000"))), Handler).serve_forever()
 

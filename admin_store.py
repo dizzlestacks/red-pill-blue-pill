@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.4"
+RELEASE = "2026.11.15.5"
 
 
 def db():
@@ -52,6 +52,18 @@ def init():
           id TEXT PRIMARY KEY, url TEXT NOT NULL, status TEXT NOT NULL,
           reason TEXT NOT NULL, created REAL NOT NULL);
         """)
+        columns = {r[1] for r in c.execute("PRAGMA table_info(jobs)")}
+        for name, definition in {
+            "automatic": "INTEGER NOT NULL DEFAULT 0",
+            "auto_publish": "INTEGER NOT NULL DEFAULT 0",
+            "add_end_card": "INTEGER",
+            "source_date": "TEXT",
+            "metadata": "TEXT",
+        }.items():
+            if name not in columns:
+                c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
+    import tiktok_watch
+    tiktok_watch.init()
 
 
 def source(url):
@@ -62,10 +74,12 @@ def source(url):
     if p.scheme != "https" or p.username or p.password or p.port not in (None, 443):
         raise ValueError("Use an HTTPS video link without credentials")
     if host in ("www.tiktok.com", "tiktok.com"):
-        m = re.fullmatch(r"/@wokearewe1/video/(\d{8,25})/?", p.path)
+        import tiktok_watch
+        owner = tiktok_watch.owner()
+        m = re.fullmatch(r"/@" + re.escape(owner) + r"/video/(\d{8,25})/?", p.path)
         if not m:
-            raise ValueError("Use a canonical @wokearewe1 TikTok post link, not a profile or short link")
-        return "tt:" + m[1], "https://www.tiktok.com/@wokearewe1/video/" + m[1], "tiktok"
+            raise ValueError(f"Use a canonical @{owner} TikTok post link, not a profile or short link")
+        return "tt:" + m[1], f"https://www.tiktok.com/@{owner}/video/" + m[1], "tiktok"
     video = None
     if host in ("youtube.com", "www.youtube.com", "m.youtube.com"):
         video = parse_qs(p.query).get("v", [None])[0]
@@ -187,10 +201,19 @@ def hydrated():
     return cat, rev, count
 
 
-def enqueue(url, video_id=None, title="", tags=None):
+def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
+            auto_publish=False, add_end_card=None, source_date=None, metadata=None):
     key, canonical, kind = source(url)
     now = time.time()
     with LOCK, db() as c:
+        if video_id is None:
+            for v in load_catalog()[0]["videos"]:
+                try:
+                    duplicate = source(video_source(v))[0] == key
+                except ValueError:
+                    duplicate = False
+                if duplicate:
+                    return {"id": v["id"], "status": "duplicate skipped"}
         existing = c.execute("SELECT id FROM jobs WHERE source_key=?", (key,)).fetchone()
         if existing:
             eid = uuid.uuid4().hex
@@ -205,6 +228,9 @@ def enqueue(url, video_id=None, title="", tags=None):
                   (jid, key, canonical, kind, video_id, title or "Untitled clip", json.dumps(tags or []),
                    status, "" if status == "queued" else "YOU2MP3_API_KEY is not configured",
                    "waw-" + jid, now, now))
+        c.execute("""UPDATE jobs SET automatic=?,auto_publish=?,add_end_card=?,source_date=?,metadata=?
+                     WHERE id=?""", (int(automatic), int(auto_publish), add_end_card, source_date,
+                                    json.dumps(metadata) if metadata else None, jid))
         return {"id": jid, "status": status}
 
 
@@ -225,7 +251,7 @@ def enqueue_unsupported(v, reason):
 
 
 def update_job(jid, **fields):
-    allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts"}
+    allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts", "add_end_card"}
     if not fields.keys() <= allowed:
         raise ValueError("Invalid job update")
     fields["updated"] = time.time()
@@ -257,7 +283,7 @@ def publish(jid):
             target = next((v for v in cat["videos"] if v.get("source_url") == j["url"]), None)
         if target is None:
             target = {"id": uuid.uuid4().hex, "youtube_id": "", "url": "/media/" + j["source_key"].replace(":", "-"),
-                      "source_url": j["url"], "added": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                      "source_url": j["url"], "added": j.get("source_date") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                       "category": [], "featured": False, "pinned": False}
             cat["videos"].append(target)
         target["title"] = j["title"]

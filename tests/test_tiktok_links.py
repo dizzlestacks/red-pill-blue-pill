@@ -20,6 +20,9 @@ def response(location=POST, status=302):
 
 class ShareLinks(unittest.TestCase):
     def setUp(self):
+        owner = patch("tiktok_watch.owner", return_value="wokearewe1")
+        owner.start()
+        self.addCleanup(owner.stop)
         self.patcher=patch.object(links.requests,"Session")
         self.factory=self.patcher.start()
         self.session=self.factory.return_value.__enter__.return_value

@@ -10,6 +10,8 @@ import time
 from urllib.parse import quote
 import requests
 import admin_store as store
+import tiktok_watch
+import watch_provider
 
 BASE = "https://you2mp3.music/api/v1"
 NETWORK_LOCK = threading.Lock()
@@ -111,7 +113,8 @@ def verify_media(path):
 def copy_media(job, filename):
     if not isinstance(filename, str) or "/" in filename or "\\" in filename or len(filename) > 255:
         raise ValueError("Media service returned an invalid filename")
-    with tempfile.TemporaryDirectory(prefix="waw-media-") as folder:
+    tiktok_watch.disk_guard()
+    with tempfile.TemporaryDirectory(prefix="waw-media-", dir=store.STATE) as folder:
         video = Path(folder) / "source.mp4"
         response = api("/files/" + quote(filename, safe=""), binary=True)
         digest, size = hashlib.sha256(), 0
@@ -120,6 +123,8 @@ def copy_media(job, filename):
                 for chunk in response.iter_content(1024 * 1024):
                     if not chunk:
                         continue
+                    # Reserve room for source, atomic durable copy and verification copy.
+                    tiktok_watch.disk_guard(extra=len(chunk) + 2 * (size + len(chunk)))
                     size += len(chunk)
                     if size > 2 * 1024**3:
                         raise ValueError("Video exceeds the 2 GiB import limit")
@@ -131,6 +136,7 @@ def copy_media(job, filename):
         finally:
             response.close()
         duration = verify_media(video)
+        tiktok_watch.disk_guard(extra=2 * size + 1024 * 1024)
         client = storage_client()
         object_key = "wokearewe/backups/" + job["source_key"].replace(":", "-") + "/" + digest.hexdigest() + ".mp4"
         client.upload_from_filename(object_key, str(video))
@@ -165,6 +171,10 @@ def process(job):
         store.update_job(job["id"], status="waiting for connection", reason="YOU2MP3_API_KEY is not configured")
         return
     try:
+        if job["status"] == "imported" and job.get("automatic") and job.get("auto_publish"):
+            store.publish(job["id"])
+            return
+        tiktok_watch.disk_guard()
         capabilities = api("/capabilities")
         restriction = capabilities.get("restriction")
         if job["kind"] == "youtube" and restriction == "tiktok-imports":
@@ -178,10 +188,15 @@ def process(job):
             store.update_job(job["id"], status="blocked", reason=message)
             return
         if not job["upstream_id"]:
-            payload = json.loads(job["payload"]) if job["payload"] else {
-                "url": job["url"], "format": "mp4", "container": "mp4", "quality": "best"}
-            # Persist before network I/O; a crash replays exactly the same intended request.
-            store.update_job(job["id"], payload=json.dumps(payload), status="processing", reason="Submitting source")
+            with store.LOCK:
+                job = store.get_job(job["id"])
+                payload = json.loads(job["payload"]) if job["payload"] else {
+                    "url": job["url"], "format": "mp4", "container": "mp4", "quality": "best"}
+                if not job["payload"] and job.get("add_end_card") is not None:
+                    payload = watch_provider.PROVIDER.end_card_payload(payload, bool(job["add_end_card"]))
+                tiktok_watch.admit(job)
+                # Persist before network I/O; a crash replays exactly the same intended request.
+                store.update_job(job["id"], payload=json.dumps(payload), status="processing", reason="Submitting source")
             import durable_state
             durable_state.checkpoint(required=True)
             result = api("/videos", payload, job["idempotency"])
@@ -192,14 +207,24 @@ def process(job):
         result = api("/videos/" + str(job["upstream_id"]))
         status = result.get("status")
         if status == "done" and result.get("outputFilename"):
+            cards = result.get("endCards", [])
+            if any(card.get("status") == "failed" for card in cards):
+                raise ValueError("The service could not add the end card. Review the job before retrying.")
+            if not watch_provider.PROVIDER.final_ready(result):
+                store.update_job(job["id"], status="processing", reason="Waiting for the final end-card output")
+                return
             store.update_job(job["id"], status="copying", reason="Verifying video and copying to permanent storage")
             copy_media(job, result["outputFilename"])
             store.update_job(job["id"], status="imported", reason="Verified permanent copy; ready for review")
+            if job.get("automatic") and job.get("auto_publish"):
+                store.publish(job["id"])
         elif status in ("error", "cancelled"):
             # Do not leak arbitrary upstream errors (which may include credentials or internal URLs).
             raise ValueError("Media service " + status + ". Check the source's availability and connection permissions.")
         else:
             store.update_job(job["id"], status="processing", reason="Media service: " + str(status or "pending")[:40])
+    except (tiktok_watch.Paused, watch_provider.Unavailable) as e:
+        store.update_job(job["id"], status="blocked", reason=str(e))
     except UpstreamError as e:
         retryable = e.status in (0, 429, 502, 503, 504)
         store.update_job(job["id"], status="processing" if retryable else ("blocked" if e.status in (401, 402, 403, 409, 410) else "failed"),
@@ -220,8 +245,10 @@ def run():
         try:
             with store.db() as c:
                 job = c.execute("""SELECT * FROM jobs WHERE status IN ('queued','waiting for connection','processing','copying')
+                  OR (status='imported' AND automatic=1 AND auto_publish=1)
                   OR (status='blocked' AND kind!='unsupported' AND updated < ? AND
-                  (reason LIKE 'This connection is TikTok-only%' OR reason LIKE 'App Storage%' OR reason LIKE 'Storage unavailable%'))
+                  (reason LIKE 'This connection is TikTok-only%' OR reason LIKE 'App Storage%' OR reason LIKE 'Storage unavailable%'
+                   OR reason LIKE 'Imports paused:%' OR reason LIKE 'Per-request end cards%'))
                   ORDER BY updated LIMIT 1""", (time.time() - 60,)).fetchone()
             if job:
                 process(dict(job))

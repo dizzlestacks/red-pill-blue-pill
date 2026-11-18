@@ -13,14 +13,14 @@ import admin_store
 import lite_site
 
 FILES = [
-    "server.py", "admin_store.py", "media_worker.py", "durable_state.py",
+    "server.py", "admin_store.py", "media_worker.py", "durable_state.py", "tiktok_watch.py", "watch_provider.py",
     "disk_storage.py", "tiktok_links.py", "public_sync.py", "public_catalog.py", "public-backups.js", "lite_site.py", "admin.html", "admin.css", "admin.js",
     "editor.html", "index.html", "choice.html", "videos.html", "learn.html",
     "readonly.html", "reset.html", "videos.js", "themes.css", "backup-player.js",
     "offline.js", "service-worker.js", "videos.json",
     "The-Matrix-Blue-Pill-or-Red-Pill.mp4", "netlify.toml",
     "pi/install.sh", "pi/update.sh", "pi/wokearewe.service", "pi/README.md",
-    "pi/build_bundle.py",
+    "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md",
 ]
 
 
