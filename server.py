@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.3."""
+"""Matrix Video Hub / admin release 2026.11.15.4."""
 import hashlib
 import hmac
 import http.cookies
@@ -18,6 +18,7 @@ import media_worker as worker
 import durable_state
 import lite_site
 import disk_storage
+import tiktok_links
 
 SESSIONS = {}
 ATTEMPTS = []
@@ -40,7 +41,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         print(self.command, urlparse(self.path).path, flush=True)
 
     def end_headers(self):
-        if urlparse(self.path).path in ("/service-worker.js", "/offline.js"):
+        if urlparse(self.path).path in ("/service-worker.js", "/offline.js", "/admin", "/admin.html", "/admin.js", "/admin.css"):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
@@ -318,7 +319,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 urls = body.get("urls", [])
                 if not isinstance(urls, list) or not 1 <= len(urls) <= 500:
                     raise ValueError("Paste between 1 and 500 TikTok post links")
-                validated = [store.source(url) for url in urls]
+                deadline = time.monotonic() + 20
+                validated = [store.source(tiktok_links.resolve(url, deadline)) for url in urls]
                 if any(kind != "tiktok" for _, _, kind in validated):
                     raise ValueError("This import form accepts your TikTok links only")
                 results = [store.enqueue(url) for _, url, _ in validated]

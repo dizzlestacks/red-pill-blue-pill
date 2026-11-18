@@ -1,4 +1,4 @@
-# WokeAreWe lite preview — release 2026.11.15.3
+# WokeAreWe lite preview — release 2026.11.15.4
 
 This standalone branch contains the clean release source and intentional public
 assets. It deliberately has no parent commit from the workspace history, to

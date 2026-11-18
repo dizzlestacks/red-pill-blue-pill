@@ -5,24 +5,48 @@
   const state = { csrf:'', signedIn:false, catalog:null, revision:null, editing:null, stale:false, busy:false, queueBusy:false, poll:null, queue:new Map(), drafts:new Map(), connection:false, storage:false };
   let authGeneration = 0;
   for (const name of themes) { const option = document.createElement('option'); option.value = name; option.textContent = name.split('-').map(s => s[0].toUpperCase()+s.slice(1)).join(' '); $('theme').append(option); }
-  let savedTheme = 'dark';
-  try { savedTheme = localStorage.getItem('admin:theme') || localStorage.getItem('editor:theme') || 'dark'; } catch {}
-  $('theme').value = themes.includes(savedTheme) ? savedTheme : 'dark';
+  let savedTheme = 'terminal';
+  try { savedTheme = localStorage.getItem('admin:theme') || localStorage.getItem('editor:theme') || 'terminal'; } catch {}
+  $('theme').value = themes.includes(savedTheme) ? savedTheme : 'terminal';
   document.body.className = $('theme').value;
   $('theme').addEventListener('change', () => { document.body.className = $('theme').value; try { localStorage.setItem('admin:theme',$('theme').value); } catch {} });
-  function notice(message, error=false) { $('message').textContent=message; $('message').classList.toggle('error',error); }
+  function notice(message, error=false) { $('message').textContent=message; $('message').classList.toggle('error',error); $('message').classList.toggle('success',!!message&&!error&&message!=='Working…'); $('message').setAttribute('role',error?'alert':'status'); $('message').setAttribute('aria-live',error?'assertive':'polite'); }
+  let pressedButton=null;
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('button');
+    if(!button || button.disabled) return;
+    pressedButton=button; button.setAttribute('aria-busy','true');
+    button.classList.add('pressed');
+    setTimeout(()=>{if(pressedButton===button)pressedButton=null;},0);
+    setTimeout(()=>{button.classList.remove('pressed');if(!button.dataset.requestBusy)button.removeAttribute('aria-busy');},250);
+  },true);
+  document.addEventListener('submit',event=>{
+    if(event.submitter)pressedButton=event.submitter;
+    setTimeout(()=>{pressedButton=null;},0);
+  },true);
+  document.addEventListener('invalid',event=>notice(event.target.validationMessage || 'Complete the required fields.',true),true);
   function node(tag, text, className) { const el=document.createElement(tag); if(text!==undefined) el.textContent=text; if(className) el.className=className; return el; }
-  function action(text, handler, disabled=false) { const b=node('button',text); b.type='button'; b.disabled=disabled; b.addEventListener('click',handler); return b; }
+  function action(text, handler, disabled=false) { const b=node('button',text); b.type='button'; b.disabled=disabled; b.addEventListener('click',async event=>{
+    b.disabled=true; b.setAttribute('aria-busy','true');
+    try { await handler(event); } catch(error) { notice(error.message,true); }
+    finally {b.disabled=disabled;b.removeAttribute('aria-busy');}
+  }); return b; }
   function list(value) { return Array.isArray(value) ? value.join(', ') : String(value ?? ''); }
   function categories(value) { return [...new Set(String(value).split(',').map(x=>x.trim()).filter(Boolean))]; }
   function tags(value) { return [...new Set(String(value).split(/[\s,]+/).map(x=>x.replace(/^#+/,'').trim()).filter(Boolean))]; }
   function safeURL(value) { try { const u=new URL(value,location.origin); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
   async function api(path, data) {
+    const button=pressedButton, controller=new AbortController();
+    const wasDisabled=button?.disabled;
+    const timeout=setTimeout(()=>controller.abort(),30000);
+    if(button){button.dataset.requestBusy='true';button.disabled=true;button.setAttribute('aria-busy','true');notice('Working…');}
+    try {
     const generation=authGeneration;
     const options={ credentials:'same-origin', headers:{'Accept':'application/json'}, cache:'no-store' };
     if(data!==undefined) { options.method='POST'; options.headers['Content-Type']='application/json'; if(path!=='/api/admin/login') options.headers['X-CSRF-Token']=state.csrf; options.body=JSON.stringify(data); }
     let response;
-    try { response=await fetch(path,options); } catch { throw new Error('Cannot reach the owner service. Check your connection and retry.'); }
+    options.signal=controller.signal;
+    try { response=await fetch(path,options); } catch { throw new Error(controller.signal.aborted?'The request timed out. Refresh the status before retrying; it may have reached the server.':'Cannot reach the owner service. Check your connection and retry.'); }
     let body; try { body=await response.json(); } catch { throw new Error('The owner service returned an unreadable response. Check that the admin API is connected.'); }
     if(generation!==authGeneration) throw new Error('Session changed. Please sign in again.');
     if(!response.ok) {
@@ -31,12 +55,16 @@
       throw new Error(body.error || `Request failed (${response.status}).`);
     }
     return body;
+    } finally {
+      clearTimeout(timeout);
+      if(button){delete button.dataset.requestBusy;button.disabled=wasDisabled;button.removeAttribute('aria-busy');}
+    }
   }
   function updateControls() {
     const writable=state.signedIn && !!state.catalog && !state.stale && !state.busy;
     $('save-video').disabled=!writable; $('overwrite').disabled=!writable;
     $('backup-all').disabled=!writable || !(state.catalog?.videos.some(v=>v.backup_available!==true));
-    $('import-submit').disabled=!state.signedIn || state.busy;
+    $('import-submit').disabled=!state.signedIn || state.busy || !!state.importBusy;
   }
   function clearSession() {
     authGeneration++; clearInterval(state.poll); state.poll=null; state.signedIn=false; state.csrf=''; state.catalog=null; state.revision=null; state.queue.clear(); state.drafts.clear(); state.editing=null; state.stale=false; state.connection=false; state.storage=false;
@@ -51,6 +79,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.4');
       if(!result.configured) { $('login-submit').textContent='Admin password not configured'; $('login-status').textContent='Admin access is disabled. Set ADMIN_PASSWORD in Secrets, then retry. No login or saves are permitted until it is configured.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Password-protected owner access. No public registration.';
@@ -59,8 +88,8 @@
   $('session-retry').addEventListener('click',session);
   $('login-form').addEventListener('submit',async event=>{
     event.preventDefault(); $('login-submit').disabled=true;
-    try { const result=await api('/api/admin/login',{password:$('password').value}); await signedIn(result.csrf); }
-    catch(error) { $('login-status').textContent=error.message; }
+    try { const result=await api('/api/admin/login',{password:$('password').value}); await signedIn(result.csrf); notice('Signed in.'); }
+    catch(error) { $('login-status').textContent=error.message; notice(error.message,true); }
     finally { $('login-submit').disabled=false; }
   });
   $('logout').addEventListener('click',async()=>{
@@ -70,6 +99,7 @@
   });
   document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{
     document.querySelectorAll('[data-tab]').forEach(tab=>{ const selected=tab===button; tab.setAttribute('aria-selected',String(selected)); $(tab.dataset.tab).hidden=!selected; });
+    notice(button.textContent.trim()+' opened.');
   }));
   document.querySelector('[role=tablist]').addEventListener('keydown',event=>{
     const tabs=[...document.querySelectorAll('[data-tab]')],index=tabs.indexOf(document.activeElement);
@@ -89,14 +119,16 @@
       $('backup-count').textContent=String(backed); $('missing-count').textContent=String(Math.max(0,(result.total ?? result.catalog.videos.length)-backed));
       renderEntries(); updateControls();
       const opts=new Set(state.catalog.videos.flatMap(v=>Array.isArray(v.category)?v.category:categories(v.category??''))); $('category-options').replaceChildren(...[...opts].sort().map(c=>{ const o=node('option'); o.value=c; return o; }));
-    } catch(error) { notice(error.message,true); if(!state.catalog) { const box=node('div',undefined,'empty'); box.append(node('h3','Collection unavailable'),node('p','Your videos have not been loaded.','muted'),action('Retry',loadCatalog)); $('entries').replaceChildren(box); } }
+      return true;
+    } catch(error) { notice(error.message,true); if(!state.catalog) { const box=node('div',undefined,'empty'); box.append(node('h3','Collection unavailable'),node('p','Your videos have not been loaded.','muted'),action('Retry',loadCatalog)); $('entries').replaceChildren(box); } return false; }
   }
-  $('reload').addEventListener('click',async()=>{ if(await confirmAction('Reload catalogue?','This loads the latest revision. Unsaved raw JSON and form inputs are kept, but check your edits against any changes before saving.','Reload')) { await loadCatalog(); if(!state.stale && state.catalog) notice('Latest catalogue loaded. Check any unsaved edits before saving.'); } });
+  $('reload').addEventListener('click',async()=>{ if(await confirmAction('Reload catalogue?','This loads the latest revision. Unsaved raw JSON and form inputs are kept, but check your edits against any changes before saving.','Reload')) { if(await loadCatalog()) notice('Latest catalogue loaded. Check any unsaved edits before saving.'); } });
   function resetForm() { state.editing=null; $('video-form').reset(); $('form-heading').textContent='Add a video'; $('form-mode').textContent='New entry'; $('save-video').textContent='Save video'; $('reset-video').textContent='Clear form'; }
-  $('reset-video').addEventListener('click',resetForm);
+  $('reset-video').addEventListener('click',()=>{resetForm();notice('Form cleared.');});
   function editVideo(v,index) {
     state.editing={index,original:v}; $('source').value=v.youtube_id ? `https://www.youtube.com/watch?v=${v.youtube_id}` : v.url||''; $('title').value=v.title||''; $('categories').value=list(v.category); $('tags').value=list(v.tags); $('clip-start').value=v.start??v.clip_start??''; $('clip-end').value=v.end??v.clip_end??''; $('notes').value=v.notes??''; $('featured').checked=!!v.featured; $('pinned').checked=!!v.pinned;
     $('form-heading').textContent='Edit video'; $('form-mode').textContent='Editing'; $('save-video').textContent='Save changes'; $('reset-video').textContent='Cancel edit'; $('video-form').scrollIntoView({behavior:'smooth',block:'start'}); $('title').focus({preventScroll:true});
+    notice('Editing '+(v.title||'video')+'.');
   }
   function renderEntries() {
     if(!state.catalog) return;
@@ -163,7 +195,7 @@
     $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-accept').textContent=label; $('confirm-dialog').showModal(); $('confirm-cancel').focus();
     return new Promise(resolve=>{pendingConfirm=resolve;});
   }
-  function finishConfirm(value) { $('confirm-dialog').close(); const callback=pendingConfirm; pendingConfirm=null; if(callback) callback(value); }
+  function finishConfirm(value) { $('confirm-dialog').close(); notice(value?'Confirmed. Working…':'Cancelled. Nothing changed.'); const callback=pendingConfirm; pendingConfirm=null; if(callback) callback(value); }
   $('confirm-cancel').addEventListener('click',()=>finishConfirm(false)); $('confirm-accept').addEventListener('click',()=>finishConfirm(true)); $('confirm-dialog').addEventListener('cancel',event=>{event.preventDefault();finishConfirm(false);});
   function reportResults(result,fallback) {
     const results=Array.isArray(result.results)?result.results:[];
@@ -173,13 +205,13 @@
   async function backup(data) {
     if(state.busy) return;
     state.busy=true; updateControls(); renderEntries();
-    try { const result=await api('/api/admin/backup',data); notice(reportResults(result,'Backup request processed. Verified status is shown in the collection.')); await Promise.all([loadCatalog(),loadQueue()]); }
+    try { const result=await api('/api/admin/backup',data); await Promise.all([loadCatalog(),loadQueue(true)]);notice(reportResults(result,'Backup request processed. Verified status is shown in the collection.')); }
     catch(error) { notice(error.message,true); } finally { state.busy=false; updateControls(); renderEntries(); }
   }
   $('backup-all').addEventListener('click',async()=>{if(await confirmAction('Back up all missing media?','Request a backup for every video without a verified backup. This may take time and use media storage. Existing verified backups will be left alone.','Back up missing')) await backup({all:true});});
-  function loadRaw() { if(state.catalog) $('raw').value=JSON.stringify(state.catalog,null,2); else notice('Load the catalogue first.',true); }
+  function loadRaw() { if(state.catalog) { $('raw').value=JSON.stringify(state.catalog,null,2);notice('Current JSON loaded.'); } else notice('Load the catalogue first.',true); }
   $('load-raw').addEventListener('click',async()=>{if(!$('raw').value || await confirmAction('Replace JSON draft?','Replace the text in this editor with the currently loaded catalogue?','Replace draft')) loadRaw();});
-  $('download').addEventListener('click',()=>{ if(!state.catalog) return notice('Load the catalogue first.',true); const url=URL.createObjectURL(new Blob([JSON.stringify(state.catalog,null,2)],{type:'application/json'})); const a=node('a'); a.href=url; a.download='matrix-videos.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); });
+  $('download').addEventListener('click',()=>{ if(!state.catalog) return notice('Load the catalogue first.',true); const url=URL.createObjectURL(new Blob([JSON.stringify(state.catalog,null,2)],{type:'application/json'})); const a=node('a'); a.href=url; a.download='matrix-videos.json'; document.body.append(a);a.click();a.remove(); notice('JSON download requested. Check your browser downloads.'); setTimeout(()=>URL.revokeObjectURL(url),10000); });
   $('overwrite').addEventListener('click',async()=>{
     try {
       const next=JSON.parse($('raw').value); if(!next || Array.isArray(next) || !Array.isArray(next.videos) || next.videos.some(v=>!v || typeof v!=='object' || Array.isArray(v))) throw new Error('Paste a catalogue object containing a videos array of video objects.');
@@ -187,25 +219,28 @@
     } catch(error) { notice(error instanceof SyntaxError?'Invalid JSON. Check commas, quotes, and brackets before trying again.':error.message,true); }
   });
   async function loadQueue(silent=false) {
-    if(!state.signedIn || state.queueBusy) return;
+    if(!state.signedIn) return;
+    if(state.queueBusy) {if(!silent){state.queueRefreshRequested=true;notice('Refreshing queue…');$('queue-refresh').disabled=true;$('queue-refresh').setAttribute('aria-busy','true');}return;}
     state.queueBusy=true;
     try {
       const data=await api('/api/admin/queue'); if(!state.signedIn) return;
       state.connection=!!data.connection_configured; state.storage=!!data.storage_ready;
       $('connection-status').textContent=state.connection?'Import connection is configured.':'Connection not set up: YOU2MP3_API_KEY is missing. You can queue links now; downloading waits for connection.';
       $('storage-status').textContent=(data.storage_message || (state.storage?'Media storage is ready.':'Permanent media storage is not ready. You can queue jobs; copying waits for storage.')) + (data.state_storage_message ? ' '+data.state_storage_message : '');
-      renderQueue(data.items||[]); updateControls(); renderEntries();
-    } catch(error) { $('connection-status').textContent=error.message; if(!silent) notice(error.message,true); }
-    finally { state.queueBusy=false; }
+      renderQueue(data.items||[]); updateControls();
+      if(!silent || state.queueRefreshRequested)notice('Queue status refreshed.');
+    } catch(error) { $('connection-status').textContent=error.message; notice(error.message,true); }
+    finally { state.queueBusy=false;if(state.queueRefreshRequested){state.queueRefreshRequested=false;$('queue-refresh').disabled=false;$('queue-refresh').removeAttribute('aria-busy');} }
   }
   $('queue-refresh').addEventListener('click',()=>loadQueue());
   $('import-form').addEventListener('submit',async event=>{
     event.preventDefault(); const urls=[...new Set($('import-urls').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean))];
-    if(!urls.length) return;
+    if(!urls.length) return notice('Paste at least one TikTok link.',true);
     if(urls.some(value=>{try {const u=new URL(value); return !['http:','https:'].includes(u.protocol) || !(u.hostname==='tiktok.com'||u.hostname.endsWith('.tiktok.com'));} catch{return true;}})) return notice('Enter only valid TikTok URLs, one per line.',true);
-    $('import-submit').disabled=true;
-    try { const result=await api('/api/admin/queue',{urls}); notice(reportResults(result,'Import request processed. Check queue status below.')); await loadQueue(); }
-    catch(error) { notice(error.message,true); } finally { updateControls(); }
+    if(state.importBusy)return;
+    state.importBusy=true; updateControls();
+    try { const result=await api('/api/admin/queue',{urls}); await loadQueue(true);notice(reportResults(result,'Import request processed. Check queue status below.')); }
+    catch(error) { notice(error.message,true); } finally { state.importBusy=false;updateControls(); }
   });
   function queueField(label,value,type,id) { const wrapper=node('label',label); const input=node('input'); input.type='text'; input.value=value; input.id=id; wrapper.htmlFor=id; input.dataset.field=type; wrapper.append(input); return {wrapper,input}; }
   function renderQueue(items) {
@@ -232,7 +267,10 @@
       const previewURL=safeURL(item.preview_url);
       if(previewURL!==record.previewURL) { record.preview.replaceChildren(); record.previewURL=previewURL; if(previewURL) { const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.src=previewURL; record.preview.append(video); video.addEventListener('error',()=>{ if(!record.preview.querySelector('p')) record.preview.append(node('p','Media preview unavailable. Retry the import if the file could not be retrieved.','help')); }); } }
       const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=!imported;
-      record.save.disabled=record.busy; record.controls.replaceChildren();
+      record.save.disabled=record.busy;
+      const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty]);
+      if(record.controlsSignature===controlsSignature)continue;
+      record.controlsSignature=controlsSignature;record.controls.replaceChildren();
       const retry=action('Retry import',()=>queueMutation(record,'retry',{}),record.busy);
       if(['failed','blocked','waiting for connection'].includes(item.status)) record.controls.append(retry);
       if(imported) { const publish=action('Publish to collection',async()=>{ if(await confirmAction('Publish this import?','This adds the imported video to your public catalogue with the saved review title and hashtags.','Publish video')) await queueMutation(record,'publish',{}); },record.busy||record.draft.dirty); publish.className='primary'; publish.dataset.publish='true'; record.controls.append(publish); }
@@ -243,7 +281,7 @@
   async function queueMutation(record,operation,data,onSuccess) {
     if(record.busy) return; record.busy=true; record.el.querySelectorAll('button').forEach(b=>b.disabled=true);
     try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='publish'?'Import published.':operation==='review'?'Review saved.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
-    catch(error) { notice(error.message,true); } finally { record.busy=false; await loadQueue(); record.save.disabled=false; }
+    catch(error) { notice(error.message,true); } finally { record.busy=false;record.controlsSignature=null; await loadQueue(true); record.save.disabled=false; }
   }
   session();
 })();

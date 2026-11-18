@@ -1,4 +1,11 @@
-# WokeAreWe Pi kit — release 2026.11.15.3
+# WokeAreWe Pi kit — release 2026.11.15.4
+
+This release accepts TikTok short share links on vt.tiktok.com, vm.tiktok.com
+and tiktok.com/t/. The server follows only HTTPS TikTok post/share redirects,
+with bounded time and redirect limits, and still checks the owned account.
+Resolution failures are shown explicitly; they are never treated as queued imports.
+The admin now uses the public Matrix themes (terminal by default), mobile tap
+targets, visible busy feedback and a pinned success/error message while scrolling.
 
 ## What this runs
 The Pi runs the website, password admin and one background import/backup worker.

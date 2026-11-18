@@ -10,17 +10,18 @@
   <link rel="stylesheet" href="/admin.css">
   <script defer src="/admin.js"></script>
 </head>
-<body class="dark">
+<body class="terminal">
+  <div class="matrix-rain" aria-hidden="true"><span>0101 MATRIX 1010 ARCHIVE 0011</span><span>1100 SIGNAL 0101 VIDEO 1010</span><span>0010 MATRIX 1101 ARCHIVE 0100</span><span>1011 SIGNAL 0010 VIDEO 1101</span><span>0110 MATRIX 1001 ARCHIVE 0010</span><span>1001 SIGNAL 0110 VIDEO 0101</span></div>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">M</span><div>MATRIX VIDEO HUB<small>PERSONAL ARCHIVE / OWNER CONSOLE</small></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">M</span><div>MATRIX VIDEO HUB<small>WOKEAREWE / PERSONAL ARCHIVE / OWNER CONSOLE</small></div></div>
     <div class="top-controls"><label class="theme-label" for="theme">Interface <select id="theme"></select></label><button id="logout" hidden type="button">Log out</button></div>
   </header>
   <main>
-    <div id="message" class="notice" role="status" aria-live="polite"></div>
+    <div id="message" class="notice" role="status" aria-live="polite" aria-atomic="true"></div>
     <section id="login" class="login" aria-labelledby="login-heading">
       <div class="login-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="eyebrow">Restricted access / 01</div>
-      <h1 id="login-heading">Your collection.<br>Your control.</h1>
+      <h1 id="login-heading">Owner access.<br>Archive control.</h1>
       <p class="muted">Manage videos, review imports, and keep your archive backed up. Sign in with your owner password.</p>
       <form id="login-form" class="stack">
         <label for="password">Owner password<input id="password" type="password" autocomplete="current-password" required disabled></label>
@@ -30,7 +31,7 @@
       <button id="session-retry" type="button" hidden style="margin-top:16px">Retry connection</button>
     </section>
     <div id="console" hidden>
-      <section class="intro"><div><div class="eyebrow">Archive control / owner access</div><h1>A place for everything worth keeping.</h1><p class="muted">Add a link. Make it findable. Keep a copy.</p></div><div class="online mono">Authenticated session</div></section>
+      <section class="intro"><div><div class="eyebrow">Archive control / owner access</div><h1>Your archive.<br>Under your control.</h1><p class="muted">Add a link. Make it findable. Keep a copy.</p></div><div class="online mono">Authenticated session</div></section>
       <section class="stats" aria-label="Archive summary">
         <div class="stat"><strong id="total-count">—</strong><span>videos in your collection</span></div>
         <div class="stat"><strong id="backup-count">—</strong><span>verified media backups</span></div>
@@ -63,7 +64,7 @@
       <section id="advanced" class="advanced panel" role="tabpanel" aria-labelledby="tab-advanced" hidden><header class="panel-head"><h2>Raw catalogue</h2><span class="badge">Advanced</span></header><div class="panel-body stack"><p class="muted">The complete catalogue, including popup settings and additional fields. Paste a full object with a videos array. Saving replaces the current catalogue and requires confirmation.</p><div class="actions"><button id="load-raw" type="button">Load current JSON</button><button id="download" type="button">Download JSON</button></div><label for="raw">Catalogue JSON<textarea id="raw" spellcheck="false" placeholder="Load the current catalogue before editing"></textarea></label><div class="actions"><button id="overwrite" class="danger" type="button" disabled>Review &amp; overwrite catalogue</button></div><p class="form-note">Concurrent changes are protected by revision checks. If your version is stale, reload the catalogue; this console will not force an overwrite.</p></div></section>
     </div>
   </main>
-  <footer><span class="mono">MATRIX / VIDEO HUB · OWNER CONSOLE</span><span class="release">Release 2026.11.15.3</span></footer>
+  <footer><span class="mono">WOKEAREWE / MATRIX VIDEO HUB · OWNER CONSOLE</span><span class="release">Release 2026.11.15.4</span></footer>
   <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title">Confirm action</h2><p id="confirm-text"></p><div class="actions"><button id="confirm-cancel" type="button">Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></dialog>
 </body>
 </html>
