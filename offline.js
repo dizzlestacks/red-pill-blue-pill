@@ -10,12 +10,18 @@
     return result;
   };
   let limited=!!window.MATRIX_LITE, lastData=null;
+  const hideUnavailable = () => {
+    document.querySelectorAll('[data-backup],a[href*="/media/"],a[href="/admin"],a[href="editor.html"]').forEach(el=>{
+      el.dataset.limitedControl='';
+      el.hidden=limited;
+    });
+  };
   const show = value => {
     limited=value;
     window.MATRIX_LIMITED=value;
     const banner=document.getElementById('limited-mode');
     if(banner)banner.hidden=!value;
-    document.querySelectorAll('[data-backup],a[href*="/media/"],a[href="/admin"],a[href="editor.html"]').forEach(el=>{el.hidden=value;});
+    hideUnavailable();
   };
   window.fetch = async (input, init) => {
     const url=new URL(typeof input==='string'?input:input.url,location.href);
@@ -57,11 +63,14 @@
   document.addEventListener('DOMContentLoaded',()=>{
     const notice=document.createElement('div'); notice.id='limited-mode';notice.hidden=true;
     notice.setAttribute('role','status');
-    notice.textContent='Limited mode — Pi unavailable or static fallback. YouTube needs internet; admin and saved-copy downloads are unavailable.';
-    notice.style.cssText='position:relative;z-index:99999;padding:10px 14px;background:#122016;color:#d8ffe1;border-bottom:1px solid #43b65b;font:13px/1.5 system-ui;text-align:center';
+    notice.textContent='Limited view';
+    notice.style.cssText='position:relative;z-index:99999;padding:3px 8px;color:var(--muted,#7bd58a);background:var(--bg,#000);font:11px/1.4 monospace;letter-spacing:.06em;text-align:center';
+    const style=document.createElement('style');
+    style.textContent='[data-limited-control][hidden]{display:none!important}';
+    document.head.appendChild(style);
     document.body.prepend(notice);
     show(limited);
-    new MutationObserver(()=>{if(limited)document.querySelectorAll('[data-backup],a[href*="/media/"]').forEach(el=>{if(!el.hidden)el.hidden=true;});}).observe(document.body,{childList:true,subtree:true});
+    new MutationObserver(()=>{if(limited)hideUnavailable();}).observe(document.body,{childList:true,subtree:true});
     if(!window.MATRIX_LITE && 'serviceWorker' in navigator && ['https:','http:'].includes(location.protocol)) {
       navigator.serviceWorker.register('service-worker.js').catch(()=>{});
       navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='MATRIX_OFFLINE'){show(true);if(lastData)document.dispatchEvent(new CustomEvent('matrix-offline-catalog',{detail:strip(lastData)}));}});

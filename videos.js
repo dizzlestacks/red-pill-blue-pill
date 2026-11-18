@@ -226,7 +226,7 @@
       `;
     }
 
-    return `<div class="thumb-wrap"><div class="meta-line">${v.limited_unavailable ? "Available when the Pi returns" : "No source"}</div></div>`;
+    return v.limited_unavailable ? "" : `<div class="thumb-wrap"><div class="meta-line">No source</div></div>`;
   }
 
   function iframeHTMLFor(v, autoplay = true) {
@@ -288,7 +288,7 @@
         ${thumbHTML(v, key)}
         <div class="meta-line">Added: ${escapeHTML(dateStr)}</div>
         <div class="chips">${cats || ""}</div>
-        <div class="card-actions">
+        <div class="card-actions"${v.limited_unavailable ? ' hidden style="display:none"' : ""}>
           <button class="btn" data-open="${escapeAttr(key)}">▶ Open</button>
           <button class="btn secondary" data-share="${escapeAttr(key)}">🔗 Share</button>
           ${v.backup_available && v.backup_url && window.matrixPlayBackup ? `<button class="btn" data-backup="${escapeAttr(key)}">Watch backup</button><a class="btn" href="${escapeAttr(v.backup_url)}/download">Download backup</a>` : ""}
@@ -633,11 +633,12 @@
 
   function pickRandomFromCurrentFiltered() {
     const { filtered } = applyFilters();
-    const pool =
+    const candidates =
       state.view === "playlists"
         ? filtered
         : filtered.filter(v => !isPlaylist(v) && (state.view !== "pinned" || v.pinned));
 
+    const pool = candidates.filter(v => !v.limited_unavailable && (v.youtube_id || v.url));
     if (!pool.length) {
       alert("No videos match your current filters.");
       return;
