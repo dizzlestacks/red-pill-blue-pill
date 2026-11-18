@@ -26,6 +26,7 @@ class WatchTests(unittest.TestCase):
         patch("lite_site.generate").start()
         patch.object(watch.shutil, "disk_usage", return_value=type("Usage", (), {"free": 20 * watch.GB})()).start()
         store.init()
+        watch.update(watching_since=0)
         patch.object(worker, "api", return_value={}).start()
 
     def post(self, n=123456789):
@@ -59,7 +60,8 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT count(*) FROM jobs").fetchone()[0], 0)
 
     def test_history_and_unsupported(self):
-        watch.check()
+        with patch.object(watch_provider.PROVIDER, "page", side_effect=watch_provider.Unavailable()):
+            watch.check()
         self.assertEqual(watch.settings()["error"], "watching not available yet")
         with patch.object(watch_provider.PROVIDER, "page", return_value=self.page([self.post()])):
             watch.check(older=True)
@@ -97,7 +99,8 @@ class WatchTests(unittest.TestCase):
 
     def test_review_and_unsupported_end_card(self):
         jid = store.enqueue(self.post()["url"], add_end_card=True)["id"]
-        worker.process(store.get_job(jid))
+        with patch.object(watch_provider.PROVIDER, "end_card_payload", side_effect=watch_provider.Unavailable("Per-request end cards unavailable")):
+            worker.process(store.get_job(jid))
         self.assertEqual(store.get_job(jid)["status"], "blocked")
         self.assertIsNone(store.get_job(jid)["payload"])
 
@@ -133,6 +136,8 @@ class WatchTests(unittest.TestCase):
         import durable_state
         # Use the real checkpoint function despite the normal fixture mock.
         patch.stopall()
+        durable_state._last_digest = None
+        durable_state._retry_at = 0
         root = Path(self.temp.name)
         with patch.object(store, "STATE", root), patch.object(store, "CATALOG", root / "videos.json"), \
              patch.dict(os.environ, {"STORAGE_BACKEND": "disk", "MIRROR_DIR": ""}):

@@ -208,6 +208,14 @@ def process(job):
         status = result.get("status")
         if status == "done" and result.get("outputFilename"):
             cards = result.get("endCards", [])
+            submitted = json.loads(store.get_job(job["id"])["payload"] or "{}")
+            if submitted.get("addEndCard") is True and not any(
+                    card.get("filename") == result["outputFilename"] and card.get("status") == "added"
+                    for card in cards):
+                if any(card.get("status") == "failed" for card in cards):
+                    raise ValueError("The service could not add the end card. Review the job before retrying.")
+                store.update_job(job["id"], status="processing", reason="Waiting for confirmed end-card output readiness")
+                return
             if any(card.get("status") == "failed" for card in cards):
                 raise ValueError("The service could not add the end card. Review the job before retrying.")
             if not watch_provider.PROVIDER.final_ready(result):

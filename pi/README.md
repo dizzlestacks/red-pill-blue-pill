@@ -1,6 +1,6 @@
-# Release 2026.11.15.5
+# Release 2026.11.15.6
 
-See [automatic watching and mobile dialog release notes](RELEASE-2026.11.15.5.md), including the upstream documentation limitation and initial settings. Existing install/update steps below are unchanged.
+See [live watching release notes](RELEASE-2026.11.15.6.md). Existing install/update steps below are unchanged.
 
 # WokeAreWe Pi kit — release 2026.11.15.4
 

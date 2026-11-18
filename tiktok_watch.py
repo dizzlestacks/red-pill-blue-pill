@@ -38,7 +38,8 @@ def defaults():
                 auto_publish=os.environ.get("TIKTOK_AUTO_PUBLISH", "false").lower() == "true",
                 add_end_card=os.environ.get("TIKTOK_ADD_END_CARD", "true").lower() == "true",
                 last_check=None, last_count=0, next_check=0, error="", status="pending",
-                cursor=None, history_cursor=None, history_done=False, requested="", generation=0)
+                cursor=None, history_cursor=None, history_done=False, requested="", generation=0,
+                watching_since=time.time(), inventory_count=None, warning="")
 
 
 def init():
@@ -48,6 +49,10 @@ def init():
         CREATE TABLE IF NOT EXISTS import_admissions (job_id TEXT PRIMARY KEY, admitted REAL NOT NULL);
         """)
         c.execute("INSERT OR IGNORE INTO watcher VALUES(1,?)", (json.dumps(defaults()),))
+        data = json.loads(c.execute("SELECT data FROM watcher WHERE id=1").fetchone()[0])
+        if "watching_since" not in data:
+            data.update(watching_since=time.time(), inventory_count=None, warning="")
+            c.execute("UPDATE watcher SET data=? WHERE id=1", (json.dumps(data),))
 
 
 def settings():
@@ -86,6 +91,9 @@ def configure(body):
         old = settings()
         if body.get("profile", old["profile"]) != old["profile"]:
             body.update(cursor=None, history_cursor=None, history_done=False)
+            body["watching_since"] = time.time()
+        if body.get("enabled") is True and not old["enabled"]:
+            body["watching_since"] = time.time()
         update(**body, next_check=0, error="", generation=old["generation"] + 1)
     return status()
 
@@ -100,7 +108,7 @@ def disk_guard(extra=0):
 
 def status():
     data = settings()
-    data["end_card_supported"] = False
+    data["end_card_supported"] = True
     data["free_gb"] = round(shutil.disk_usage(store.STATE).free / GB, 2)
     try:
         disk_guard()
@@ -134,25 +142,28 @@ def normalize(post, profile):
     if str(post["id"]) != key[3:]:
         raise ValueError("Profile post ID does not match its address")
     caption = post.get("caption")
-    date = post.get("posted_at")
+    date = post["posted_at"]
     tags = post.get("hashtags")
+    if caption is None:
+        caption = ""
     if not isinstance(caption, str) or not isinstance(tags, list) or any(not isinstance(t, str) for t in tags):
         raise ValueError("Profile post is missing caption or hashtags")
-    if not isinstance(date, str):
-        raise ValueError("Profile post is missing its original publication date")
+    if date is None:
+        date = ""
     try:
-        parsed = datetime.fromisoformat(date.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            raise ValueError()
-        date = parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        if date:
+            parsed = datetime.fromisoformat(date.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError()
+            date = parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
     except ValueError:
         raise ValueError("Profile publication dates must include a timezone")
     title = re.sub(r"(?<!\w)#[\w]+", "", caption).strip()
     title = " ".join(title.split())[:200] or caption.strip()[:200]
     if not title:
-        raise ValueError("Profile post has no caption to use as a title")
+        title = "TikTok post " + key[3:] + " (caption unavailable)"
     tags = list(dict.fromkeys(t.lstrip("#").strip() for t in tags + re.findall(r"#(\w+)", caption) if t.strip("# ")))
-    return dict(url=url, title=title, tags=tags, source_date=date, metadata=post)
+    return dict(url=url, title=title, tags=tags, source_date=date or None, metadata=post)
 
 
 def check(older=False):
@@ -165,7 +176,6 @@ def check(older=False):
         if not os.environ.get("YOU2MP3_API_KEY"):
             update(status="waiting for connection", error="YOU2MP3_API_KEY is not configured")
             return
-        disk_guard()
         # Capability/auth request uses the same shared rate gate as downloads.
         worker.api("/capabilities")
         cursor = s["history_cursor"] if older else s["cursor"]
@@ -180,6 +190,11 @@ def check(older=False):
         posts = [normalize(p, s["profile"]) for p in page["posts"]]
         count = 0
         for post in posts:
+            if not older:
+                date = post["source_date"]
+                if not date or datetime.fromisoformat(date.replace("Z", "+00:00")).timestamp() <= s["watching_since"]:
+                    continue
+            disk_guard()
             result = store.enqueue(**post, automatic=True, auto_publish=s["auto_publish"],
                                    add_end_card=s["add_end_card"])
             count += result["status"] != "duplicate skipped"
@@ -187,15 +202,19 @@ def check(older=False):
         if older:
             fields["history_done"] = not page["has_more"]
         # Bounded one page per check, including "check now"; no unbounded backlog.
-        update(**fields, last_count=count, status="watching", error="")
+        if not older and page["has_more"]:
+            fields["next_check"] = time.time() + 5
+        update(**fields, last_count=count, status="watching", error="",
+               inventory_count=page.get("inventory_count"), warning=page.get("warning", ""))
     except watch_provider.Unavailable:
         update(status="unsupported", error="watching not available yet")
     except Paused as e:
         update(status="paused", error=str(e))
     except worker.UpstreamError as e:
         update(status="failed", error=str(e))
-    except (ValueError, KeyError, TypeError):
-        update(status="failed", error="Profile list has missing or invalid metadata. Cursor retained; no posts skipped.")
+    except (ValueError, KeyError, TypeError) as e:
+        update(status="failed", error=(str(e) if isinstance(e, ValueError) else
+               "Profile list has missing or invalid metadata. Cursor retained; no posts skipped."))
     except Exception:
         update(status="failed", error="Profile check failed; cursor retained for retry.")
     finally:

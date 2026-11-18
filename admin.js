@@ -98,7 +98,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.5');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.6');
       if(!result.configured) { $('login-submit').textContent='Admin password not configured'; $('login-status').textContent='Admin access is disabled. Set ADMIN_PASSWORD in Secrets, then retry. No login or saves are permitted until it is configured.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Password-protected owner access. No public registration.';
@@ -315,7 +315,7 @@
     const low=free!==null&&Number.isFinite(free)&&free<Number(data.min_free_gb);
     $('watcher-free').textContent=free===null?'Free disk: unavailable':`${low?'Disk warning: ':''}${Number.isFinite(free)?free.toFixed(1):'Unknown'} GB free / reserve ${data.min_free_gb??'—'} GB${low?' — imports may be paused.':''}`;
     $('watcher-free').classList.toggle('error',low);
-    $('watcher-history').textContent=data.history_done?'Older-post history complete.':`Older-post history: ${data.history_cursor?'more batches available':'not completed'}`;
+    $('watcher-history').textContent=`${data.inventory_count??'Unknown'} posts discovered by the service (not proof of complete history). ${data.history_done?'All currently listed older posts checked.':'Older posts are available in batches of 25; they are not automatically imported.'} Automatic imports only include posts published after ${watcherTime(data.watching_since)}. ${data.warning||''}`;
     if(!state.watcherDirty&&!state.watcherBusy)fillWatcher();
     watcherControls();
   }
@@ -358,8 +358,8 @@
   const importEndCard=node('input'); importEndCard.type='checkbox'; importEndCard.id='import-end-card'; importEndCard.checked=true;
   const importEndLabel=node('label',undefined,'end-card-control'); importEndLabel.htmlFor=importEndCard.id; importEndLabel.append(importEndCard,document.createTextNode('Add end-card to these imports'));
   const importProviderDefault=node('input');importProviderDefault.type='checkbox';importProviderDefault.id='import-provider-default';
-  const importProviderLabel=node('label',undefined,'end-card-control');importProviderLabel.htmlFor=importProviderDefault.id;importProviderLabel.append(importProviderDefault,document.createTextNode('Use service default (end-card choice unavailable)'));
-  const importEndHelp=node('p','Explicit end-card choices are blocked until the import service documents support; they are never silently ignored. Select Use service default to import without an end-card guarantee.','help');
+  const importProviderLabel=node('label',undefined,'end-card-control');importProviderLabel.htmlFor=importProviderDefault.id;importProviderLabel.append(importProviderDefault,document.createTextNode('Use service default instead'));
+  const importEndHelp=node('p','Your end-card choice is sent with the import and cannot change after submission.','help');
   importProviderDefault.addEventListener('change',()=>{importEndCard.disabled=importProviderDefault.checked;});
   $('import-submit').before(importEndLabel,importProviderLabel,importEndHelp);
   $('import-form').addEventListener('submit',async event=>{
@@ -386,7 +386,7 @@
         const endCard=node('input'); endCard.type='checkbox'; endCard.id=`review-end-card-${key}`; endCard.checked=draft.add_end_card;
         const endLabel=node('label',undefined,'end-card-control'); endLabel.htmlFor=endCard.id; endLabel.append(endCard,document.createTextNode('Add end-card'));
         const providerDefault=node('input');providerDefault.type='checkbox';providerDefault.id=`review-provider-default-${key}`;providerDefault.checked=!!draft.use_provider_default;
-        const providerLabel=node('label',undefined,'end-card-control');providerLabel.htmlFor=providerDefault.id;providerLabel.append(providerDefault,document.createTextNode('Use service default (end-card choice unavailable)'));
+        const providerLabel=node('label',undefined,'end-card-control');providerLabel.htmlFor=providerDefault.id;providerLabel.append(providerDefault,document.createTextNode('Use service default instead'));
         const endHelp=node('p',undefined,'help');
         form.append(titleField.wrapper,tagField.wrapper,endLabel,providerLabel,endHelp,save,reviewStatus); head.append(title,badge); el.append(head,url,reason,preview,form,controls);
         record={el,title,badge,url,reason,preview,controls,form,endCard,providerDefault,endHelp,titleInput:titleField.input,tagsInput:tagField.input,save,reviewStatus,draft,previewURL:'',busy:false,item};

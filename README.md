@@ -1,6 +1,6 @@
-# Current release: 2026.11.15.5
+# Current release: 2026.11.15.6
 
-Automatic TikTok import workflow and phone confirmation fixes are included. The live watched-profile/end-card adapter remains unavailable until the upstream contract is published; manual service-default imports remain available. See [release notes](pi/RELEASE-2026.11.15.5.md) for settings, limitations and verification.
+The real watched-profile adapter is connected. Existing posts are opt-in batches; automatic imports only include posts newer than the persisted watching start time. See [release notes](pi/RELEASE-2026.11.15.6.md).
 
 # WokeAreWe lite preview — release 2026.11.15.4
 

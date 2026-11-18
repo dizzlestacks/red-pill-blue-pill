@@ -20,7 +20,7 @@ FILES = [
     "offline.js", "service-worker.js", "videos.json",
     "The-Matrix-Blue-Pill-or-Red-Pill.mp4", "netlify.toml",
     "pi/install.sh", "pi/update.sh", "pi/wokearewe.service", "pi/README.md",
-    "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md",
+    "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md",
 ]
 
 
