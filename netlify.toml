@@ -2,6 +2,31 @@
 command = "python3 lite_site.py --catalog videos.json --output generated-artifacts/netlify-lite"
 publish = "generated-artifacts/netlify-lite"
 
+# Admin is hosted only on the Pi. Never copy its UI into the static output.
+[[redirects]]
+from = "/admin"
+to = "https://woke.you2mp3.music/admin"
+status = 302
+force = true
+
+[[redirects]]
+from = "/admin/"
+to = "https://woke.you2mp3.music/admin"
+status = 302
+force = true
+
+[[redirects]]
+from = "/editor.html"
+to = "https://woke.you2mp3.music/admin"
+status = 302
+force = true
+
+[[redirects]]
+from = "/editor"
+to = "https://woke.you2mp3.music/admin"
+status = 302
+force = true
+
 [[headers]]
 for = "/service-worker.js"
 [headers.values]

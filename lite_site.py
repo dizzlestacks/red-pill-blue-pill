@@ -8,7 +8,7 @@ import threading
 import admin_store as store
 
 PAGES = ("index.html", "choice.html", "videos.html", "learn.html", "readonly.html", "reset.html")
-ASSETS = ("themes.css", "videos.js", "offline.js", "backup-player.js", "public-backups.js", "The-Matrix-Blue-Pill-or-Red-Pill.mp4")
+ASSETS = ("404.html", "themes.css", "videos.js", "offline.js", "backup-player.js", "public-backups.js", "The-Matrix-Blue-Pill-or-Red-Pill.mp4")
 LAST_ERROR = ""
 _lock = threading.Lock()
 
