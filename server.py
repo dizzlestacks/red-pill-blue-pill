@@ -137,6 +137,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply(public_sync.status())
                 if path == "/api/admin/watcher":
                     return self.reply(tiktok_watch.status())
+                if path == "/api/admin/back-catalog/estimate":
+                    import back_catalog
+                    return self.reply(back_catalog.estimate())
                 if path == "/api/admin/catalog":
                     cat, revision, count = store.hydrated()
                     return self.reply({"catalog": cat, "revision": revision, "backed_up": count, "total": len(cat["videos"])})
@@ -339,6 +342,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.reply(public_sync.status())
             if path == "/api/admin/watcher":
                 result = tiktok_watch.configure(body)
+                durable_state.checkpoint()
+                return self.reply(result)
+            if path.startswith("/api/admin/back-catalog/"):
+                import back_catalog
+                operation = path.rsplit("/", 1)[-1]
+                result = back_catalog.undo(body.get("job_id")) if operation == "undo" else back_catalog.action(operation, body)
                 durable_state.checkpoint()
                 return self.reply(result)
             if path in ("/api/admin/watcher/check", "/api/admin/watcher/older"):

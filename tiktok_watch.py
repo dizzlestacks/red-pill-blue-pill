@@ -95,6 +95,9 @@ def configure(body):
         if body.get("enabled") is True and not old["enabled"]:
             body["watching_since"] = time.time()
         update(**body, next_check=0, error="", generation=old["generation"] + 1)
+        if "auto_publish" in body:
+            with store.db() as c:
+                c.execute("UPDATE jobs SET auto_publish=? WHERE automatic=1", (int(body["auto_publish"]),))
     return status()
 
 
@@ -108,6 +111,10 @@ def disk_guard(extra=0):
 
 def status():
     data = settings()
+    import back_catalog
+    import disk_storage
+    data["back_catalog"] = back_catalog.status()
+    data["mirror"] = disk_storage.mirror_status()
     data["end_card_supported"] = True
     data["free_gb"] = round(shutil.disk_usage(store.STATE).free / GB, 2)
     try:
@@ -240,6 +247,8 @@ def run():
     while True:
         LAST_HEARTBEAT = time.time()
         try:
+            import back_catalog
+            back_catalog.tick()
             s = settings()
             if (s["enabled"] or s["requested"]) and time.time() >= s["next_check"]:
                 check(older=s["requested"] == "older")

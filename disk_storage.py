@@ -7,6 +7,7 @@ import tempfile
 import admin_store as store
 
 MIRROR_ERROR = ""
+MIRROR_STATUS = {"state": "not set up", "count": 0, "last_check": None}
 
 
 def atomic_copy(source, destination):
@@ -69,17 +70,10 @@ class DiskStorage:
         return self.path(name).is_file()
 
     def upload_from_filename(self, name, source):
-        global MIRROR_ERROR
         target = self.path(name)
         atomic_copy(source, target)
-        try:
-            mirror = mirror_root()
-            if mirror:
-                atomic_copy(target, mirror / "objects" / name)
-            MIRROR_ERROR = ""
-        except Exception:
-            # Primary data is saved. The worker retries mirrors independently.
-            MIRROR_ERROR = "Primary copy saved; second-copy mirror is unavailable. It will be retried."
+        # NAS I/O runs only on its own daemon. A stale/hung mount must never
+        # hold up primary imports, snapshots, or publication.
 
     def upload_from_bytes(self, name, data):
         with tempfile.TemporaryDirectory(prefix="waw-write-") as folder:
@@ -93,12 +87,15 @@ class DiskStorage:
 
 def reconcile_mirror():
     """Copy missed/new objects and catalogue recovery files, without deleting anything."""
-    global MIRROR_ERROR
+    global MIRROR_ERROR, MIRROR_STATUS
+    import time
     try:
         root = mirror_root()
         if not root:
             MIRROR_ERROR = ""
+            MIRROR_STATUS = {"state": "not set up", "count": 0, "last_check": time.time()}
             return
+        MIRROR_STATUS = {**MIRROR_STATUS, "state": "syncing"}
         for prefix in ("objects", "backups"):
             directory = store.STATE / prefix
             if not directory.exists():
@@ -112,5 +109,26 @@ def reconcile_mirror():
                     continue
                 atomic_copy(source, dest)
         MIRROR_ERROR = ""
+        count = 0
+        with store.db() as c:
+            media = c.execute("SELECT * FROM media").fetchall()
+        for item in media:
+            path = root / "objects" / item["object_key"]
+            if path.is_file() and path.stat().st_size == item["size"]:
+                digest = hashlib.sha256()
+                with path.open("rb") as f:
+                    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                if digest.hexdigest() == item["sha256"]:
+                    count += 1
+        MIRROR_STATUS = {"state": "available", "count": count, "last_check": time.time()}
     except Exception:
         MIRROR_ERROR = "Second-copy mirror unavailable. Primary data is intact; check the mirror mount and permissions."
+        MIRROR_STATUS = {**MIRROR_STATUS, "state": "unavailable", "last_check": time.time()}
+
+
+def mirror_status():
+    with store.db() as c:
+        total = c.execute("SELECT count(*) FROM media").fetchone()[0]
+    return {**MIRROR_STATUS, "total": total, "error": MIRROR_ERROR,
+            "configured": bool(os.environ.get("MIRROR_DIR", "").strip())}

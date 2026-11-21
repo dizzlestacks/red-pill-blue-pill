@@ -98,7 +98,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.6');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.7');
       if(!result.configured) { $('login-submit').textContent='Admin password not configured'; $('login-status').textContent='Admin access is disabled. Set ADMIN_PASSWORD in Secrets, then retry. No login or saves are permitted until it is configured.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Password-protected owner access. No public registration.';
@@ -304,6 +304,7 @@
   }
   function renderWatcher(data) {
     state.watcher=data;
+    renderBackCatalogue(data);
     const status=String(data.status||'idle'), normalized=status.toLowerCase();
     $('watcher-badge').textContent=status;
     $('watcher-status').textContent=normalized==='unsupported'?'watching not available yet':/no[ _-]?token|missing[ _-]?token|not configured/.test(normalized)?'No token: configure the import connection before watching.':`${data.enabled?'Watcher enabled':'Watcher paused'} — ${status}`;
@@ -326,6 +327,43 @@
     try {const data=await api('/api/admin/watcher');if(state.signedIn)renderWatcher(data);}
     catch(error){$('watcher-error').textContent=error.message;if(!state.watcher){$('watcher-status').textContent='Watcher unavailable. Use Refresh watcher to retry.';$('watcher-badge').textContent='Unavailable';}if(!silent)notice(error.message,true);}
     finally{state.watcherLoading=false;$('watcher-refresh').removeAttribute('aria-busy');watcherControls();}
+  }
+  let backBusy=false;
+  function renderBackCatalogue(data) {
+    if(backBusy)return;
+    const b=data.back_catalog||{},r=b.run,counts=b.counts||{},m=data.mirror||{};
+    $('back-status').textContent=r?`${r.state}: ${r.scanned||0} posts checked. ${Object.entries(counts).map(([k,n])=>`${n} ${k}`).join(' / ')}. ${r.reason||''}`:'No whole-catalogue run started.';
+    $('mirror-status').textContent=`NAS mirror: ${m.state||'not set up'} — ${m.count||0} of ${m.total||0} backups verified at last check. ${m.error||''}`;
+    const controls=$('back-actions');controls.replaceChildren();
+    const mutate=async(op,body={})=>{
+      backBusy=true;
+      try {await api('/api/admin/back-catalog/'+op,body);notice('Back-catalogue update saved.');}
+      finally{backBusy=false;}
+      await loadWatcher();
+    };
+    if(!r||r.state==='done')controls.append(action('Import everything',async()=>{
+      backBusy=true;
+      try {
+        const e=await api('/api/admin/back-catalog/estimate');
+        const gb=n=>(n/1024**3).toFixed(1);
+        const message=`${e.posts} posts listed (duplicates skipped). Estimated ${gb(e.estimated_bytes)} GB, with ${gb(e.free_bytes)} GB free and ${gb(e.reserve_bytes)} GB reserved. Size is an estimate, not a guarantee. Imports pause safely if space runs low. Publishing follows your saved Publish automatically setting.`;
+        if(await confirmAction('Import everything?',message,'Start importing')){
+          await api('/api/admin/back-catalog/start',{add_end_card:$('back-end-card').checked});
+          notice('Import everything started. You can close this page.');
+        }
+      }finally{backBusy=false;await loadWatcher();}
+    }));
+    else controls.append(action(r.state==='paused'?'Resume':'Pause',()=>mutate(r.state==='paused'?'resume':'pause')));
+    $('back-matches').replaceChildren();
+    for(const match of b.matches||[]){
+      const row=node('div',undefined,'stack');
+      row.append(node('p',`${match.title} → existing video ${match.video_id}`));
+      row.append(action('Undo match',async()=>{
+        if(await confirmAction('Undo this match?','The original video stays unchanged. The imported copy returns to review without automatic publishing.','Undo match'))
+          await mutate('undo',{job_id:match.job_id});
+      }));
+      $('back-matches').append(row);
+    }
   }
   $('watcher-form').addEventListener('input',()=>{watcherEditVersion++;state.watcherDirty=true;$('watcher-edit-status').textContent='Unsaved watcher settings. Live status continues to refresh; your edits are kept.';watcherControls();});
   $('watcher-reset').addEventListener('click',()=>{watcherEditVersion++;state.watcherDirty=false;fillWatcher();watcherControls();notice('Watcher edits discarded.');});

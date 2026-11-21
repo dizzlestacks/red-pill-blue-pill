@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.6"
+RELEASE = "2026.11.15.7"
 
 
 def db():
@@ -64,6 +64,8 @@ def init():
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
     import tiktok_watch
     tiktok_watch.init()
+    import back_catalog
+    back_catalog.init()
 
 
 def source(url):
@@ -185,12 +187,16 @@ def hydrated():
     cat, rev = load_catalog()
     with db() as c:
         media = {r["source_key"]: dict(r) for r in c.execute("SELECT * FROM media")}
+        matches = {r["video_id"]: r["source_key"] for r in c.execute(
+            "SELECT * FROM backup_matches WHERE undone=0 ORDER BY rowid")}
     count = 0
     for v in cat["videos"]:
         try:
             key = source(video_source(v))[0]
         except ValueError:
             key = ""
+        if key not in media and v["id"] in matches:
+            key = matches[v["id"]]
         m = media.get(key)
         v["backup_available"] = bool(m)
         v["backup_status"] = "backed up" if m else "not backed up"
@@ -278,6 +284,21 @@ def publish(jid):
         if not m:
             raise ValueError("No verified permanent copy exists")
         cat, revision = load_catalog()
+        import back_catalog
+        with db() as c:
+            previous = c.execute("SELECT * FROM backup_matches WHERE job_id=?", (jid,)).fetchone()
+        candidate = None if previous else back_catalog.match(j, cat["videos"])
+        if candidate and not j["video_id"]:
+            with db() as c:
+                c.execute("INSERT INTO backup_matches VALUES(?,?,?,?,0)",
+                          (jid, candidate["id"], j["source_key"], j["title"]))
+            # Preserve the existing YouTube entry's title, date, and tags.
+            save_catalog(cat, revision)
+            update_job(jid, status="published", reason="Attached as an existing video's backup")
+            return
+        if previous and not previous["undone"]:
+            update_job(jid, status="published", reason="Attached as an existing video's backup")
+            return
         target = next((v for v in cat["videos"] if v["id"] == j["video_id"]), None)
         if target is None:
             target = next((v for v in cat["videos"] if v.get("source_url") == j["url"]), None)

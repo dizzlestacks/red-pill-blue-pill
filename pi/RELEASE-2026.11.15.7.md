@@ -1,0 +1,27 @@
+# Release 2026.11.15.7
+
+In Imports, choose the run's end-card option and Import everything. Confirm the
+listed count and estimated space. Estimates use existing average file size or
+100 MiB per post; actual sizes vary. The reserve is enforced during downloads.
+
+The run persists in the data folder's SQLite database and recovery snapshots.
+Pause stops new work after the current operation finishes. Disk pauses recover
+automatically; failures retry with exponential delay up to one hour. Permanent
+service failures may still require fixing the source or service permissions.
+The hourly limit remains shared with new-post imports.
+
+Save Publish automatically in watcher settings to apply it to both new posts
+and back-catalogue imports. Review-first remains the default. Missing original
+dates use the import/publication date.
+
+Unique titles at least 16 characters long with 96% similarity may attach to
+existing YouTube entries. Ambiguous matches remain separate. Undo match keeps
+the original entry, returns the imported copy to review and disables its automatic
+publication. Original YouTube metadata is preserved.
+
+NAS copies run on an independent daemon and retry every minute. The count is
+the number of video files verified on the last completed check, not a live mount
+guarantee. Missing or stalled NAS access never blocks primary imports.
+
+Install using the existing pi/update.sh process. No new settings or packages
+are required. Physical Pi/NAS and real upstream downloads require live acceptance.

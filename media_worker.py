@@ -164,6 +164,11 @@ def copy_media(job, filename):
 
 
 def process(job):
+    import back_catalog
+    if not back_catalog.allowed(job):
+        return
+    if job.get("automatic"):
+        job["auto_publish"] = tiktok_watch.settings()["auto_publish"]
     if job["kind"] == "unsupported":
         store.update_job(job["id"], status="blocked", reason="Only individual YouTube videos and your canonical TikTok posts can be backed up; playlists and other sources are not supported.")
         return
@@ -248,6 +253,14 @@ LAST_HEARTBEAT = 0
 def run():
     global LAST_HEARTBEAT
     last_mirror = 0
+    import disk_storage
+    import threading
+    def mirror_loop():
+        while True:
+            if os.environ.get("STORAGE_BACKEND", "disk") == "disk":
+                disk_storage.reconcile_mirror()
+            time.sleep(60)
+    threading.Thread(target=mirror_loop, daemon=True, name="nas-mirror").start()
     while True:
         LAST_HEARTBEAT = time.time()
         try:
@@ -260,14 +273,17 @@ def run():
                   ORDER BY updated LIMIT 1""", (time.time() - 60,)).fetchone()
             if job:
                 process(dict(job))
+                # Paused run jobs must not starve independent new-post work.
+                import back_catalog
+                if not back_catalog.allowed(dict(job)):
+                    with store.db() as c:
+                        c.execute("UPDATE jobs SET updated=? WHERE id=?", (time.time(), job["id"]))
         except Exception:
             pass  # Individual job failures are recorded; keep the worker alive.
         import durable_state
         durable_state.checkpoint()
         if time.monotonic() - last_mirror > 60:
             import disk_storage
-            if os.environ.get("STORAGE_BACKEND", "disk") == "disk":
-                disk_storage.reconcile_mirror()
             import lite_site
             try:
                 lite_site.generate(store.load_catalog()[0])
