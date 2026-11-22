@@ -17,6 +17,11 @@ const arg=n=>process.argv[process.argv.indexOf(n)+1];
  try {
   for(const mode of ['clean','old-data','storage-blocked']){
    const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+   // Third-party fonts/thumbnails must not decide whether a catalogue release passes.
+   await context.route('**/*',r=>{
+    if(new URL(r.request().url()).origin!==new URL(base).origin)return r.abort();
+    return r.continue();
+   });
    const page=await context.newPage(),errors=[],requests=[];
    page.on('pageerror',e=>errors.push(e.message));
    page.on('response',r=>{if(/videos.json|lite-data.js|service-worker.js/.test(r.url()))requests.push([r.status(),r.url()]);});
@@ -54,6 +59,7 @@ const arg=n=>process.argv[process.argv.indexOf(n)+1];
     }
     await page.reload();
     await page.waitForFunction(()=>/Showing [1-9]\d* of [1-9]\d*/.test(document.body?.textContent||''));
+    if(!remote)await page.screenshot({path:path.join(arg('--dir'),'..','lite-smoke-phone.jpg')});
    }
    await page.goto(base+'/readonly.html');
    await page.waitForFunction(()=>/Showing [1-9]\d* of [1-9]\d*/.test(document.querySelector('#roResultCount')?.textContent||''),null,{timeout:20000});
