@@ -15,10 +15,10 @@
     }catch{}finally{clearTimeout(timer);running=false;}
     const signature=JSON.stringify(backups);
     if(signature===last)return;
-    last=signature;
     // Enrich the current catalogue, never replace it with an older embedded copy.
     const current=window.MATRIX_CURRENT_CATALOG;
     if(!current)return;
+    last=signature;
     const data=JSON.parse(JSON.stringify(current));
     for(const v of data.videos){
       const url=backups[v.id];

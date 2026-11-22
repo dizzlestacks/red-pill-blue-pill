@@ -605,8 +605,8 @@
             ${tags ? `<div class="ro-tags">${tags}</div>` : ""}
           </div>
           <div class="ro-actions">
-            <button class="ro-btn" data-open="${flatIdx}">▶ Watch</button>
-            <button class="ro-btn secondary" data-share="${flatIdx}">🔗 Share</button>
+            ${v.limited_unavailable?'':`<button class="ro-btn" data-open="${flatIdx}">▶ Watch</button>
+            <button class="ro-btn secondary" data-share="${flatIdx}">🔗 Share</button>`}
           </div>
         </div>
       `;
@@ -614,7 +614,7 @@
 
     /* ===== Listen for data from videos.js ===== */
     document.addEventListener("videosloaded", (e) => {
-      allVideos = (e.detail.videos || []).filter(v => v.title && (v.youtube_id || v.url));
+      allVideos = (e.detail.videos || []).filter(v => v && v.title);
       buildCategoryOptions();
       render();
     });
