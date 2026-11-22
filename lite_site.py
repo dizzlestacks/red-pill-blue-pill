@@ -76,6 +76,15 @@ def generate(catalog=None, output=None):
         # Embedded data avoids fetch() restrictions when HTML is opened from disk.
         write_atomic(dest / "lite-data.js", ("window.MATRIX_LITE=true;window.MATRIX_LITE_CATALOG=" + payload + ";").encode())
         write_atomic(dest / "videos.json", (payload + "\n").encode())
+        # Retire the Pi/offline worker left by earlier deployments on this origin.
+        # No fetch handler: video, PDFs, ranges and all requests go to the network.
+        write_atomic(dest / "service-worker.js", b"""self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));
+self.addEventListener('activate',e=>e.waitUntil((async()=>{
+ await Promise.all((await caches.keys()).filter(n=>n.startsWith('matrix-')).map(n=>caches.delete(n)));
+ await self.registration.unregister();
+ for(const client of await self.clients.matchAll({type:'window'}))await client.navigate(client.url);
+})()));
+""")
         write_atomic(dest / "README.txt", b"Open index.html directly, or upload this entire folder to any static host.\nYouTube needs internet. Optional configured Pi backups play inline when reachable; no admin access is included.\n")
         return dest
 

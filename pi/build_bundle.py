@@ -6,6 +6,7 @@ import tarfile
 import tempfile
 import shutil
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -21,6 +22,7 @@ FILES = [
     "The-Matrix-Blue-Pill-or-Red-Pill.mp4", "netlify.toml",
     "pi/install.sh", "pi/update.sh", "pi/wokearewe.service", "pi/README.md",
     "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md", "pi/RELEASE-2026.11.15.7.md",
+    "tests/lite-smoke.cjs", "package.json",
 ]
 
 
@@ -47,6 +49,8 @@ def build():
         with tarfile.open(pi, "w:gz") as archive:
             archive.add(stage, arcname="wokearewe")
     lite_folder = lite_site.generate(json.loads((ROOT / "videos.json").read_text()), output / "netlify-lite")
+    # Refuse to deliver a release whose actual browser views are empty/broken.
+    subprocess.run(["node", str(ROOT / "tests/lite-smoke.cjs"), "--dir", str(lite_folder)], check=True, cwd=ROOT)
     lite = output / f"wokearewe-lite-{release}.tar.gz"
     with tarfile.open(lite, "w:gz") as archive:
         archive.add(lite_folder, arcname="wokearewe-lite")

@@ -16,7 +16,10 @@
     const signature=JSON.stringify(backups);
     if(signature===last)return;
     last=signature;
-    const data=JSON.parse(JSON.stringify(catalog));
+    // Enrich the current catalogue, never replace it with an older embedded copy.
+    const current=window.MATRIX_CURRENT_CATALOG;
+    if(!current)return;
+    const data=JSON.parse(JSON.stringify(current));
     for(const v of data.videos){
       const url=backups[v.id];
       if(typeof url==='string' && url.startsWith(base+'/media/')){

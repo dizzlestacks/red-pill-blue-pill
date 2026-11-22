@@ -1,5 +1,5 @@
 [build]
-command = "python3 lite_site.py --catalog videos.json --output generated-artifacts/netlify-lite"
+command = "npx playwright install --with-deps chromium && npm run build:lite"
 publish = "generated-artifacts/netlify-lite"
 
 # Admin is hosted only on the Pi. Never copy its UI into the static output.

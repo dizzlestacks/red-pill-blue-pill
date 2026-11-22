@@ -75,7 +75,7 @@
   }
 
   function readCache() {
-    const raw = localStorage.getItem(CACHE_KEY);
+    let raw;try {raw = localStorage.getItem(CACHE_KEY);} catch {return null;}
     if (!raw) return null;
     return safeJsonParse(raw, null);
   }
@@ -145,7 +145,7 @@
      WATCHED (5 minutes)
      ============================ */
   function readWatchedMap() {
-    return safeJsonParse(localStorage.getItem(WATCHED_KEY) || "{}", {});
+    try {return safeJsonParse(localStorage.getItem(WATCHED_KEY) || "{}", {});} catch {return {};}
   }
 
   function writeWatchedMap(map) {
@@ -334,13 +334,13 @@
 
   function showPopupOnce() {
     if (!state.popup.enabled) return;
-    if (localStorage.getItem("popupShown")) return;
+    try {if (localStorage.getItem("popupShown")) return;} catch {}
 
     els.popupMsg.innerHTML = highlightVerses(state.popup.message || "");
     els.popupOverlay.style.display = "flex";
     els.popupClose.onclick = () => {
       els.popupOverlay.style.display = "none";
-      localStorage.setItem("popupShown", "true");
+      try {localStorage.setItem("popupShown", "true");} catch {}
     };
   }
 
@@ -591,14 +591,10 @@
     fetch("videos.json", { cache: "no-store" })
       .then(r => r.json())
       .then(data => {
-        const prev = JSON.stringify(cached ? cached.data : null);
-        const next = JSON.stringify(data);
-        if (prev !== next) {
-          hydrateFromData(data);
-          writeCache(data);
-        } else if (!cached) {
-          hydrateFromData(data);
-        }
+        // Equality is not proof that a catalogue was rendered (limited mode
+        // deliberately skips the cached first paint).
+        hydrateFromData(data);
+        writeCache(data);
       })
       .catch(err => {
         console.error("Failed to load videos.json", err);
@@ -611,7 +607,10 @@
       });
   }
 
-  document.addEventListener("matrix-offline-catalog", event => hydrateFromData(event.detail));
+  document.addEventListener("matrix-offline-catalog", event => {
+    const incoming=normalizeVideosPayload(event.detail).videos;
+    if(incoming.length || !state.videos.length)hydrateFromData(event.detail);
+  });
 
   /* ============================
      EVENTS

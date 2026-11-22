@@ -398,9 +398,9 @@
     });
     function setTheme(t){
       document.body.className = t;
-      localStorage.setItem("preferredTheme", t);
+      try {localStorage.setItem("preferredTheme", t);} catch {}
     }
-    const saved = localStorage.getItem("preferredTheme") || "terminal";
+    let saved="terminal";try {saved=localStorage.getItem("preferredTheme")||saved;} catch {}
     setTheme(saved);
     themeSelect.value = saved;
     themeSelect.addEventListener("change", () => {

@@ -28,20 +28,23 @@
   window.fetch = async (input, init) => {
     const url=new URL(typeof input==='string'?input:input.url,location.href);
     if(!url.pathname.endsWith('/videos.json'))return originalFetch(input,init);
-    if(window.MATRIX_LITE_CATALOG) {
-      lastData=strip(window.MATRIX_LITE_CATALOG);
-      return new Response(JSON.stringify(lastData),{headers:{'Content-Type':'application/json'}});
-    }
     try {
-      const response=await originalFetch(input,init);
+      const response=await originalFetch(input,{...init,signal:init?.signal||AbortSignal.timeout(6000)});
       if(!response.ok)throw new Error('Catalogue unavailable');
       const data=await response.json();
+      if(!Array.isArray(data)&&!Array.isArray(data?.videos))throw new Error('Invalid catalogue');
       lastData=data;
+      window.MATRIX_CURRENT_CATALOG=data;
       try{localStorage.setItem('matrix:public-offline',JSON.stringify(strip(data)));}catch{}
       const offline=response.headers.get('X-Matrix-Offline')==='1';
       if(offline)show(true);
       return new Response(JSON.stringify(offline?strip(data):data),{headers:{'Content-Type':'application/json'}});
     } catch(error) {
+      if(window.MATRIX_LITE_CATALOG){
+        lastData=strip(window.MATRIX_LITE_CATALOG);
+        window.MATRIX_CURRENT_CATALOG=lastData;
+        return new Response(JSON.stringify(lastData),{headers:{'Content-Type':'application/json'}});
+      }
       let saved;try{saved=localStorage.getItem('matrix:public-offline');}catch{}
       if(saved){show(true);lastData=JSON.parse(saved);return new Response(saved,{headers:{'Content-Type':'application/json'}});}
       throw error;
@@ -63,6 +66,14 @@
     }
   }
   document.addEventListener('DOMContentLoaded',()=>{
+    if(window.MATRIX_LITE && 'serviceWorker' in navigator && window.isSecureContext){
+      // The lite build serves a retirement worker at the old script URL.
+      navigator.serviceWorker.getRegistrations().then(registrations=>Promise.all(
+        registrations.filter(r=>new URL(r.active?.scriptURL||r.installing?.scriptURL||'/',location.href).pathname.endsWith('/service-worker.js'))
+          .map(r=>r.update().catch(()=>{}))
+      )).catch(()=>{});
+      if('caches' in window)caches.keys().then(names=>Promise.all(names.filter(n=>n.startsWith('matrix-')).map(n=>caches.delete(n)))).catch(()=>{});
+    }
     const notice=document.createElement('div'); notice.id='limited-mode';notice.hidden=true;
     notice.setAttribute('role','status');
     notice.textContent='Limited view';
@@ -80,7 +91,7 @@
       check(); setInterval(check,30000);
     }
   });
-  window.addEventListener('offline',()=>{show(true);if(lastData)document.dispatchEvent(new CustomEvent('matrix-offline-catalog',{detail:strip(lastData)}));});
+  window.addEventListener('offline',()=>{show(true);if(lastData&&!window.MATRIX_LITE)document.dispatchEvent(new CustomEvent('matrix-offline-catalog',{detail:strip(lastData)}));});
   window.addEventListener('online',check);
   window.MATRIX_LIMITED=limited;
 })();
