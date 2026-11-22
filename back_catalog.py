@@ -63,11 +63,9 @@ def action(operation, body):
         if operation == "start":
             if run and run["state"] != "done":
                 raise ValueError("A back-catalogue run already exists. Resume it instead.")
-            if type(body.get("add_end_card")) is not bool:
-                raise ValueError("Choose whether to add the end card.")
             run = dict(id=uuid.uuid4().hex, state="running", cursor=None, scanned=0,
                        discovery_done=False, profile=watch.settings()["profile"],
-                       add_end_card=body["add_end_card"], reason="", next_check=0)
+                       add_end_card=False, reason="", next_check=0)
         elif operation in ("pause", "resume"):
             if not run or run["state"] == "done":
                 raise ValueError("No active back-catalogue run")
@@ -119,7 +117,7 @@ def tick():
                 watch.disk_guard()
                 result = store.enqueue(**post, automatic=True,
                                        auto_publish=watch.settings()["auto_publish"],
-                                       add_end_card=run["add_end_card"])
+                                       add_end_card=False)
                 key = store.source(post["url"])[0]
                 with store.db() as c:
                     c.execute("INSERT OR IGNORE INTO back_items VALUES(?,?,?)",

@@ -199,6 +199,8 @@ def process(job):
                     "url": job["url"], "format": "mp4", "container": "mp4", "quality": "best"}
                 if not job["payload"] and job.get("add_end_card") is not None:
                     payload = watch_provider.PROVIDER.end_card_payload(payload, bool(job["add_end_card"]))
+                if not job["payload"] and job["kind"] == "tiktok":
+                    payload["addEndCard"] = False
                 tiktok_watch.admit(job)
                 # Persist before network I/O; a crash replays exactly the same intended request.
                 store.update_job(job["id"], payload=json.dumps(payload), status="processing", reason="Submitting source")

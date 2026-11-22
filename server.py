@@ -135,6 +135,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply({"error": "Please log in"}, 401)
                 if path == "/api/admin/sync":
                     return self.reply(public_sync.status())
+                if path == "/api/admin/overview":
+                    return self.reply(store.overview(worker_thread is not None and worker_thread.is_alive()))
                 if path == "/api/admin/watcher":
                     return self.reply(tiktok_watch.status())
                 if path == "/api/admin/back-catalog/estimate":
@@ -148,6 +150,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     with store.db() as c:
                         rows = [dict(r) for r in c.execute("SELECT * FROM jobs ORDER BY created DESC")]
                         for r in rows:
+                            r["needs_title"] = store.needs_title(r)
                             r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
                             r["preview_url"] = "/api/admin/media/" + r["id"] if r["status"] in ("imported", "published") else None
@@ -362,12 +365,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 validated = [store.source(tiktok_links.resolve(url, deadline)) for url in urls]
                 if any(kind != "tiktok" for _, _, kind in validated):
                     raise ValueError("This import form accepts your TikTok links only")
-                end_card = body.get("add_end_card", tiktok_watch.settings()["add_end_card"])
-                if body.get("use_provider_default") is True:
-                    end_card = None
-                elif not isinstance(end_card, bool):
-                    raise ValueError("Choose Add end card on/off, or explicitly accept the service default")
-                results = [store.enqueue(url, add_end_card=end_card) for _, url, _ in validated]
+                results = [store.enqueue(url, add_end_card=False) for _, url, _ in validated]
                 durable_state.checkpoint()
                 return self.reply({"ok": True, "results": results})
             if path == "/api/admin/backup":
@@ -392,7 +390,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     with store.LOCK:
                         job = store.get_job(jid)
                         updates = dict(title=title.strip(), tags=json.dumps(tags))
-                        if "add_end_card" in body or body.get("use_provider_default") is True:
+                        if job["kind"] == "tiktok" and not job["payload"] and not job["upstream_id"]:
+                            updates["add_end_card"] = False
+                        elif job["kind"] != "tiktok" and ("add_end_card" in body or body.get("use_provider_default") is True):
                             choice = None if body.get("use_provider_default") is True else body["add_end_card"]
                             if choice is not None and not isinstance(choice, bool):
                                 raise ValueError("Add end card must be on or off")

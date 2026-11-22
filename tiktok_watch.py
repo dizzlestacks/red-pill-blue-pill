@@ -36,7 +36,7 @@ def defaults():
                 hourly_limit=int(os.environ.get("IMPORTS_PER_HOUR", "6")),
                 min_free_gb=float(os.environ.get("MIN_FREE_GB", "5")),
                 auto_publish=os.environ.get("TIKTOK_AUTO_PUBLISH", "false").lower() == "true",
-                add_end_card=os.environ.get("TIKTOK_ADD_END_CARD", "true").lower() == "true",
+                add_end_card=False,
                 last_check=None, last_count=0, next_check=0, error="", status="pending",
                 cursor=None, history_cursor=None, history_done=False, requested="", generation=0,
                 watching_since=time.time(), inventory_count=None, warning="")
@@ -53,6 +53,13 @@ def init():
         if "watching_since" not in data:
             data.update(watching_since=time.time(), inventory_count=None, warning="")
             c.execute("UPDATE watcher SET data=? WHERE id=1", (json.dumps(data),))
+        # One-way policy migration: imports are not newly created clipper outputs.
+        if data.get("add_end_card") is not False:
+            data["add_end_card"] = False
+            c.execute("UPDATE watcher SET data=? WHERE id=1", (json.dumps(data),))
+        # Submitted request bodies and idempotency receipts remain immutable.
+        c.execute("""UPDATE jobs SET add_end_card=0 WHERE kind='tiktok'
+                     AND payload IS NULL AND upstream_id IS NULL""")
 
 
 def settings():
@@ -88,6 +95,7 @@ def configure(body):
     if "profile" in body:
         body["profile"] = "https://www.tiktok.com/@" + profile_owner(body["profile"])
     with CHECK_LOCK, store.LOCK:
+        body["add_end_card"] = False
         old = settings()
         if body.get("profile", old["profile"]) != old["profile"]:
             body.update(cursor=None, history_cursor=None, history_done=False)
@@ -168,7 +176,7 @@ def normalize(post, profile):
     title = re.sub(r"(?<!\w)#[\w]+", "", caption).strip()
     title = " ".join(title.split())[:200] or caption.strip()[:200]
     if not title:
-        title = "TikTok post " + key[3:] + " (caption unavailable)"
+        title = "Untitled " + (date[:10] if date else time.strftime("%Y-%m-%d", time.gmtime()))
     tags = list(dict.fromkeys(t.lstrip("#").strip() for t in tags + re.findall(r"#(\w+)", caption) if t.strip("# ")))
     return dict(url=url, title=title, tags=tags, source_date=date or None, metadata=post)
 

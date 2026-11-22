@@ -4,107 +4,102 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
-  <title>Owner Console | Matrix Video Hub</title>
+  <title>Your archive | WokeAreWe</title>
   <link rel="icon" href="/assets/favicon-32x32.png" type="image/png">
   <link rel="stylesheet" href="/themes.css">
   <link rel="stylesheet" href="/admin.css">
   <script defer src="/admin.js"></script>
 </head>
 <body class="terminal">
-  <div class="matrix-rain" aria-hidden="true"><span>0101 MATRIX 1010 ARCHIVE 0011</span><span>1100 SIGNAL 0101 VIDEO 1010</span><span>0010 MATRIX 1101 ARCHIVE 0100</span><span>1011 SIGNAL 0010 VIDEO 1101</span><span>0110 MATRIX 1001 ARCHIVE 0010</span><span>1001 SIGNAL 0110 VIDEO 0101</span></div>
+  <div class="matrix-rain" aria-hidden="true"><span>0101 MATRIX 1010 ARCHIVE</span><span>1100 SIGNAL 0101 VIDEO</span><span>0010 MATRIX 1101 ARCHIVE</span><span>1011 SIGNAL 0010 VIDEO</span><span>0110 MATRIX 1001 ARCHIVE</span><span>1001 SIGNAL 0110 VIDEO</span></div>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">M</span><div>MATRIX VIDEO HUB<small>WOKEAREWE / PERSONAL ARCHIVE / OWNER CONSOLE</small></div></div>
-    <div class="top-controls"><label class="theme-label" for="theme">Interface <select id="theme"></select></label><button id="logout" hidden type="button">Log out</button></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">W</span><div>WOKEAREWE<small>Your personal video archive</small></div></div>
+    <div class="top-controls"><label class="theme-label" for="theme">Appearance<select id="theme" aria-label="Appearance theme"></select></label></div>
   </header>
   <main>
-    <div id="message" class="notice" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="message" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></div>
     <section id="login" class="login" aria-labelledby="login-heading">
       <div class="login-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <div class="eyebrow">Restricted access / 01</div>
-      <h1 id="login-heading">Owner access.<br>Archive control.</h1>
-      <p class="muted">Manage videos, review imports, and keep your archive backed up. Sign in with your owner password.</p>
+      <div class="eyebrow">Your collection. Your copy.</div>
+      <h1 id="login-heading">A home for the videos you keep.</h1>
+      <p class="muted">Sign in to add videos, review TikTok imports and check your backups.</p>
       <form id="login-form" class="stack">
         <label for="password">Owner password<input id="password" type="password" autocomplete="current-password" required disabled></label>
         <button id="login-submit" class="primary" disabled>Checking access…</button>
       </form>
-      <p id="login-status" class="help" aria-live="polite">Connecting to the owner service…</p>
-      <button id="session-retry" type="button" hidden style="margin-top:16px">Retry connection</button>
+      <p id="login-status" class="help" aria-live="polite">Connecting to your archive…</p>
+      <button id="session-retry" type="button" hidden>Try again</button>
     </section>
     <div id="console" hidden>
-      <section class="intro"><div><div class="eyebrow">Archive control / owner access</div><h1>Your archive.<br>Under your control.</h1><p class="muted">Add a link. Make it findable. Keep a copy.</p></div><div class="online mono">Authenticated session</div></section>
-      <section class="stats" aria-label="Archive summary">
-        <div class="stat"><strong id="total-count">—</strong><span>videos in your collection</span></div>
-        <div class="stat"><strong id="backup-count">—</strong><span>verified media backups</span></div>
-        <div class="stat backup-stat"><div><strong id="missing-count">—</strong><span>without a verified backup</span></div><button id="backup-all" type="button" disabled>Back up missing</button></div>
+      <section id="home" role="tabpanel" aria-labelledby="tab-home">
+        <header class="page-heading"><div class="eyebrow">Your archive, at a glance</div><h1>A little care.<br>A lasting collection.</h1><p class="muted">Review what needs you. Let the rest keep moving.</p></header>
+        <section class="panel"><header class="panel-head"><h2>Needs your attention</h2><button id="home-refresh" type="button" aria-label="Refresh home status">Refresh</button></header><div id="attention" class="panel-body attention-list"><div class="skeleton"></div></div></section>
+        <section id="first-guide" class="panel guide" hidden><div class="panel-body"><h2>A place for everything</h2><p class="help">Home shows what needs attention. Videos is your collection, with search and editing. Add accepts links, including a batch of TikTok posts.</p><p class="help">Automatic looks after your TikTok profile and older posts. Settings holds publishing, backups and account help.</p><div class="actions"><button id="dismiss-guide" type="button">Got it</button><button type="button" data-go="add" class="primary">Add some videos</button></div></div></section>
+        <div class="home-columns"><div>
+          <section class="panel"><header class="panel-head"><h2>In progress</h2></header><div id="active-progress" class="panel-body"><p class="help">Checking current imports…</p></div></section>
+          <section class="stats" aria-label="Your collection in numbers"><div class="stat"><strong id="total-count">—</strong><span>videos in your collection</span></div><div class="stat"><strong id="backup-count">—</strong><span>videos with a checked backup</span></div><div class="stat backup-stat"><div><strong id="missing-count">—</strong><span>videos still need a backup</span></div><button id="backup-all" type="button" disabled>Back up missing</button></div></section>
+        </div><section class="panel"><header class="panel-head"><h2>Keeping things connected</h2></header><div id="home-health" class="panel-body"><div class="skeleton"></div></div></section></div>
       </section>
-      <section class="panel" aria-label="Public site sync">
-        <header class="panel-head"><h2>Public site sync</h2><button id="sync-now" type="button">Sync now</button></header>
-        <div class="panel-body"><p id="sync-state" aria-live="polite">Checking sync…</p><p id="sync-last" class="help"></p></div>
+      <section id="videos" role="tabpanel" aria-labelledby="tab-videos" hidden>
+        <header class="page-heading"><div class="eyebrow">Keep it findable</div><h1>Your videos.</h1><p class="muted">Find a favourite, give it a title or check its backup.</p></header>
+        <section class="panel"><header class="panel-head"><h2>Your collection</h2><button id="reload" type="button">Reload</button></header><div class="searchbox"><label for="search" class="help">Find a video</label><input id="search" type="search" placeholder="Search titles, tags or links"><div class="filter-grid"><select id="video-filter" aria-label="Filter videos"><option value="">All videos</option><option value="title">Needs a title</option><option value="backup">No backup</option><option value="pinned">Pinned</option></select><select id="source-filter" aria-label="Filter by source"><option value="">Every source</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="direct">Direct video</option></select></div><p id="video-results" class="help"></p></div><div id="entries" aria-live="polite"><div class="skeleton"></div></div></section>
       </section>
-      <nav aria-label="Console sections" role="tablist"><button id="tab-library" role="tab" aria-selected="true" aria-controls="library" data-tab="library">01 / Collection</button><button id="tab-imports" role="tab" aria-selected="false" aria-controls="imports" data-tab="imports">02 / Imports</button><button id="tab-advanced" role="tab" aria-selected="false" aria-controls="advanced" data-tab="advanced">03 / Advanced</button></nav>
-      <section id="library" role="tabpanel" aria-labelledby="tab-library">
-        <div class="workspace">
-          <section class="panel"><header class="panel-head"><h2 id="form-heading">Add a video</h2><span class="badge" id="form-mode">New entry</span></header>
-            <form id="video-form" class="panel-body stack">
-              <label for="source">Source link<input id="source" required placeholder="YouTube or direct video URL" autocomplete="url"><span class="help">YouTube watch, Shorts, youtu.be, or an HTTPS media link.</span></label>
-              <label for="title">Title<input id="title" required placeholder="Give this video a useful name"></label>
-              <label for="categories">Categories<input id="categories" placeholder="Interviews, Research" list="category-options"><span class="help">Separate categories with commas.</span></label><datalist id="category-options"></datalist>
-              <label for="tags">Hashtags<input id="tags" placeholder="#ideas, #watchlater"><span class="help">Separate tags with commas or spaces.</span></label>
-              <div class="two"><label for="clip-start">Clip start<input id="clip-start" placeholder="0:00 or seconds" inputmode="decimal"></label><label for="clip-end">Clip end<input id="clip-end" placeholder="Optional" inputmode="decimal"></label></div>
-              <p class="form-note">Clip times are metadata only. They do not trim the file or change playback in the public hub.</p>
-              <label for="notes">Notes <span class="muted">(optional)</span><textarea id="notes" rows="3" placeholder="Context you want to keep with this video"></textarea></label>
-              <div class="checks"><label><input type="checkbox" id="featured"> Featured</label><label><input type="checkbox" id="pinned"> Pinned</label></div>
-              <div class="actions"><button id="save-video" class="primary" disabled>Save video</button><button id="reset-video" type="button">Clear form</button></div>
-              <p class="help">Existing dates and additional catalogue fields stay intact when you edit.</p>
+      <section id="add" role="tabpanel" aria-labelledby="tab-add" hidden>
+        <header class="page-heading"><div class="eyebrow">One link or a whole handful</div><h1>Make room for more.</h1><p class="muted">Import TikTok posts, or add a YouTube or direct video link.</p></header>
+        <div class="add-columns">
+          <section class="panel"><header class="panel-head"><h2>Import TikTok links</h2></header><form id="import-form" class="panel-body stack"><p>Paste one post link per line. Once imported, review and publish each video below.</p><label for="import-urls">TikTok video links<textarea id="import-urls" rows="5" required placeholder="https://www.tiktok.com/@creator/video/…" autocapitalize="none" spellcheck="false"></textarea></label><button id="import-submit" class="primary" disabled>Import these links</button><details><summary>Connection and storage</summary><p id="connection-status" class="help">Checking import connection…</p><p id="storage-status" class="help"></p><p class="help">Imports refresh every few seconds. Your review edits stay put while you work.</p></details></form></section>
+          <section id="video-editor" class="panel"><header class="panel-head"><h2 id="form-heading">Add a video link</h2><span class="badge" id="form-mode">New video</span></header><form id="video-form" class="panel-body stack">
+            <label for="source">YouTube or direct video link<input id="source" required placeholder="https://…" autocomplete="url" autocapitalize="none" spellcheck="false"><span class="help">For TikTok posts, use the multiple-link importer instead.</span></label>
+            <label for="title">Title<input id="title" placeholder="A name you will recognise"><span class="help">Not sure yet? Leave this blank and mark it as needing a title.</span></label>
+            <label class="end-card-control"><input type="checkbox" id="needs-title"> Needs a title</label>
+            <label for="added-date">Date added<input id="added-date" type="date"></label>
+            <label for="categories">Categories<input id="categories" placeholder="Interviews, Research" list="category-options"><span class="help">Separate categories with commas.</span></label><datalist id="category-options"></datalist>
+            <label for="tags">Hashtags<input id="tags" placeholder="#ideas, #watchlater"><span class="help">Separate tags with commas or spaces.</span></label>
+            <details><summary>Notes and clip details</summary><div class="stack"><label for="notes">Notes<textarea id="notes" rows="3" placeholder="Context worth keeping"></textarea></label><div class="two"><label for="clip-start">Clip start<input id="clip-start" placeholder="0:00 or seconds" inputmode="decimal"></label><label for="clip-end">Clip end<input id="clip-end" placeholder="Optional" inputmode="decimal"></label></div><p class="help">Clip times are notes only. They do not trim the file or change playback.</p></div></details>
+            <div class="checks"><label><input type="checkbox" id="featured"> Featured</label><label><input type="checkbox" id="pinned"> Pinned</label></div>
+            <div class="actions"><button id="save-video" class="primary" disabled>Save video</button><button id="reset-video" type="button">Clear form</button></div>
+          </form></section>
+        </div>
+        <section id="review-panel" class="panel"><header class="panel-head"><h2>Imports and review</h2><button id="queue-refresh" type="button">Refresh</button></header><div class="searchbox"><label for="queue-filter">Show imports<select id="queue-filter"><option value="">All imports</option><option value="review">Awaiting publish</option><option value="failed">Need help</option><option value="active">In progress</option></select></label></div><div id="queue"><div class="skeleton"></div></div></section>
+      </section>
+      <section id="automatic" role="tabpanel" aria-labelledby="tab-automatic" hidden>
+        <header class="page-heading"><div class="eyebrow">A little less to do by hand</div><h1>Let it come to you.</h1><p class="muted">Watch for new posts or bring your older TikToks home.</p></header>
+        <div class="automatic-grid">
+          <section class="panel watcher-panel"><header class="panel-head"><h2 id="watcher-heading">TikTok watcher</h2><span id="watcher-badge" class="badge">Checking</span></header><div class="panel-body stack">
+            <form id="watcher-form" class="stack">
+              <label class="toggle-line" for="watcher-enabled">Watch for new posts<input id="watcher-enabled" class="switch-input" type="checkbox" role="switch"></label>
+              <p id="watcher-status" role="status">Checking your TikTok watcher…</p>
+              <details><summary>Options</summary><div class="stack"><label for="watcher-profile">TikTok profile link<input id="watcher-profile" type="url" placeholder="https://www.tiktok.com/@yourprofile" autocapitalize="none" spellcheck="false"></label><label for="watcher-interval">Check every<select id="watcher-interval"><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label><p id="watcher-end-card-help" class="help">TikTok imports never request an end card.</p><p class="help">Publishing and storage limits are in Settings.</p></div></details>
+              <div class="actions"><button id="watcher-save" type="submit" class="primary" disabled>Save settings</button><button id="watcher-reset" type="button" disabled>Discard edits</button></div><p id="watcher-edit-status" class="help">Loading saved settings…</p>
             </form>
-          </section>
-          <section class="panel"><header class="panel-head"><h2>Your collection</h2><button id="reload" type="button">Reload</button></header><div class="searchbox"><label for="search" class="help">Find a video</label><input id="search" type="search" placeholder="Search titles, categories, tags, or links"></div><div id="entries" aria-live="polite"><div class="skeleton"></div><div class="skeleton"></div></div></section>
+            <div class="watcher-readout"><p id="watcher-error" class="help error"></p><p id="watcher-last" class="help"></p><p id="watcher-next" class="help"></p><details><summary>Recent checks</summary><p id="watcher-free" class="help"></p><p id="watcher-history" class="help"></p><div class="actions"><button id="watcher-older" type="button" disabled>Import next older posts</button><button id="watcher-refresh" type="button">Refresh</button></div></details><div class="actions"><button id="watcher-check" type="button" disabled>Check now</button></div></div>
+          </div></section>
+          <section class="panel"><header class="panel-head"><h2>Import everything</h2><span id="back-badge" class="badge">Checking</span></header><div class="panel-body stack"><p>Bring in every available TikTok post. Existing posts are skipped and clear matches become backups.</p><p id="back-status" role="status">Checking older imports…</p><div class="actions" id="back-actions"></div><details><summary>Options and matches</summary><p class="help">You will see a space estimate before starting. Imports pause if space runs low. TikTok imports never request end cards.</p><h3>Matched videos</h3><div id="back-matches"></div></details></div></section>
+          <section class="panel"><header class="panel-head"><h2>YouTube watcher</h2></header><div class="panel-body stack"><label class="toggle-line" for="youtube-enabled">Watch for new videos<input id="youtube-enabled" class="switch-input" type="checkbox" role="switch" disabled aria-describedby="youtube-help"></label><p id="youtube-help" class="help">Not available yet. You can add individual YouTube links in Add.</p><details><summary>Options</summary><p class="help">There are no YouTube watcher settings yet. This switch will stay off.</p><button type="button" data-go="add">Add a YouTube link</button></details></div></section>
         </div>
       </section>
-      <section id="imports" role="tabpanel" aria-labelledby="tab-imports" hidden>
-        <section class="panel"><header class="panel-head"><h2>Whole TikTok catalogue</h2></header>
-          <div class="panel-body stack">
-            <p>Import every available post in the background. Existing posts are skipped; clear matches become backups of existing videos.</p>
-            <label><input type="checkbox" id="back-end-card" checked> Add end card for this run</label>
-            <div class="actions" id="back-actions"></div>
-            <p id="back-status" role="status" aria-live="polite"></p>
-            <p id="mirror-status" role="status"></p>
-            <h3>Matched existing videos</h3><div id="back-matches"></div>
-          </div>
-        </section>
-        <section class="panel watcher-panel" aria-labelledby="watcher-heading">
-          <header class="panel-head"><h2 id="watcher-heading">Profile watcher</h2><span id="watcher-badge" class="badge">Connecting</span></header>
-          <div class="panel-body watcher-layout">
-            <form id="watcher-form" class="stack">
-              <p class="muted">Watch your TikTok profile for new posts. Review each import, or choose automatic publishing.</p>
-              <label class="end-card-control"><input id="watcher-enabled" type="checkbox"> Watch for new posts</label>
-              <label for="watcher-profile">TikTok profile URL<input id="watcher-profile" type="url" placeholder="https://www.tiktok.com/@yourprofile"></label>
-              <div class="watcher-grid">
-                <label for="watcher-interval">Check every<select id="watcher-interval"><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label>
-                <label for="watcher-limit">Imports / hour<input id="watcher-limit" type="number" min="1" max="60" step="1" value="6" required></label>
-                <label for="watcher-disk">Keep free (GB)<input id="watcher-disk" type="number" min="1" max="1024" step="1" value="5" required></label>
-              </div>
-              <div class="checks"><label><input id="watcher-auto-publish" type="checkbox"> Publish automatically (new posts and back catalogue)</label><label><input id="watcher-end-card" type="checkbox" checked> Add end-card</label></div>
-              <p class="help">Auto-publish skips manual review.</p><p id="watcher-end-card-help" class="help">End-card settings apply to new requests only.</p>
-              <div class="actions"><button id="watcher-save" type="submit" class="primary" disabled>Save watcher settings</button><button id="watcher-reset" type="button" disabled>Discard edits</button></div>
-              <p id="watcher-edit-status" class="help" aria-live="polite">Loading saved settings…</p>
-            </form>
-            <div class="watcher-readout">
-              <p id="watcher-status" role="status" aria-live="polite">Checking watcher…</p>
-              <p id="watcher-error" class="help error" role="status" aria-live="polite"></p>
-              <p id="watcher-last" class="help">No check loaded yet.</p><p id="watcher-next" class="help"></p><p id="watcher-free" class="help"></p><p id="watcher-history" class="help"></p>
-              <div class="actions"><button id="watcher-check" type="button" disabled>Check now</button><button id="watcher-older" type="button" disabled>Import older posts</button><button id="watcher-refresh" type="button">Refresh watcher</button></div>
-              <p class="help">Older posts are scheduled in batches. Existing imports are not duplicated.</p>
-            </div>
-          </div>
-        </section>
-        <div class="queue-layout"><section class="panel"><header class="panel-head"><h2>Import from TikTok</h2><span class="badge">Review first</span></header><form id="import-form" class="panel-body stack"><p class="muted">Paste one TikTok link per line. Imports stay in the queue until you review and publish them.</p><label for="import-urls">Video links<textarea id="import-urls" rows="8" required placeholder="https://www.tiktok.com/@creator/video/…"></textarea></label><button id="import-submit" class="primary" disabled>Add to import queue</button><p id="connection-status" class="help" aria-live="polite">Checking import connection…</p><p id="storage-status" class="help"></p><p class="help">Queue status refreshes every 5 seconds. Your review edits are kept while you work.</p></form></section>
-        <section class="panel"><header class="panel-head"><h2>Import queue</h2><button id="queue-refresh" type="button">Refresh status</button></header><div id="queue"><div class="skeleton"></div></div></section></div>
+      <section id="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <header class="page-heading"><div class="eyebrow">Make it work your way</div><h1>Your preferences.</h1><p class="muted">Publishing, safe copies and the details behind your archive.</p></header>
+        <div class="settings-columns"><div>
+          <section class="panel"><header class="panel-head"><h2>Publishing</h2></header><div class="panel-body stack"><label class="toggle-line" for="watcher-auto-publish">Publish automatically<input id="watcher-auto-publish" form="watcher-form" class="switch-input" type="checkbox" role="switch"></label><p class="help">New watched posts and Import everything can publish without your review. Pasted TikTok links still wait for review.</p><button type="submit" form="watcher-form" class="primary" id="publishing-save" disabled>Save publishing preference</button><div class="setting-note"><h3>End cards</h3><p class="help">Off for TikTok imports. End cards are for new clipper videos only. Requests already sent keep their original choice.</p></div></div></section>
+          <section class="panel"><header class="panel-head"><h2>Import limits</h2></header><div class="panel-body stack"><label for="watcher-limit">Maximum imports per hour<input id="watcher-limit" form="watcher-form" type="number" min="1" max="60" step="1" value="6" required></label><label for="watcher-disk">Space to keep free, in GB<input id="watcher-disk" form="watcher-form" type="number" min="1" max="1024" step="1" value="5" required></label><p class="help">Automatic imports slow down or pause to protect your free space.</p><button type="submit" form="watcher-form" id="limits-save" class="primary" disabled>Save import limits</button></div></section>
+          <section class="panel"><header class="panel-head"><h2>Password and access</h2></header><div class="panel-body stack"><p>Your owner password is managed on the Pi, not in this page.</p><p class="help">Change <code>ADMIN_PASSWORD</code> in the Pi settings file and restart the service. Changing it signs out existing sessions.</p><button id="logout" hidden type="button">Log out</button></div></section>
+        </div><div>
+          <section id="sync-panel" class="panel"><header class="panel-head"><h2>Public site sync</h2></header><div class="panel-body stack"><p id="sync-state">Checking sync…</p><p id="sync-last" class="help"></p><button id="sync-now" type="button" class="primary">Sync now</button><details><summary>Setup help</summary><p class="help">In the Pi settings file, set <code>GITHUB_SYNC_REPO</code>, <code>GITHUB_SYNC_BRANCH</code> and <code>GITHUB_SYNC_TOKEN</code>, then restart the service. Sync sends your public collection to GitHub.</p></details></div></section>
+          <section id="nas-panel" class="panel"><header class="panel-head"><h2>NAS and storage</h2></header><div class="panel-body stack"><p id="mirror-status">Checking the NAS copy…</p><p id="settings-storage" class="help">Checking media storage…</p><details><summary>Setup help</summary><p class="help">Set <code>MIRROR_DIR</code> to your mounted NAS folder in the Pi settings file. The service needs permission to write there. This is a second copy, separate from the checked media backup count.</p><p class="help">Keep <code>DATA_DIR</code> on a permanent disk for your archive data. Set <code>YOU2MP3_API_KEY</code> for TikTok imports. Restart the service after changing the settings file.</p></details></div></section>
+        </div></div>
+        <section id="advanced" class="panel"><div class="panel-body"><details><summary>Advanced: edit catalogue JSON</summary><div class="stack"><p class="help">This is the complete collection and its settings. Saving replaces it all. Download a copy before making changes.</p><div class="actions"><button id="load-raw" type="button">Load current JSON</button><button id="download" type="button">Download a copy</button></div><label for="raw">Catalogue JSON<textarea id="raw" spellcheck="false" placeholder="Load your collection before editing"></textarea></label><p class="help">If someone else saves first, reload before trying again. Your collection will not be overwritten without a check.</p><button id="overwrite" class="danger" type="button" disabled>Review and replace catalogue</button></div></details></div></section>
       </section>
-      <section id="advanced" class="advanced panel" role="tabpanel" aria-labelledby="tab-advanced" hidden><header class="panel-head"><h2>Raw catalogue</h2><span class="badge">Advanced</span></header><div class="panel-body stack"><p class="muted">The complete catalogue, including popup settings and additional fields. Paste a full object with a videos array. Saving replaces the current catalogue and requires confirmation.</p><div class="actions"><button id="load-raw" type="button">Load current JSON</button><button id="download" type="button">Download JSON</button></div><label for="raw">Catalogue JSON<textarea id="raw" spellcheck="false" placeholder="Load the current catalogue before editing"></textarea></label><div class="actions"><button id="overwrite" class="danger" type="button" disabled>Review &amp; overwrite catalogue</button></div><p class="form-note">Concurrent changes are protected by revision checks. If your version is stale, reload the catalogue; this console will not force an overwrite.</p></div></section>
+      <nav class="bottom-nav" aria-label="Archive sections" role="tablist">
+        <button id="tab-home" role="tab" aria-selected="true" aria-controls="home" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v11h-6v-7H9v7H3Z"/></svg>Home</button>
+        <button id="tab-videos" role="tab" aria-selected="false" aria-controls="videos" data-tab="videos" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 5 3-5 3Z"/></svg>Videos</button>
+        <button id="tab-add" role="tab" aria-selected="false" aria-controls="add" data-tab="add" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 7v10M7 12h10"/></svg>Add</button>
+        <button id="tab-automatic" role="tab" aria-selected="false" aria-controls="automatic" data-tab="automatic" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></svg>Automatic</button>
+        <button id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" data-tab="settings" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--card)"/><circle cx="16" cy="17" r="3" fill="var(--card)"/></svg>Settings</button>
+      </nav>
     </div>
   </main>
-   <footer><span class="mono">WOKEAREWE / MATRIX VIDEO HUB · OWNER CONSOLE</span><span class="release">Release 2026.11.15.7</span></footer>
+  <footer><span>WokeAreWe · Personal archive</span><span class="release">Release 2026.11.15.7</span></footer>
   <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title">Confirm action</h2><div class="dialog-content"><p id="confirm-text"></p><div id="dialog-message" role="status" aria-live="polite"></div></div><div class="actions"><button id="confirm-cancel" type="button" autofocus>Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></dialog>
 </body>
 </html>

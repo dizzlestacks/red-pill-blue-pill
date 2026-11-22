@@ -113,6 +113,33 @@ def load_catalog():
     return cat, hashlib.sha256(raw).hexdigest()
 
 
+def needs_title(video):
+    title = str(video.get("title") or "").strip()
+    return bool(video.get("needs_title")) or not title or title in ("Untitled clip", "Untitled video") or bool(
+        re.fullmatch(r"Untitled(?: \d{4}-\d{2}-\d{2})?|TikTok post \d+ \(caption unavailable\)", title))
+
+
+def overview(worker_alive):
+    cat, _ = load_catalog()
+    with db() as c:
+        jobs = [dict(r) for r in c.execute("SELECT status,title FROM jobs")]
+    counts = {}
+    for job in jobs:
+        counts[job["status"]] = counts.get(job["status"], 0) + 1
+    return {
+        "pi": {"state": "ok" if worker_alive else "error",
+               "message": "Site and import worker are running." if worker_alive else
+               "The import worker has stopped. Restart the WokeAreWe service on the Pi."},
+        "needs_title": sum(needs_title(v) for v in cat["videos"]),
+        "queue_needs_title": sum(needs_title(j) for j in jobs if j["status"] != "published"),
+        "waiting_publish": counts.get("imported", 0),
+        "failed_imports": counts.get("failed", 0),
+        "active_imports": sum(counts.get(k, 0) for k in ("queued", "processing", "copying", "waiting for connection")),
+        "queue_counts": counts,
+        "youtube": {"state": "unavailable", "message": "YouTube watching not available yet"},
+    }
+
+
 def clean_catalog(cat):
     if isinstance(cat, list):
         cat = {"videos": cat}
@@ -122,8 +149,11 @@ def clean_catalog(cat):
         raise ValueError("Catalogue limit exceeded")
     ids = set()
     for v in cat["videos"]:
-        if not isinstance(v, dict) or not isinstance(v.get("title"), str) or not v["title"].strip():
-            raise ValueError("Every video needs a title")
+        if not isinstance(v, dict) or not isinstance(v.get("title"), str):
+            raise ValueError("Every video needs a text title")
+        if not v["title"].strip():
+            v["title"] = "Untitled " + time.strftime("%Y-%m-%d", time.gmtime())
+            v["needs_title"] = True
         if len(v["title"]) > 1000:
             raise ValueError("Title is too long")
         for field in ("url", "thumb", "source_url"):
@@ -191,6 +221,7 @@ def hydrated():
             "SELECT * FROM backup_matches WHERE undone=0 ORDER BY rowid")}
     count = 0
     for v in cat["videos"]:
+        v["needs_title"] = needs_title(v)
         try:
             key = source(video_source(v))[0]
         except ValueError:
@@ -210,6 +241,8 @@ def hydrated():
 def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
             auto_publish=False, add_end_card=None, source_date=None, metadata=None):
     key, canonical, kind = source(url)
+    if kind == "tiktok":
+        add_end_card = False
     now = time.time()
     with LOCK, db() as c:
         if video_id is None:
@@ -307,7 +340,9 @@ def publish(jid):
                       "source_url": j["url"], "added": j.get("source_date") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                       "category": [], "featured": False, "pinned": False}
             cat["videos"].append(target)
-        target["title"] = j["title"]
-        target["tags"] = json.loads(j["tags"])
+            target["title"] = j["title"]
+            target["tags"] = json.loads(j["tags"])
+            target["needs_title"] = needs_title(j)
+        # Existing manual/merged entries keep their latest owner-edited metadata.
         save_catalog(cat, revision)
         update_job(jid, status="published", reason="")

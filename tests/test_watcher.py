@@ -47,7 +47,7 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(rows[0]["title"], "My clip")
         self.assertEqual(json.loads(rows[0]["tags"]), ["truth"])
         self.assertEqual(rows[0]["source_date"], "2020-01-01T00:00:00Z")
-        self.assertEqual(rows[0]["add_end_card"], 1)
+        self.assertEqual(rows[0]["add_end_card"], 0)
         self.assertEqual(rows[0]["auto_publish"], 0)
         self.assertEqual(watch.settings()["cursor"], "next")
 

@@ -10,11 +10,26 @@
   $('theme').value = themes.includes(savedTheme) ? savedTheme : 'terminal';
   document.body.className = $('theme').value;
   $('theme').addEventListener('change', () => { document.body.className = $('theme').value; try { localStorage.setItem('admin:theme',$('theme').value); } catch {} });
+  let noticeTimer;
+  function dismissNotice() { clearTimeout(noticeTimer); $('message').replaceChildren(); $('message').hidden=true; }
   function notice(message, error=false) {
-    for(const target of [$('message'),$('dialog-message')]) {
-      target.textContent=message; target.classList.toggle('error',error); target.classList.toggle('success',!!message&&!error&&message!=='Working…'); target.setAttribute('role',error?'alert':'status'); target.setAttribute('aria-live',error?'assertive':'polite');
-    }
-    $('message').hidden=$('confirm-dialog').open;
+    if(message&&!error&&!$('message').hidden&&$('message').classList.contains('error'))return;
+    clearTimeout(noticeTimer);
+    if(!message) return dismissNotice();
+    const target=$('message');
+    target.replaceChildren(node('span',message,'notice-copy'));
+    const close=node('button','×','notice-close'); close.type='button'; close.setAttribute('aria-label','Dismiss message'); close.addEventListener('click',dismissNotice); target.append(close);
+    target.classList.toggle('error',error); target.classList.toggle('success',!error);
+    target.setAttribute('role',error?'alert':'status'); target.setAttribute('aria-live',error?'assertive':'polite');
+    // An in-flow message cannot hide a keyboard, field or action button.
+    const focus=document.activeElement, form=focus?.closest('form');
+    const anchor=!state.signedIn?$('login'):form?.id?form:focus?.closest('.panel,.login');
+    if($('confirm-dialog').open) $('confirm-dialog').querySelector('.dialog-content').append(target);
+    else if(anchor && !anchor.closest('dialog')) anchor.append(target);
+    else document.querySelector('[role=tabpanel]:not([hidden])')?.prepend(target);
+    target.hidden=false;
+    target.onclick=event=>{if(!error&&!event.target.closest('button'))dismissNotice();};
+    if(!error)noticeTimer=setTimeout(dismissNotice,4500);
   }
   function updateViewport() {
     const viewport=window.visualViewport, root=document.documentElement.style;
@@ -22,6 +37,7 @@
     root.setProperty('--visual-left',`${viewport?.offsetLeft||0}px`);
     root.setProperty('--visual-height',`${viewport?.height||window.innerHeight}px`);
     root.setProperty('--visual-width',`${viewport?.width||window.innerWidth}px`);
+    document.body.classList.toggle('keyboard-open',!!viewport && window.innerHeight-viewport.height>150 && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''));
   }
   window.visualViewport?.addEventListener('resize',updateViewport);
   window.visualViewport?.addEventListener('scroll',updateViewport);
@@ -55,7 +71,7 @@
     const button=pressedButton, controller=new AbortController();
     const wasDisabled=button?.disabled;
     const timeout=setTimeout(()=>controller.abort(),30000);
-    if(button){button.dataset.requestBusy='true';button.disabled=true;button.setAttribute('aria-busy','true');notice('Working…');}
+    if(button){button.dataset.requestBusy='true';button.disabled=true;button.setAttribute('aria-busy','true');}
     try {
     const generation=authGeneration;
     const options={ credentials:'same-origin', headers:{'Accept':'application/json'}, cache:'no-store' };
@@ -83,25 +99,30 @@
     $('import-submit').disabled=!state.signedIn || state.busy || !!state.importBusy;
   }
   function clearSession() {
+    document.querySelector('main').prepend($('message'));
+    state.overview=null;state.items=[];state.queueData=null;state.sync=null;homeSignature='';
     if($('confirm-dialog').open) finishConfirm(false);
     state.watcher=null; state.watcherDirty=false; $('watcher-form').reset(); watcherControls();
     authGeneration++; clearInterval(state.poll); state.poll=null; state.signedIn=false; state.csrf=''; state.catalog=null; state.revision=null; state.queue.clear(); state.drafts.clear(); state.editing=null; state.stale=false; state.connection=false; state.storage=false;
-    $('console').hidden=true; $('logout').hidden=true; $('login').hidden=false; $('entries').replaceChildren(); $('queue').replaceChildren(); $('raw').value=''; $('import-urls').value=''; $('video-form').reset(); resetForm(); $('password').value=''; $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Your session is signed out.'; updateControls();
+    openSection('home');
+    $('console').hidden=true; $('logout').hidden=true; $('login').hidden=false; $('entries').replaceChildren(); $('queue').replaceChildren(); $('raw').value=''; $('import-urls').value=''; $('video-form').reset(); resetForm(); $('password').value=''; $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='You are signed out.'; updateControls();
   }
   async function signedIn(csrf) {
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
-    await Promise.allSettled([loadCatalog(),loadQueue(),loadWatcher()]);
+    resetForm();
+    try {$('first-guide').hidden=localStorage.getItem('admin:guide:phone-2026-11-15')==='seen';} catch {$('first-guide').hidden=false;}
+    await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadOverview()]);
     loadSync();
-    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);},5000);
+    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();},5000);
   }
   async function session() {
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
       document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.7');
-      if(!result.configured) { $('login-submit').textContent='Admin password not configured'; $('login-status').textContent='Admin access is disabled. Set ADMIN_PASSWORD in Secrets, then retry. No login or saves are permitted until it is configured.'; $('session-retry').hidden=false; return; }
+      if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
-      $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in to console'; $('login-status').textContent='Password-protected owner access. No public registration.';
+      $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
     } catch(error) { $('login-submit').textContent='Service unavailable'; $('login-status').textContent=error.message; $('session-retry').hidden=false; }
   }
   $('session-retry').addEventListener('click',session);
@@ -116,10 +137,19 @@
     try { await api('/api/admin/logout',{}); clearSession(); notice('Signed out.'); }
     catch(error) { notice(error.message,true); } finally { $('logout').disabled=false; }
   });
-  document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{
-    document.querySelectorAll('[data-tab]').forEach(tab=>{ const selected=tab===button; tab.setAttribute('aria-selected',String(selected)); $(tab.dataset.tab).hidden=!selected; });
-    notice(button.textContent.trim()+' opened.');
-  }));
+  const sectionScroll=new Map();
+  let currentSection='home';
+  function openSection(name) {
+    if(!$(name))return;
+    sectionScroll.set(currentSection,window.scrollY); currentSection=name;
+    // Move the one message with its section without generating a notification.
+    if(!$('message').hidden) $(name).prepend($('message'));
+    document.querySelectorAll('[data-tab]').forEach(tab=>{const selected=tab.dataset.tab===name;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;$(tab.dataset.tab).hidden=!selected;});
+    window.scrollTo({top:sectionScroll.get(name)||0,behavior:'instant'});
+  }
+  document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>openSection(button.dataset.tab)));
+  document.querySelectorAll('[data-go]').forEach(button=>button.addEventListener('click',()=>openSection(button.dataset.go)));
+  $('dismiss-guide').addEventListener('click',()=>{$('first-guide').hidden=true;try{localStorage.setItem('admin:guide:phone-2026-11-15','seen');}catch{}});
   document.querySelector('[role=tablist]').addEventListener('keydown',event=>{
     const tabs=[...document.querySelectorAll('[data-tab]')],index=tabs.indexOf(document.activeElement);
     if(index<0 || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
@@ -131,44 +161,56 @@
     try {
       const result=await api('/api/admin/catalog');
       if(!state.signedIn) return;
-      if(!result.catalog || !Array.isArray(result.catalog.videos)) throw new Error('The catalogue response is missing its videos array.');
+      if(!result.catalog || !Array.isArray(result.catalog.videos)) throw new Error('Your collection could not be read. Reload to try again.');
       state.catalog=result.catalog; state.revision=result.revision; state.stale=false;
       $('total-count').textContent=String(result.total ?? result.catalog.videos.length);
       const backed=result.backed_up ?? result.catalog.videos.filter(v=>v.backup_available===true).length;
       $('backup-count').textContent=String(backed); $('missing-count').textContent=String(Math.max(0,(result.total ?? result.catalog.videos.length)-backed));
-      renderEntries(); updateControls();
+      renderEntries(); updateControls(); renderHome();
       const opts=new Set(state.catalog.videos.flatMap(v=>Array.isArray(v.category)?v.category:categories(v.category??''))); $('category-options').replaceChildren(...[...opts].sort().map(c=>{ const o=node('option'); o.value=c; return o; }));
       return true;
     } catch(error) { notice(error.message,true); if(!state.catalog) { const box=node('div',undefined,'empty'); box.append(node('h3','Collection unavailable'),node('p','Your videos have not been loaded.','muted'),action('Retry',loadCatalog)); $('entries').replaceChildren(box); } return false; }
   }
-  $('reload').addEventListener('click',async()=>{ if(await confirmAction('Reload catalogue?','This loads the latest revision. Unsaved raw JSON and form inputs are kept, but check your edits against any changes before saving.','Reload')) { if(await loadCatalog()) notice('Latest catalogue loaded. Check any unsaved edits before saving.'); } });
-  function resetForm() { state.editing=null; $('video-form').reset(); $('form-heading').textContent='Add a video'; $('form-mode').textContent='New entry'; $('save-video').textContent='Save video'; $('reset-video').textContent='Clear form'; }
+  $('reload').addEventListener('click',async()=>{ if(await confirmAction('Reload your collection?','This gets the latest saved videos. Your unsaved form and JSON edits stay here; check them before saving.','Reload')) { if(await loadCatalog()) notice('Your collection is up to date. Check any unsaved edits before saving.'); } });
+  function resetForm() { state.editing=null; $('video-form').reset(); $('added-date').value=new Date().toISOString().slice(0,10); $('form-heading').textContent='Add a video link'; $('form-mode').textContent='New video'; $('save-video').textContent='Save video'; $('reset-video').textContent='Clear form'; }
   $('reset-video').addEventListener('click',()=>{resetForm();notice('Form cleared.');});
   function editVideo(v,index) {
     state.editing={index,original:v}; $('source').value=v.youtube_id ? `https://www.youtube.com/watch?v=${v.youtube_id}` : v.url||''; $('title').value=v.title||''; $('categories').value=list(v.category); $('tags').value=list(v.tags); $('clip-start').value=v.start??v.clip_start??''; $('clip-end').value=v.end??v.clip_end??''; $('notes').value=v.notes??''; $('featured').checked=!!v.featured; $('pinned').checked=!!v.pinned;
-    $('form-heading').textContent='Edit video'; $('form-mode').textContent='Editing'; $('save-video').textContent='Save changes'; $('reset-video').textContent='Cancel edit'; $('video-form').scrollIntoView({behavior:'smooth',block:'start'}); $('title').focus({preventScroll:true});
-    notice('Editing '+(v.title||'video')+'.');
+    $('needs-title').checked=needsTitle(v); $('added-date').value=/^\d{4}-\d{2}-\d{2}/.exec(v.added||'')?.[0]||'';
+    openSection('add');
+    $('form-heading').textContent='Edit video'; $('form-mode').textContent='Editing'; $('save-video').textContent='Save changes'; $('reset-video').textContent='Cancel edit'; $('video-form').scrollIntoView({behavior:'instant',block:'start'}); $('title').focus({preventScroll:true});
   }
   function renderEntries() {
     if(!state.catalog) return;
     const query=$('search').value.toLowerCase().trim(); const frag=document.createDocumentFragment(); let count=0;
     state.catalog.videos.forEach((v,index)=>{
+      const filter=$('video-filter').value,source=$('source-filter').value;
+      if(filter==='title'&&!needsTitle(v)||filter==='backup'&&v.backup_available===true||filter==='pinned'&&!v.pinned||source&&videoSource(v)!==source)return;
       if(query && ![v.title,list(v.category),list(v.tags),v.url,v.youtube_id,v.notes].join(' ').toLowerCase().includes(query)) return;
-      count++; const row=node('article',undefined,'entry'); const top=node('div',undefined,'entry-top'); const heading=node('div'); heading.append(node('h3',v.title||'Untitled video')); const bs=node('div',undefined,'badges'); if(v.pinned) bs.append(node('span','Pinned','badge')); if(v.featured) bs.append(node('span','Featured','badge')); heading.append(bs); top.append(heading,node('span',v.backup_available===true?'Backed up':'No backup','badge')); row.append(top,node('p',[list(v.category),list(v.tags)].filter(Boolean).join(' / ')||'No categories or tags','meta'));
+      count++; const row=node('article',undefined,'entry'); const top=node('div',undefined,'entry-top'); const heading=node('div'); heading.append(node('h3',displayTitle(v))); const bs=node('div',undefined,'badges'); if(needsTitle(v))bs.append(node('span','Needs a title','badge')); if(v.pinned) bs.append(node('span','Pinned','badge')); if(v.featured) bs.append(node('span','Featured','badge')); heading.append(bs); top.append(heading,node('span',v.backup_available===true?'Backed up':'No backup','badge')); row.append(top,node('p',[videoSource(v)==='youtube'?'YouTube':videoSource(v)==='tiktok'?'TikTok':'Direct video',list(v.category),list(v.tags),v.added?new Date(v.added).toLocaleDateString():''].filter(Boolean).join(' · '),'meta'));
       const buttons=node('div',undefined,'actions'); const locked=state.busy||state.stale;
       buttons.append(action('Edit',()=>editVideo(v,index),locked),action(v.pinned?'Unpin':'Pin',()=>mutateCatalog(c=>{c.videos[index]={...c.videos[index],pinned:!v.pinned};},'Pin updated.'),locked),action('Back up',()=>backup({video_id:String(v.id)}),locked||!v.id||v.backup_available===true));
       if(v.backup_available===true && safeURL(v.backup_url)) { const link=node('a','View backup'); link.href=safeURL(v.backup_url); link.target='_blank'; link.rel='noopener noreferrer'; buttons.append(link); }
       const del=action('Delete',async()=>{ if(await confirmAction('Delete this video?',`“${v.title||'Untitled video'}” will be removed from the catalogue. This cannot be undone here.`,'Delete video')) await mutateCatalog(c=>{c.videos.splice(index,1);},'Video deleted.'); },locked); del.className='danger'; buttons.append(del); row.append(buttons); frag.append(row);
     });
-    if(!count) { const empty=node('div',undefined,'empty'); empty.append(node('div','[ / ]','mono'),node('h3',query?'No matching videos':'Your collection starts here'),node('p',query?'Try another title, category, or hashtag.':'Add your first source link using the form.','muted')); frag.append(empty); }
+    if(!count) { const empty=node('div',undefined,'empty'); empty.append(node('h3','No videos here yet'),node('p','Try another search or filter, or add a video to your collection.','muted'),action('Add a video',()=>openSection('add'))); frag.append(empty); }
+    $('video-results').textContent=`${count} of ${state.catalog.videos.length} videos`;
     $('entries').replaceChildren(frag);
   }
   $('search').addEventListener('input',renderEntries);
+  $('video-filter').addEventListener('change',renderEntries);
+  $('source-filter').addEventListener('change',renderEntries);
+  $('title').addEventListener('input',()=>{$('needs-title').checked=!meaningfulTitle($('title').value);});
+  function meaningfulTitle(title) {return !!String(title||'').trim()&&!/^untitled(?:\s|$)/i.test(String(title).trim());}
+  function needsTitle(video) {return video.needs_title===true||video.needs_title===1||!meaningfulTitle(video.title);}
+  function displayTitle(video) {return String(video.title||'').trim()||`Untitled${video.added?' '+String(video.added).slice(0,10):' video'}`;}
+  function videoSource(video) {return video.youtube_id||/youtube\.com|youtu\.be|\/media\/yt-/.test(video.url||video.backup_url||'')?'youtube':video.source==='tiktok'||video.kind==='tiktok'||/tiktok\.com|\/media\/tt-|^tt:/.test([video.url,video.backup_url,video.source_url,video.id].join(' '))?'tiktok':'direct';}
   function sourceFields(value) {
     const raw=value.trim(); if(/^[\w-]{11}$/.test(raw)) return {youtube_id:raw};
     if (/^\/media\/(?:tt-\d+|yt-[\w-]+)$/.test(raw)) return {youtube_id:'',url:raw};
     const url=safeURL(raw); if(!url || !/^https?:\/\//i.test(raw)) throw new Error('Enter a valid HTTP or HTTPS source link.');
     const u=new URL(url); const host=u.hostname.toLowerCase().replace(/^www\./,''); let id='';
+    if(host==='tiktok.com'||host.endsWith('.tiktok.com'))throw new Error('Use the TikTok links form to import this post. A TikTok page is not a playable video file.');
     if(host==='youtu.be') id=u.pathname.split('/')[1];
     else if(['youtube.com','m.youtube.com','music.youtube.com','youtube-nocookie.com'].includes(host)) id=u.searchParams.get('v') || u.searchParams.get('list') || (/^\/(shorts|embed|live)\//.test(u.pathname)?u.pathname.split('/')[2]:'');
     else return {youtube_id:'',url};
@@ -188,7 +230,9 @@
       const editing=state.editing;
       if(editing && !state.catalog.videos.includes(editing.original)) throw new Error('The catalogue was refreshed since you opened this edit. Open the current video again to avoid replacing newer changes.');
       const video={...(editing?editing.original:{youtube_id:'',url:'',added:new Date().toISOString().slice(0,10)}),...source,title:$('title').value.trim(),category:categories($('categories').value),tags:tags($('tags').value),featured:$('featured').checked,pinned:$('pinned').checked,notes:$('notes').value};
-      if(!video.title) throw new Error('Enter a title.');
+      video.needs_title=$('needs-title').checked||!meaningfulTitle(video.title);
+      if($('added-date').value)video.added=$('added-date').value;
+      if(!video.title)video.title='Untitled '+(video.added||new Date().toISOString()).slice(0,10);
       const startKey=editing && 'clip_start' in editing.original && !('start' in editing.original)?'clip_start':'start';
       const endKey=editing && 'clip_end' in editing.original && !('end' in editing.original)?'clip_end':'end';
       if(start===null) delete video[startKey]; else video[startKey]=start;
@@ -203,7 +247,7 @@
     try {
       const next=JSON.parse(JSON.stringify(state.catalog)); change(next);
       const result=await api('/api/videos',{catalog:next,revision:state.revision});
-      state.catalog=next; state.revision=result.revision; notice(success + (result.durable_state===false?' Primary catalogue saved, but the recovery snapshot failed. Check storage before updating the server.':''));
+      state.catalog=next; state.revision=result.revision; notice(success + (result.durable_state===false?' Your collection was saved, but its recovery copy failed. Check storage in Settings.':''),result.durable_state===false);
       await loadCatalog(); return true;
     } catch(error) { notice(error.message,true); return false; }
     finally { state.busy=false; updateControls(); renderEntries(); }
@@ -215,7 +259,7 @@
       document.body.style.position=saved.position; document.body.style.top=saved.top; document.body.style.left=saved.left; document.body.style.width=saved.width; document.body.style.overflow=saved.overflow;
       document.documentElement.style.scrollBehavior='auto'; window.scrollTo(saved.x,saved.y); document.documentElement.style.scrollBehavior=saved.scrollBehavior;
     }
-    $('message').hidden=false;
+    if($('message').closest('dialog'))document.querySelector('[role=tabpanel]:not([hidden])')?.prepend($('message'));
     if(confirmTrigger?.isConnected) confirmTrigger.focus({preventScroll:true});
     confirmTrigger=null; updateViewport();
   }
@@ -229,22 +273,25 @@
     scrollLock={x:window.scrollX,y:window.scrollY,position:style.position,top:style.top,left:style.left,width:style.width,overflow:style.overflow,scrollBehavior:document.documentElement.style.scrollBehavior};
     style.position='fixed';style.top=`-${scrollLock.y}px`;style.left=`-${scrollLock.x}px`;style.width='100%';style.overflow='hidden';
     updateViewport();
-    $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-accept').textContent=label; $('dialog-message').textContent=$('message').textContent; $('message').hidden=true;
+    $('confirm-title').textContent=title; $('confirm-text').textContent=text; $('confirm-accept').textContent=label;
     $('confirm-dialog').showModal(); $('confirm-cancel').focus({preventScroll:true}); $('confirm-dialog').querySelector('.dialog-content').scrollTop=0;
     return new Promise(resolve=>{pendingConfirm=resolve;});
   }
-  function finishConfirm(value) { const callback=pendingConfirm; pendingConfirm=null; $('confirm-dialog').close(); unlockDialog(); notice(value?'Confirmed. Working…':'Cancelled. Nothing changed.'); if(callback) callback(value); }
+  function finishConfirm(value) { const callback=pendingConfirm; pendingConfirm=null; $('confirm-dialog').close(); unlockDialog(); if(callback) callback(value); }
   $('confirm-cancel').addEventListener('click',()=>finishConfirm(false)); $('confirm-accept').addEventListener('click',()=>finishConfirm(true)); $('confirm-dialog').addEventListener('cancel',event=>{event.preventDefault();finishConfirm(false);});
   $('confirm-dialog').addEventListener('close',()=>{if(scrollLock){const callback=pendingConfirm;pendingConfirm=null;unlockDialog();if(callback)callback(false);}});
   function reportResults(result,fallback) {
     const results=Array.isArray(result.results)?result.results:[];
     if(!results.length) return fallback;
-    return results.map(r=>[r.url||r.video_id||r.id||'Item',r.status||(r.ok===false?'failed':r.ok===true?'accepted':''),r.reason||r.error||r.message||''].filter(Boolean).join(' — ')).join('; ');
+    const skipped=results.filter(r=>r.status==='duplicate skipped').length;
+    const failed=results.filter(r=>r.ok===false||['failed','blocked'].includes(r.status)||r.error);
+    const accepted=results.length-skipped-failed.length;
+    return [accepted?`${accepted} ${accepted===1?'request':'requests'} added.`:'',skipped?`${skipped} already in your archive or waiting to import.`:'',failed.length?`${failed.length} could not start. ${failed[0].reason||failed[0].error||'Check the import details.'}`:''].filter(Boolean).join(' ');
   }
   async function backup(data) {
     if(state.busy) return;
     state.busy=true; updateControls(); renderEntries();
-    try { const result=await api('/api/admin/backup',data); await Promise.all([loadCatalog(),loadQueue(true)]);notice(reportResults(result,'Backup request processed. Verified status is shown in the collection.')); }
+    try { const result=await api('/api/admin/backup',data); await Promise.all([loadCatalog(),loadQueue(true)]);notice(reportResults(result,'Backup requests have been checked. See your collection for completed copies.'),result.results?.some(r=>r.ok===false||r.error||['failed','blocked'].includes(r.status))); }
     catch(error) { notice(error.message,true); } finally { state.busy=false; updateControls(); renderEntries(); }
   }
   $('backup-all').addEventListener('click',async()=>{if(await confirmAction('Back up all missing media?','Request a backup for every video without a verified backup. This may take time and use media storage. Existing verified backups will be left alone.','Back up missing')) await backup({all:true});});
@@ -264,20 +311,23 @@
     try {
       const data=await api('/api/admin/queue'); if(!state.signedIn) return;
       state.connection=!!data.connection_configured; state.storage=!!data.storage_ready;
-      $('connection-status').textContent=state.connection?'Import connection is configured.':'Connection not set up: YOU2MP3_API_KEY is missing. You can queue links now; downloading waits for connection.';
+      state.queueData=data; state.items=data.items||[];
+      $('connection-status').textContent=state.connection?'Your import connection is set up.':'Add YOU2MP3_API_KEY to the Pi settings file and restart the service. You can paste links now; downloads will wait.';
       $('storage-status').textContent=(data.storage_message || (state.storage?'Media storage is ready.':'Permanent media storage is not ready. You can queue jobs; copying waits for storage.')) + (data.state_storage_message ? ' '+data.state_storage_message : '');
-      renderQueue(data.items||[]); updateControls();
-      if(!silent || state.queueRefreshRequested)notice('Queue status refreshed.');
-    } catch(error) { $('connection-status').textContent=error.message; notice(error.message,true); }
+      $('settings-storage').textContent=$('storage-status').textContent;
+      renderQueue(state.items); filterQueue(); updateControls(); renderHome();
+      if(!silent || state.queueRefreshRequested)notice('Import status refreshed.');
+    } catch(error) { state.queueData=null; $('connection-status').textContent=error.message; if(!state.items?.length){const empty=node('div',undefined,'empty');empty.append(node('h3','Imports could not be loaded'),node('p',error.message,'help'),action('Try again',()=>loadQueue()));$('queue').replaceChildren(empty);} if(!silent)notice(error.message,true); renderHome(); }
     finally { state.queueBusy=false;if(state.queueRefreshRequested){state.queueRefreshRequested=false;$('queue-refresh').disabled=false;$('queue-refresh').removeAttribute('aria-busy');} }
   }
   $('queue-refresh').addEventListener('click',()=>loadQueue());
-  const watcherFields=['watcher-enabled','watcher-profile','watcher-interval','watcher-limit','watcher-disk','watcher-auto-publish','watcher-end-card'];
+  const watcherFields=['watcher-enabled','watcher-profile','watcher-interval','watcher-limit','watcher-disk','watcher-auto-publish'];
   let watcherEditVersion=0;
   function watcherControls() {
     const unavailable=!state.signedIn||!state.watcher, busy=state.watcherBusy;
     watcherFields.forEach(id=>{$(id).disabled=unavailable||busy;});
     $('watcher-save').disabled=unavailable||busy;
+    $('publishing-save').disabled=unavailable||busy; $('limits-save').disabled=unavailable||busy;
     $('watcher-reset').disabled=unavailable||busy||!state.watcherDirty;
     const status=String(state.watcher?.status||'').toLowerCase();
     const blocked=unavailable||busy||status==='unsupported'||/no[ _-]?token|missing[ _-]?token|not configured/.test(status);
@@ -294,7 +344,7 @@
     $('watcher-enabled').checked=!!data.enabled; $('watcher-profile').value=data.profile||'';
     $('watcher-interval').value=String(data.interval_minutes??15);
     $('watcher-limit').value=data.hourly_limit??6; $('watcher-disk').value=data.min_free_gb??5;
-    $('watcher-auto-publish').checked=!!data.auto_publish; $('watcher-end-card').checked=data.add_end_card??true;
+    $('watcher-auto-publish').checked=!!data.auto_publish;
     $('watcher-edit-status').textContent='Saved settings loaded. Status refreshes every 5 seconds.';
   }
   function watcherTime(value) {
@@ -306,19 +356,19 @@
     state.watcher=data;
     renderBackCatalogue(data);
     const status=String(data.status||'idle'), normalized=status.toLowerCase();
-    $('watcher-badge').textContent=status;
-    $('watcher-status').textContent=normalized==='unsupported'?'watching not available yet':/no[ _-]?token|missing[ _-]?token|not configured/.test(normalized)?'No token: configure the import connection before watching.':`${data.enabled?'Watcher enabled':'Watcher paused'} — ${status}`;
+    $('watcher-badge').textContent=data.error?'Needs attention':data.enabled?'On':'Off';
+    $('watcher-status').textContent=normalized==='unsupported'?'Watching is not available from the import service yet.':/no[ _-]?token|missing[ _-]?token|not configured|waiting for connection/.test(normalized)?'Set up the import connection in Settings to watch for posts.':data.error?'Watching needs your attention. See the details below.':data.enabled?'New posts will be checked and imported on your schedule.':'Watching is off. Turn it on and save to check for new posts.';
     $('watcher-error').textContent=data.error?`Watcher error: ${data.error}`:'';
-    $('watcher-end-card-help').textContent=data.end_card_supported===false?'End-card choice is not supported by the import service yet. Requests with an explicit choice are blocked until support is documented; the choice is never silently ignored.':'End-card settings apply to new requests only.';
-    $('watcher-last').textContent=`Last check: ${watcherTime(data.last_check)} / New posts: ${data.last_count??'Not checked'}`;
+    $('watcher-end-card-help').textContent='No end cards on TikTok imports. Previously submitted jobs retain their original request.';
+    $('watcher-last').textContent=`Last checked: ${watcherTime(data.last_check)}. ${data.last_count??0} new posts found.`;
     $('watcher-next').textContent=`Next check: ${data.next_check?watcherTime(data.next_check):'Not scheduled'}`;
     const free=data.free_gb==null?null:Number(data.free_gb);
     const low=free!==null&&Number.isFinite(free)&&free<Number(data.min_free_gb);
     $('watcher-free').textContent=free===null?'Free disk: unavailable':`${low?'Disk warning: ':''}${Number.isFinite(free)?free.toFixed(1):'Unknown'} GB free / reserve ${data.min_free_gb??'—'} GB${low?' — imports may be paused.':''}`;
     $('watcher-free').classList.toggle('error',low);
-    $('watcher-history').textContent=`${data.inventory_count??'Unknown'} posts discovered by the service (not proof of complete history). ${data.history_done?'All currently listed older posts checked.':'Older posts are available in batches of 25; they are not automatically imported.'} Automatic imports only include posts published after ${watcherTime(data.watching_since)}. ${data.warning||''}`;
+    $('watcher-history').textContent=`${data.inventory_count??'An unknown number of'} posts found so far. TikTok may not list your complete history. ${data.history_done?'All currently listed older posts have been checked.':'You can import the next 25 older posts below, or use Import everything.'} Watching looks for new posts after ${watcherTime(data.watching_since)}. ${data.warning||''}`;
     if(!state.watcherDirty&&!state.watcherBusy)fillWatcher();
-    watcherControls();
+    watcherControls(); renderHome();
   }
   async function loadWatcher(silent=false) {
     if(!state.signedIn||state.watcherLoading||state.watcherBusy)return;
@@ -332,12 +382,19 @@
   function renderBackCatalogue(data) {
     if(backBusy)return;
     const b=data.back_catalog||{},r=b.run,counts=b.counts||{},m=data.mirror||{};
-    $('back-status').textContent=r?`${r.state}: ${r.scanned||0} posts checked. ${Object.entries(counts).map(([k,n])=>`${n} ${k}`).join(' / ')}. ${r.reason||''}`:'No whole-catalogue run started.';
-    $('mirror-status').textContent=`NAS mirror: ${m.state||'not set up'} — ${m.count||0} of ${m.total||0} backups verified at last check. ${m.error||''}`;
+    $('back-status').textContent=r?`${plainStatus(r.state)}. ${r.scanned||0} posts checked. ${Object.entries(counts).map(([k,n])=>`${n} ${plainStatus(k).toLowerCase()}`).join(' · ')}. ${r.reason||''}`:'No import of all your posts has started yet.';
+    $('back-badge').textContent=r&&!['done','paused'].includes(r.state)?'On':'Off';
+    $('mirror-status').textContent=`${m.configured?'NAS copy: '+plainStatus(m.state):'NAS copy is not set up'}. ${m.count??'—'} of ${m.total??'—'} backups checked. ${m.error||''}`;
     const controls=$('back-actions');controls.replaceChildren();
+    let toggle=$('back-enabled');
+    if(!toggle){
+      const label=node('label','Import running','toggle-line');toggle=node('input');toggle.id='back-enabled';toggle.type='checkbox';toggle.className='switch-input';toggle.setAttribute('role','switch');label.append(toggle);$('back-status').before(label);
+      toggle.addEventListener('change',()=>{toggle.checked=!toggle.checked;controls.querySelector('button')?.click();});
+    }
+    toggle.checked=!!r&&!['done','paused'].includes(r.state);toggle.disabled=!state.watcher;
     const mutate=async(op,body={})=>{
       backBusy=true;
-      try {await api('/api/admin/back-catalog/'+op,body);notice('Back-catalogue update saved.');}
+      try {await api('/api/admin/back-catalog/'+op,body);notice('Older imports updated.');}
       finally{backBusy=false;}
       await loadWatcher();
     };
@@ -348,16 +405,17 @@
         const gb=n=>(n/1024**3).toFixed(1);
         const message=`${e.posts} posts listed (duplicates skipped). Estimated ${gb(e.estimated_bytes)} GB, with ${gb(e.free_bytes)} GB free and ${gb(e.reserve_bytes)} GB reserved. Size is an estimate, not a guarantee. Imports pause safely if space runs low. Publishing follows your saved Publish automatically setting.`;
         if(await confirmAction('Import everything?',message,'Start importing')){
-          await api('/api/admin/back-catalog/start',{add_end_card:$('back-end-card').checked});
+          await api('/api/admin/back-catalog/start',{add_end_card:false});
           notice('Import everything started. You can close this page.');
         }
       }finally{backBusy=false;await loadWatcher();}
     }));
-    else controls.append(action(r.state==='paused'?'Resume':'Pause',()=>mutate(r.state==='paused'?'resume':'pause')));
+    else controls.append(action(r.state==='paused'?'Resume imports':'Pause imports',()=>mutate(r.state==='paused'?'resume':'pause')));
+    controls.querySelector('button')?.classList.add('primary');
     $('back-matches').replaceChildren();
     for(const match of b.matches||[]){
       const row=node('div',undefined,'stack');
-      row.append(node('p',`${match.title} → existing video ${match.video_id}`));
+      row.append(node('p',`${match.title||'Imported post'} was matched to a video already in your collection.`));
       row.append(action('Undo match',async()=>{
         if(await confirmAction('Undo this match?','The original video stays unchanged. The imported copy returns to review without automatic publishing.','Undo match'))
           await mutate('undo',{job_id:match.job_id});
@@ -365,7 +423,8 @@
       $('back-matches').append(row);
     }
   }
-  $('watcher-form').addEventListener('input',()=>{watcherEditVersion++;state.watcherDirty=true;$('watcher-edit-status').textContent='Unsaved watcher settings. Live status continues to refresh; your edits are kept.';watcherControls();});
+  function markWatcherDirty(){watcherEditVersion++;state.watcherDirty=true;$('watcher-edit-status').textContent='You have unsaved settings. Save to apply them.';watcherControls();}
+  watcherFields.forEach(id=>$(id).addEventListener('input',markWatcherDirty));
   $('watcher-reset').addEventListener('click',()=>{watcherEditVersion++;state.watcherDirty=false;fillWatcher();watcherControls();notice('Watcher edits discarded.');});
   $('watcher-refresh').addEventListener('click',()=>loadWatcher());
   async function watcherRequest(operation,data,button) {
@@ -389,15 +448,16 @@
     const profile=$('watcher-profile').value.trim();
     if(profile){try{const url=new URL(profile);if(url.protocol!=='https:'||!['www.tiktok.com','tiktok.com','m.tiktok.com'].includes(url.hostname)||!/^\/@[^/]+\/?$/.test(url.pathname))throw new Error();}catch{return notice('Enter a TikTok profile URL such as https://www.tiktok.com/@yourprofile.',true);}}
     if($('watcher-enabled').checked&&!profile)return notice('Enter your TikTok profile before enabling the watcher.',true);
-    watcherRequest('',{enabled:$('watcher-enabled').checked,profile,interval_minutes,hourly_limit,min_free_gb,auto_publish:$('watcher-auto-publish').checked,add_end_card:$('watcher-end-card').checked},$('watcher-save'));
+    watcherRequest('',{enabled:$('watcher-enabled').checked,profile,interval_minutes,hourly_limit,min_free_gb,auto_publish:$('watcher-auto-publish').checked,add_end_card:false},$('watcher-save'));
   });
   $('watcher-check').addEventListener('click',()=>watcherRequest('/check',{},$('watcher-check')));
   $('watcher-older').addEventListener('click',()=>watcherRequest('/older',{},$('watcher-older')));
-  const importEndCard=node('input'); importEndCard.type='checkbox'; importEndCard.id='import-end-card'; importEndCard.checked=true;
+  const importEndCard=node('input'); importEndCard.type='checkbox'; importEndCard.id='import-end-card'; importEndCard.checked=false;
   const importEndLabel=node('label',undefined,'end-card-control'); importEndLabel.htmlFor=importEndCard.id; importEndLabel.append(importEndCard,document.createTextNode('Add end-card to these imports'));
   const importProviderDefault=node('input');importProviderDefault.type='checkbox';importProviderDefault.id='import-provider-default';
   const importProviderLabel=node('label',undefined,'end-card-control');importProviderLabel.htmlFor=importProviderDefault.id;importProviderLabel.append(importProviderDefault,document.createTextNode('Use service default instead'));
-  const importEndHelp=node('p','Your end-card choice is sent with the import and cannot change after submission.','help');
+  importEndLabel.hidden=true;importProviderLabel.hidden=true;
+  const importEndHelp=node('p','TikTok imports are saved without adding an end card.','help');
   importProviderDefault.addEventListener('change',()=>{importEndCard.disabled=importProviderDefault.checked;});
   $('import-submit').before(importEndLabel,importProviderLabel,importEndHelp);
   $('import-form').addEventListener('submit',async event=>{
@@ -406,7 +466,7 @@
     if(urls.some(value=>{try {const u=new URL(value); return !['http:','https:'].includes(u.protocol) || !(u.hostname==='tiktok.com'||u.hostname.endsWith('.tiktok.com'));} catch{return true;}})) return notice('Enter only valid TikTok URLs, one per line.',true);
     if(state.importBusy)return;
     state.importBusy=true; updateControls();
-    try { const data=importProviderDefault.checked?{urls,use_provider_default:true}:{urls,add_end_card:importEndCard.checked}; const result=await api('/api/admin/queue',data); await loadQueue(true);notice(reportResults(result,'Import request processed. Check queue status below.')); }
+    try { const result=await api('/api/admin/queue',{urls,add_end_card:false}); await loadQueue(true);notice(reportResults(result,'Your links have been added. Follow their progress below.'),result.results?.some(r=>r.ok===false||r.error||['failed','blocked'].includes(r.status))); }
     catch(error) { notice(error.message,true); } finally { state.importBusy=false;updateControls(); }
   });
   function queueField(label,value,type,id) { const wrapper=node('label',label); const input=node('input'); input.type='text'; input.value=value; input.id=id; wrapper.htmlFor=id; input.dataset.field=type; wrapper.append(input); return {wrapper,input}; }
@@ -429,27 +489,28 @@
         form.append(titleField.wrapper,tagField.wrapper,endLabel,providerLabel,endHelp,save,reviewStatus); head.append(title,badge); el.append(head,url,reason,preview,form,controls);
         record={el,title,badge,url,reason,preview,controls,form,endCard,providerDefault,endHelp,titleInput:titleField.input,tagsInput:tagField.input,save,reviewStatus,draft,previewURL:'',busy:false,item};
         state.queue.set(key,record);
+        endLabel.hidden=true;providerLabel.hidden=true;
         const markDirty=()=>{draft.title=titleField.input.value; draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked;endCard.disabled=providerDefault.checked||requestLocked(record.item); draft.dirty=true; state.drafts.set(key,draft); reviewStatus.textContent='Unsaved review changes'; const publish=controls.querySelector('[data-publish]'); if(publish) publish.disabled=true; };
         titleField.input.addEventListener('input',markDirty); tagField.input.addEventListener('input',markDirty);
         endCard.addEventListener('change',markDirty);
         providerDefault.addEventListener('change',markDirty);
-        form.addEventListener('submit',async e=>{e.preventDefault(); if(record.item.status==='imported'&&!titleField.input.value.trim()) return; const data={title:titleField.input.value.trim(),tags:tags(tagField.input.value)}; if(!requestLocked(record.item)){if(providerDefault.checked)data.use_provider_default=true;else data.add_end_card=endCard.checked;} await queueMutation(record,'review',data,()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked; reviewStatus.textContent='Review saved.';});});
+        form.addEventListener('submit',async e=>{e.preventDefault(); if(record.item.status==='imported'&&!titleField.input.value.trim()) return; const data={title:titleField.input.value.trim(),tags:tags(tagField.input.value),needs_title:!meaningfulTitle(titleField.input.value)}; if(!requestLocked(record.item)){if(record.item.kind==='tiktok')data.add_end_card=false;else if(providerDefault.checked)data.use_provider_default=true;else data.add_end_card=endCard.checked;} await queueMutation(record,'review',data,()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked; reviewStatus.textContent='Review saved.';});});
         container.append(el);
       }
-      record.item=item; record.title.textContent=item.title||'TikTok import'; record.badge.textContent=item.status||'Pending'; record.url.textContent=item.url||''; record.reason.textContent=item.reason||'';
+      record.item=item; record.title.textContent=displayTitle(item); record.badge.textContent=plainStatus(item.status); record.url.textContent=item.url||''; record.reason.textContent=item.reason||'';
       const locked=requestLocked(item);
       if(!record.draft.dirty && !record.busy) { record.titleInput.value=item.title||''; record.tagsInput.value=list(item.tags); record.endCard.checked=item.add_end_card??true; }
       if(locked) {record.endCard.checked=item.add_end_card===true;record.draft.add_end_card=item.add_end_card;record.providerDefault.checked=item.add_end_card==null;}
       record.providerDefault.disabled=locked||record.busy;
       record.endCard.disabled=locked||record.busy||record.providerDefault.checked;
-      record.endHelp.textContent=locked?(item.add_end_card==null?'Service-default / legacy request: end-card choice not guaranteed. Request already submitted; it cannot be changed.':'Request already submitted; end-card setting is locked.'):'Explicit end-card choices are blocked until service support is documented. Select Use service default to import without an end-card guarantee. Save before retrying.';
+      record.endHelp.textContent=locked&&item.add_end_card!==false&&item.add_end_card!==0?'Previously submitted request: it may include an end card. Its request is preserved.':'No end card will be added to this TikTok import.';
       const previewURL=safeURL(item.preview_url);
       if(previewURL!==record.previewURL) { record.preview.replaceChildren(); record.previewURL=previewURL; if(previewURL) { const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.src=previewURL; record.preview.append(video); video.addEventListener('error',()=>{ if(!record.preview.querySelector('p')) record.preview.append(node('p','Media preview unavailable. Retry the import if the file could not be retrieved.','help')); }); } }
-      const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=published;
+      const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=published||item.status==='duplicate skipped';
       record.titleInput.required=imported;
       record.titleInput.disabled=record.busy||(!imported&&locked);record.tagsInput.disabled=record.busy||(!imported&&locked);
       record.save.disabled=record.busy||(!imported&&locked);
-      record.reviewStatus.textContent=record.draft.dirty?'Unsaved review changes':imported?'Review title and tags before publishing.':locked?'Import in progress. Review will open when it completes.':'End-card preference can be saved before the import is submitted.';
+      record.reviewStatus.textContent=record.draft.dirty?'You have unsaved review changes.':imported?(needsTitle(item)?'This video needs a useful title before you publish.':'Review the title and tags before publishing.'):locked?'Import in progress. You can review it when it finishes.':'You can save a title and tags while this import waits.';
       const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty]);
       if(record.controlsSignature===controlsSignature)continue;
       record.controlsSignature=controlsSignature;record.controls.replaceChildren();
@@ -470,16 +531,88 @@
     if(!state.signedIn)return;
     try{
       const data=await api('/api/admin/sync');
-      $('sync-state').textContent=data.status+(data.reason?' — '+data.reason:'');
+      $('sync-state').textContent=plainStatus(data.status)+(data.reason?' — '+data.reason:'');
       $('sync-last').textContent=data.last_success?'Last successful sync: '+new Date(data.last_success*1000).toLocaleString():'No successful sync yet.';
-      if(data.status==='failed' && state.syncError!==data.reason)notice('Public site sync failed: '+data.reason,true);
-      if(state.syncSeen && data.last_success && data.last_success!==state.syncLast)notice('Public catalogue synced to GitHub.');
+      state.sync=data; renderHome();
       state.syncSeen=true;state.syncLast=data.last_success;state.syncError=data.status==='failed'?data.reason:null;
-    }catch(error){$('sync-state').textContent=error.message;}
+    }catch(error){state.sync=null;$('sync-state').textContent=error.message;renderHome();}
   }
   $('sync-now').addEventListener('click',async()=>{
     try{const result=await api('/api/admin/sync',{});notice(result.status==='not set up'?'GitHub sync is not set up on the Pi.':'Sync requested. Checking GitHub shortly.');await loadSync();}
     catch(error){notice(error.message,true);}
   });
+  function plainStatus(value) {
+    const labels={imported:'Ready to publish',published:'Published',queued:'Waiting to start',downloading:'Downloading',processing:'Preparing video',submitted:'Preparing video',failed:'Needs help',blocked:'Needs setup','waiting for connection':'Waiting for connection',done:'Finished',paused:'Paused',running:'Importing',synced:'Up to date',pending:'Waiting to sync',off:'Off',watching:'Watching for posts',unsupported:'Not available yet',unavailable:'Unavailable',ready:'Ready',ok:'Ready','not set up':'Not set up','duplicate skipped':'Already in your collection'};
+    return labels[value]||String(value||'Not checked yet').replace(/[_-]/g,' ').replace(/^./,s=>s.toUpperCase());
+  }
+  function isActive(item) {return !['imported','published','failed','blocked','waiting for connection','duplicate skipped','unsupported','skipped','matched','complete','completed'].includes(item.status);}
+  function filterQueue(){
+    const filter=$('queue-filter').value;let visible=0;
+    for(const record of state.queue.values()){
+      const item=record.item;
+      record.el.hidden=filter==='review'?item.status!=='imported':filter==='failed'?!['failed','blocked','waiting for connection'].includes(item.status):filter==='active'?!isActive(item):false;
+      if(!record.el.hidden)visible++;
+    }
+    let empty=$('queue-filter-empty');
+    if(!empty){empty=node('div',undefined,'empty');empty.id='queue-filter-empty';empty.append(node('h3','Nothing in this view'),node('p','Choose another view to see your other imports.','help'));$('queue').after(empty);}
+    empty.hidden=!state.items?.length||visible>0;
+  }
+  $('queue-filter').addEventListener('change',filterQueue);
+  function goToReview(filter='') {
+    openSection('add');$('queue-filter').value=filter;filterQueue();
+    $('review-panel').scrollIntoView({behavior:'instant',block:'start'});
+  }
+  let overviewLoading=false,homeSignature='';
+  async function loadOverview(){
+    if(!state.signedIn||overviewLoading)return;
+    overviewLoading=true;
+    try{const result=await api('/api/admin/overview');if(state.signedIn){state.overview=result;state.overviewError='';}}
+    catch(error){state.overview=null;state.overviewError=error.message;}
+    finally{overviewLoading=false;renderHome();}
+  }
+  function renderHome(){
+    if(!state.signedIn)return;
+    const overview=state.overview,items=state.items||[],w=state.watcher,m=w?.mirror,sync=state.sync,q=state.queueData;
+    const signature=JSON.stringify([overview,state.overviewError,items.map(i=>[i.id,i.title,i.status,i.reason]),w?.status,w?.enabled,w?.error,w?.back_catalog?.run,m,sync,q?.storage_ready,q?.connection_configured,state.catalog?.videos.map(v=>[v.id,v.needs_title,v.title])]);
+    if(signature===homeSignature)return;homeSignature=signature;
+    const attention=$('attention');attention.replaceChildren();
+    const waiting=overview?.waiting_publish??(q?items.filter(i=>i.status==='imported').length:null);
+    const titles=overview?.needs_title??(state.catalog?state.catalog.videos.filter(needsTitle).length:null);
+    const failed=overview?.failed_imports??(q?items.filter(i=>i.status==='failed').length:null);
+    const setup=q?[!q.connection_configured,!q.storage_ready,!m?.configured,sync?.status==='not set up'].filter(Boolean).length:null;
+    function attentionItem(count,title,detail,handler){
+      if(count===0)return;
+      const button=action('',handler);button.className='attention-row';
+      const copy=node('span',title);copy.append(node('small',detail));button.append(node('strong',count??'—'),copy);attention.append(button);
+    }
+    attentionItem(waiting,'Awaiting publish','Review imported videos before they go public.',()=>goToReview('review'));
+    attentionItem(titles,'Need a title','Give these videos a name you will recognise.',()=>{openSection('videos');$('video-filter').value='title';renderEntries();});
+    if(overview?.queue_needs_title)attentionItem(overview.queue_needs_title,'Imports need a title','Name these imports during review.',()=>goToReview('review'));
+    attentionItem(failed,'Imports need help','Check the reason and try again when ready.',()=>goToReview('failed'));
+    attentionItem(setup,'Setup to finish','Check import connection, storage, NAS and sync.',()=>openSection('settings'));
+    if(!attention.childElementCount)attention.append(node('h3','Nothing needs you right now.'),node('p','Your current imports and collection have no outstanding tasks.','help'));
+    if(state.overviewError)attention.append(node('p','Some checks could not be loaded. Refresh to try again.','help'));
+    const active=$('active-progress');active.replaceChildren();
+    const activeItems=items.filter(isActive),activeCount=overview?.active_imports??activeItems.length,run=w?.back_catalog?.run;
+    if(run&&!['done','paused'].includes(run.state)){const row=node('div',undefined,'progress-item');row.append(node('h3','Importing older TikTok posts'),node('p',`${run.scanned||0} posts checked so far.`,'help'),action('View progress',()=>openSection('automatic')));active.append(row);}
+    for(const item of activeItems.slice(0,3)){const row=node('div',undefined,'progress-item');row.append(node('h3',displayTitle(item)),node('p',plainStatus(item.status),'help'),node('div',undefined,'progress-track'));active.append(row);}
+    if(activeCount>activeItems.slice(0,3).length)active.append(node('p',`${activeCount} imports are currently in progress.`,'help'));
+    if(!active.childElementCount)active.append(node('h3',q?'No imports in progress.':'Import progress is unavailable.'),node('p',q?'Add links when you find something worth keeping.':'Use Refresh to check again.','help'));
+    if(activeCount)active.append(action('View imports',()=>goToReview('active')));
+    const health=$('home-health');health.replaceChildren();
+    function healthRow(label,tone,text,button,handler){
+      const row=node('div',undefined,'health-row'),dot=node('span',undefined,`health-dot ${tone}`);dot.setAttribute('aria-label',tone==='ok'?'Ready':tone==='error'?'Needs help':'Not ready');
+      row.append(dot,node('strong',label),node('p',text),action(button,handler));health.append(row);
+    }
+    healthRow('Pi',overview?.pi?.state==='ok'?'ok':overview?.pi?.state==='error'?'error':'warn',overview?.pi?.message||'Not checked.','Check',()=>loadOverview());
+    const mirrorOK=m?.configured&&m.state==='available'&&!m.error&&m.last_check&&m.count>=m.total;
+    healthRow('NAS',m?.error?'error':mirrorOK?'ok':'warn',!m?'Not checked.':!m.configured?'No second-copy folder chosen. Set MIRROR_DIR on the Pi.':m.error?'Cannot reach the copy folder. Check the NAS mount.':`${m.count??0} of ${m.total??0} copies checked.`,'Details',()=>{openSection('settings');$('nas-panel').scrollIntoView({block:'start'});});
+    healthRow('Sync',sync?.status==='synced'?'ok':sync?.status==='failed'?'error':'warn',sync?.status==='not set up'?'GitHub is not connected. Add its sync settings on the Pi.':sync?plainStatus(sync.status):'Not checked.','Details',()=>{openSection('settings');$('sync-panel').scrollIntoView({block:'start'});});
+    healthRow('TikTok',w?.error?'error':w?.enabled&&w?.status==='watching'?'ok':'warn',q&&!q.connection_configured?'Import key missing. Set YOU2MP3_API_KEY on the Pi.':!w?'Not checked.':w.error?w.error:w.enabled?'Watching is on.':'Watching is off.','Options',()=>openSection('automatic'));
+    healthRow('YouTube','warn',overview?.youtube?.message||'Watching is not available yet.','Details',()=>openSection('automatic'));
+  }
+  $('home-refresh').addEventListener('click',async()=>{await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadSync(),loadOverview()]);});
+  document.addEventListener('focusin',updateViewport);
+  document.addEventListener('focusout',()=>setTimeout(updateViewport,100));
   session();
 })();

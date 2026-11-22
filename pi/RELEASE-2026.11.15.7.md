@@ -1,6 +1,21 @@
 # Release 2026.11.15.7
 
-In Imports, choose the run's end-card option and Import everything. Confirm the
+## Phone-first admin update
+
+Admin now has Home, Videos, Add, Automatic and Settings navigation. Home shows
+items needing review and setup before progress and health. Videos has search,
+source, missing-title, missing-copy and pinned filters. Add keeps manual link
+adding and import review. Settings holds publishing, limits, NAS, sync, logout
+and the advanced JSON editor.
+
+Success messages disappear after 4.5 seconds or a tap. Errors have a close
+button and remain until dismissed. Messages occupy normal page space rather
+than floating over form controls. A dismissible first-use guide explains the layout.
+
+TikTok imports now explicitly disable end cards, including Import everything.
+Unsent requests and stored watcher defaults are migrated; already-submitted
+requests retain their immutable original settings and are labelled in admin.
+In Automatic, choose Import everything. Confirm the
 listed count and estimated space. Estimates use existing average file size or
 100 MiB per post; actual sizes vary. The reserve is enforced during downloads.
 
