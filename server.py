@@ -357,6 +357,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 result = tiktok_watch.request(older=path.endswith("/older"))
                 durable_state.checkpoint()
                 return self.reply(result)
+            if path == "/api/admin/manual":
+                import manual_add
+                result = manual_add.add(body)
+                durable_state.checkpoint()
+                return self.reply(result)
             if path == "/api/admin/queue":
                 urls = body.get("urls", [])
                 if not isinstance(urls, list) or not 1 <= len(urls) <= 500:

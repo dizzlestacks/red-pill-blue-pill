@@ -1,6 +1,9 @@
 [build]
-command = "npx playwright install --with-deps chromium && npm run build:lite"
+command = "python3 -I lite_site.py --catalog videos.json --output generated-artifacts/netlify-lite"
 publish = "generated-artifacts/netlify-lite"
+
+[build.environment]
+PYTHON_VERSION = "3.11"
 
 # Admin is hosted only on the Pi. Never copy its UI into the static output.
 [[redirects]]
@@ -41,3 +44,8 @@ Cache-Control = "no-cache"
 for = "/videos.json"
 [headers.values]
 Cache-Control = "no-cache"
+
+[[headers]]
+for = "/build-info.json"
+[headers.values]
+Cache-Control = "no-store"

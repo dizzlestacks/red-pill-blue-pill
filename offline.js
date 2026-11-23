@@ -5,11 +5,31 @@
     const result=JSON.parse(JSON.stringify(data));
     (Array.isArray(result)?result:result.videos||[]).forEach(v=>{
       ['backup','backup_available','backup_url','backup_status','url'].forEach(k=>delete v[k]);
-      if(!v.youtube_id)v.limited_unavailable=true;
+      if(!v.youtube_id&&!v.tiktok_url)v.limited_unavailable=true;
     });
     return result;
   };
   let limited=!!window.MATRIX_LITE, lastData=null;
+  // Unregister directly; update() can hang while an obsolete worker still
+  // controls this document. A worker cannot relinquish a client without navigation.
+  const cleanup = window.MATRIX_LITE && window.isSecureContext ? (async()=>{
+    try {
+      if('serviceWorker' in navigator){
+        const registrations=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.filter(r=>/\/(?:service-worker|sw)\.js$/.test(new URL(r.active?.scriptURL||r.waiting?.scriptURL||r.installing?.scriptURL||'/',location.href).pathname)).map(r=>r.unregister()));
+      }
+      if('caches' in window)await Promise.all((await caches.keys()).filter(n=>n.startsWith('matrix-')).map(n=>caches.delete(n)));
+      try {localStorage.removeItem('matrix:public-offline');localStorage.removeItem('videosCacheV4');}catch{}
+      const url=new URL(location.href),version=window.MATRIX_BUILD?.commit||'2026.11.15.7';
+      if(navigator.serviceWorker?.controller){
+        if(url.searchParams.get('matrix-refresh')!==version){
+          url.searchParams.set('matrix-refresh',version);location.replace(url.href);
+        }
+      }else if(url.searchParams.has('matrix-refresh')){
+        url.searchParams.delete('matrix-refresh');history.replaceState(null,'',url.href);
+      }
+    }catch{/* Optional browser storage must never block the embedded catalogue. */}
+  })():Promise.resolve();
   const hideUnavailable = () => {
     document.querySelectorAll('[data-backup],a[href*="/media/"],a[href="/admin"],a[href="editor.html"]').forEach(el=>{
       el.dataset.limitedControl='';
@@ -28,6 +48,11 @@
   window.fetch = async (input, init) => {
     const url=new URL(typeof input==='string'?input:input.url,location.href);
     if(!url.pathname.endsWith('/videos.json'))return originalFetch(input,init);
+    await cleanup;
+    if(window.MATRIX_LITE && navigator.serviceWorker?.controller && window.MATRIX_LITE_CATALOG){
+      lastData=strip(window.MATRIX_LITE_CATALOG);window.MATRIX_CURRENT_CATALOG=lastData;
+      return new Response(JSON.stringify(lastData),{headers:{'Content-Type':'application/json'}});
+    }
     try {
       const response=await originalFetch(input,{...init,signal:init?.signal||AbortSignal.timeout(6000)});
       if(!response.ok)throw new Error('Catalogue unavailable');
@@ -66,14 +91,6 @@
     }
   }
   document.addEventListener('DOMContentLoaded',()=>{
-    if(window.MATRIX_LITE && 'serviceWorker' in navigator && window.isSecureContext){
-      // The lite build serves a retirement worker at the old script URL.
-      navigator.serviceWorker.getRegistrations().then(registrations=>Promise.all(
-        registrations.filter(r=>new URL(r.active?.scriptURL||r.installing?.scriptURL||'/',location.href).pathname.endsWith('/service-worker.js'))
-          .map(r=>r.update().catch(()=>{}))
-      )).catch(()=>{});
-      if('caches' in window)caches.keys().then(names=>Promise.all(names.filter(n=>n.startsWith('matrix-')).map(n=>caches.delete(n)))).catch(()=>{});
-    }
     const notice=document.createElement('div'); notice.id='limited-mode';notice.hidden=true;
     notice.setAttribute('role','status');
     notice.textContent='Limited view';

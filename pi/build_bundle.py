@@ -22,7 +22,7 @@ FILES = [
     "The-Matrix-Blue-Pill-or-Red-Pill.mp4", "netlify.toml",
     "pi/install.sh", "pi/update.sh", "pi/wokearewe.service", "pi/README.md",
     "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md", "pi/RELEASE-2026.11.15.7.md",
-    "tests/lite-smoke.cjs", "package.json", "pi/LITE-RELEASE-CHECKS.md",
+    "tests/lite-smoke.cjs", "tests/package.json", "pi/LITE-RELEASE-CHECKS.md", "manual_add.py",
 ]
 
 

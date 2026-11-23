@@ -16,6 +16,9 @@ def export(catalog, configured_origin=True):
     videos = []
     for item in catalog.get("videos", []):
         v = {}
+        tiktok = item.get("source_url") or item.get("tiktok_url") or ""
+        if isinstance(tiktok,str) and re.fullmatch(r"https://www\.tiktok\.com/@[\w.-]+/video/\d{8,25}",tiktok):
+            v["tiktok_url"] = tiktok
         for key in ("id", "title", "added"):
             if isinstance(item.get(key), str):
                 v[key] = item[key][:1000]
@@ -27,7 +30,7 @@ def export(catalog, configured_origin=True):
         youtube = item.get("youtube_id", "")
         if isinstance(youtube, str) and re.fullmatch(r"[\w-]{11}|PL[\w-]+", youtube):
             v["youtube_id"] = youtube
-        else:
+        elif not v.get("tiktok_url"):
             v["limited_unavailable"] = True
         videos.append(v)
     popup = catalog.get("popup", {})

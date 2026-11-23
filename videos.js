@@ -217,7 +217,7 @@
       `;
     }
 
-    if (v.url) {
+    if (v.url || v.tiktok_url) {
       return `
         <div class="thumb-wrap" data-key="${escapeAttr(key)}" data-type="direct" role="button" tabindex="0" aria-label="Play video">
           <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;">
@@ -259,10 +259,14 @@
     }
     if (!containerEl || containerEl.dataset.loaded === "1") return;
     containerEl.dataset.loaded = "1";
-    if (v.backup_available && v.backup_url && v.youtube_id && !isPlaylist(v) && window.matrixPlayYouTubeWithBackup) {
+    if (v.backup_available && v.backup_url && !isPlaylist(v) && window.matrixPlayYouTubeWithBackup) {
       window.matrixPlayYouTubeWithBackup(containerEl, v);
       markWatchedAfter5Min(key);
       return;
+    }
+    if(/https:\/\/(?:www\.)?tiktok\.com\//.test(v.tiktok_url||v.url||'')){
+      window.open(v.tiktok_url||v.url,'_blank','noopener');
+      containerEl.dataset.loaded='';return;
     }
     containerEl.innerHTML = iframeHTMLFor(v, true);
     markWatchedAfter5Min(key);
@@ -411,6 +415,7 @@
   }
 
   function render() {
+    document.querySelectorAll('.thumb-wrap').forEach(el=>el.cancelYouTubeBackup?.());
     if (els.featured) {
       els.featured.style.display = "none";
       if (els.featuredContainer) els.featuredContainer.innerHTML = "";
@@ -495,7 +500,7 @@
       el.onclick = () => {
         const key = el.getAttribute("data-open");
         const v = keyToVideo.get(key);
-        if(v && window.MATRIX_LITE && !v.youtube_id && v.backup_url){
+        if(v && v.backup_available && v.backup_url){
           window.matrixPlayBackup(el.closest('.card').querySelector('.thumb-wrap'),v);
         } else if (v) window.open(shareLink(v), "_blank", "noopener");
       };
@@ -573,6 +578,14 @@
     populateCategories();
     showPopupOnce();
     render();
+    if(location.hash.startsWith('#video=')){
+      const wanted=decodeURIComponent(location.hash.slice(7));
+      const selected=state.videos.find(v=>v.id===wanted||videoKey(v)===wanted);
+      if(selected){
+        const target=[...document.querySelectorAll('.thumb-wrap[data-key]')].find(el=>el.dataset.key===videoKey(selected));
+        if(target){replaceThumbWithPlayer(target,selected,videoKey(selected));target.scrollIntoView({block:'center'});}
+      }
+    }
 
     document.dispatchEvent(new CustomEvent("videosloaded", {
       detail: { videos: state.videos, popup: state.popup }

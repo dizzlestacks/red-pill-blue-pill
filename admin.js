@@ -210,7 +210,7 @@
     if (/^\/media\/(?:tt-\d+|yt-[\w-]+)$/.test(raw)) return {youtube_id:'',url:raw};
     const url=safeURL(raw); if(!url || !/^https?:\/\//i.test(raw)) throw new Error('Enter a valid HTTP or HTTPS source link.');
     const u=new URL(url); const host=u.hostname.toLowerCase().replace(/^www\./,''); let id='';
-    if(host==='tiktok.com'||host.endsWith('.tiktok.com'))throw new Error('Use the TikTok links form to import this post. A TikTok page is not a playable video file.');
+    if(host==='tiktok.com'||host.endsWith('.tiktok.com'))return {youtube_id:'',url,source_url:url};
     if(host==='youtu.be') id=u.pathname.split('/')[1];
     else if(['youtube.com','m.youtube.com','music.youtube.com','youtube-nocookie.com'].includes(host)) id=u.searchParams.get('v') || u.searchParams.get('list') || (/^\/(shorts|embed|live)\//.test(u.pathname)?u.pathname.split('/')[2]:'');
     else return {youtube_id:'',url};
@@ -225,6 +225,13 @@
   $('video-form').addEventListener('submit',async event=>{
     event.preventDefault();
     try {
+      const rawSource=$('source').value.trim();
+      if(!state.editing && /^https:\/\/(?:www\.|m\.|vm\.|vt\.)?(?:youtube\.com|youtu\.be|tiktok\.com)\//i.test(rawSource)){
+        const metadata={title:$('title').value.trim(),category:categories($('categories').value),tags:tags($('tags').value),added:$('added-date').value,notes:$('notes').value,pinned:$('pinned').checked,featured:$('featured').checked,needs_title:$('needs-title').checked,start:seconds($('clip-start').value),end:seconds($('clip-end').value)};
+        const result=await api('/api/admin/manual',{urls:[rawSource],metadata,keep_copy:$('manual-copy').checked});
+        notice(result.results.map(r=>`${r.status}${r.backup?' · copy: '+r.backup.status:''}`).join('; '),result.results.some(r=>r.backup?.status==='failed'));
+        await loadCatalog();await loadQueue(true);resetForm();return;
+      }
       const source=sourceFields($('source').value),start=seconds($('clip-start').value),end=seconds($('clip-end').value);
       if(start!==null && end!==null && end<=start) throw new Error('Clip end must be after clip start.');
       const editing=state.editing;
@@ -460,13 +467,19 @@
   const importEndHelp=node('p','TikTok imports are saved without adding an end card.','help');
   importProviderDefault.addEventListener('change',()=>{importEndCard.disabled=importProviderDefault.checked;});
   $('import-submit').before(importEndLabel,importProviderLabel,importEndHelp);
+  const bulkCopyLabel=node('label','Keep my own copies and mirror them to the NAS when configured');
+  const bulkCopy=node('input');bulkCopy.type='checkbox';bulkCopy.checked=true;bulkCopy.id='bulk-copy';bulkCopyLabel.prepend(bulkCopy);
+  $('import-submit').before(bulkCopyLabel);
+  $('import-form').closest('.panel').querySelector('h2').textContent='Add several links';
+  $('import-form').querySelector('p').textContent='Paste YouTube or TikTok links, one per line. They are added to Videos, where you can edit every detail. Copies appear in the queue below.';
+  $('import-urls').closest('label').firstChild.textContent='Video links';
+  $('import-submit').textContent='Add these links';
   $('import-form').addEventListener('submit',async event=>{
     event.preventDefault(); const urls=[...new Set($('import-urls').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean))];
-    if(!urls.length) return notice('Paste at least one TikTok link.',true);
-    if(urls.some(value=>{try {const u=new URL(value); return !['http:','https:'].includes(u.protocol) || !(u.hostname==='tiktok.com'||u.hostname.endsWith('.tiktok.com'));} catch{return true;}})) return notice('Enter only valid TikTok URLs, one per line.',true);
+    if(!urls.length) return notice('Paste at least one video link.',true);
     if(state.importBusy)return;
     state.importBusy=true; updateControls();
-    try { const result=await api('/api/admin/queue',{urls,add_end_card:false}); await loadQueue(true);notice(reportResults(result,'Your links have been added. Follow their progress below.'),result.results?.some(r=>r.ok===false||r.error||['failed','blocked'].includes(r.status))); }
+    try { const result=await api('/api/admin/manual',{urls,keep_copy:bulkCopy.checked}); await loadQueue(true);await loadCatalog();notice(reportResults(result,'Videos saved. Edit their details in Videos; requested copies are queued below.'),result.results?.some(r=>r.backup?.status==='failed')); }
     catch(error) { notice(error.message,true); } finally { state.importBusy=false;updateControls(); }
   });
   function queueField(label,value,type,id) { const wrapper=node('label',label); const input=node('input'); input.type='text'; input.value=value; input.id=id; wrapper.htmlFor=id; input.dataset.field=type; wrapper.append(input); return {wrapper,input}; }

@@ -25,45 +25,38 @@
     container.append(player);
     container.removeAttribute('role'); container.removeAttribute('tabindex');
     if (message) container.setAttribute('aria-label', message);
-    player.addEventListener('error', () => {
-      if(window.MATRIX_LITE){
+    let timer,settled=false;
+    const cleanup=()=>{clearTimeout(timer);player.pause();player.removeAttribute('src');player.load();};
+    const fallback=()=>{
+      if(settled||!container.isConnected)return;
+      settled=true;cleanup();
+      if(video.youtube_id){
         container.replaceChildren();
-        window.dispatchEvent(new Event('matrix-backup-failed'));
-        return;
+        const iframe=document.createElement('iframe');
+        iframe.src='https://www.youtube.com/embed/'+encodeURIComponent(video.youtube_id)+'?autoplay=1&playsinline=1';
+        iframe.title=video.title||'Video';iframe.allow='autoplay; encrypted-media; picture-in-picture';
+        iframe.allowFullscreen=true;iframe.style.cssText='width:100%;height:100%;border:0';
+        container.append(iframe);
+        container.cancelYouTubeBackup=()=>{iframe.src='about:blank';iframe.remove();};
+      }else{
+        container.replaceChildren();
+        const error=document.createElement('p');error.textContent='This video is temporarily unavailable.';
+        const retry=document.createElement('button');retry.textContent='Try again';
+        retry.onclick=()=>window.matrixPlayBackup(container,video);
+        container.append(error,retry);
       }
-      const error = document.createElement('p'); error.textContent = 'Backup storage is unavailable. Please try again later.';
-      container.append(error);
-    });
+    };
+    container.cancelYouTubeBackup=()=>{settled=true;cleanup();};
+    // A blocked autoplay is not a broken file: retain native tap-to-play controls.
+    timer=setTimeout(()=>{if(player.readyState<2)fallback();},10000);
+    player.addEventListener('loadeddata',()=>clearTimeout(timer));
+    player.addEventListener('playing',()=>clearTimeout(timer));
+    player.addEventListener('stalled',()=>{clearTimeout(timer);if(!player.paused)timer=setTimeout(fallback,10000);});
+    player.addEventListener('error',fallback);
   };
   window.matrixPlayYouTubeWithBackup = (container, video) => {
-    let settled = false, player, timer;
-    const fallback = () => {
-      if (settled || !container.isConnected) return;
-      settled = true; clearTimeout(timer);
-      try { player?.destroy(); } catch {}
-      window.matrixPlayBackup(container, video, 'YouTube unavailable; playing the saved backup');
-    };
-    container.replaceChildren();
-    const mount = document.createElement('div'); container.append(mount);
-    container.cancelYouTubeBackup = () => {
-      settled = true; clearTimeout(timer);
-      try { player?.destroy(); } catch {}
-    };
-    // Covers blocked API/iframe hosts; never uses iframe load as proof of playback.
-    timer = setTimeout(fallback, 18000);
-    window.matrixYouTubeReady().then(() => {
-      if (settled || !container.isConnected) return;
-      player = new YT.Player(mount, {
-        videoId: video.youtube_id,
-        playerVars: {autoplay: 1, playsinline: 1, origin: location.origin},
-        events: {
-          onReady: () => { clearTimeout(timer); },
-          onError: fallback,
-          onStateChange: event => {
-            if (event.data === 1) clearTimeout(timer);
-          }
-        }
-      });
-    }).catch(fallback);
+    // Keep the existing entry point, but the owned file is now primary.
+    // YouTube is created only if the owned source fails.
+    window.matrixPlayBackup(container,video);
   };
 })();

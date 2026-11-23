@@ -1,9 +1,0 @@
-{
-  "name": "wokearewe-release-checks",
-  "private": true,
-  "scripts": {
-    "build:lite": "python3 lite_site.py --catalog videos.json --output generated-artifacts/netlify-lite && node tests/lite-smoke.cjs --dir generated-artifacts/netlify-lite",
-    "test:lite": "node tests/lite-smoke.cjs"
-  },
-  "devDependencies": {"playwright": "1.65.1"}
-}

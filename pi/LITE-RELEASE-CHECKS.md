@@ -1,9 +1,13 @@
 # Public-site release gate
 
-The Netlify build and Pi package builder now run `tests/lite-smoke.cjs`.
-Install Node and the development dependencies when building a release; these
-are not required to run the installed Pi service. Netlify installs Chromium
-before the check.
+Netlify only runs the standard-library Python lite generator. It needs no npm
+packages, browser installation or test runner. Generated build-info.json and
+visible page footers identify the release and exact Git commit.
+
+Browser checks run from the release workstation, not inside Netlify. Install
+Node, Playwright from tests/package.json, and its Chromium browser there.
+The Pi package builder runs the local browser check before writing packages.
+These tools are not required to run the installed Pi service.
 
 The check opens a phone-sized Chromium browser and refuses the build if either
 Video Hub or Read Only is empty. It tests a clean browser, an old saved catalogue
@@ -18,8 +22,9 @@ After Netlify finishes a branch deployment, run:
     node tests/lite-smoke.cjs --url https://THE-ACTUAL-NETLIFY-PREVIEW-URL
 
 Never promote the lite branch to main before this remote check passes and the
-owner approves the phone preview. The remote check does not install a simulated
-legacy worker on the external origin; local worker migration testing is separate.
+owner approves the phone preview. The remote check installs a simulated old
+worker through request interception in its isolated browser profile; it does
+not modify files on the hosted site.
 
 The empty-list bug was that limited mode skipped cached rendering, then skipped
 network rendering if the saved and received catalogues were equal. A successful

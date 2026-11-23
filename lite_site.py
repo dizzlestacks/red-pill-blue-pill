@@ -5,6 +5,10 @@ from pathlib import Path
 import shutil
 import tempfile
 import threading
+import sys
+import subprocess
+import html
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import admin_store as store
 
 PAGES = ("index.html", "choice.html", "videos.html", "learn.html", "readonly.html", "reset.html")
@@ -28,7 +32,7 @@ def limited_catalog(catalog):
         for name in ("backup", "backup_url", "backup_available", "backup_status"):
             video.pop(name, None)
         video.pop("url", None)
-        if not video.get("youtube_id"):
+        if not video.get("youtube_id") and not video.get("tiktok_url"):
             video["limited_unavailable"] = True
         if str(video.get("thumb", "")).startswith(("/", "http://localhost", "http://127.")):
             video.pop("thumb", None)
@@ -54,11 +58,21 @@ def generate(catalog=None, output=None):
             catalog = store.load_catalog()[0]
         dest = Path(output) if output else store.STATE / "lite"
         dest.mkdir(parents=True, exist_ok=True)
+        commit = os.environ.get("COMMIT_REF", "")
+        if not commit:
+            try:
+                commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=store.ROOT, text=True).strip()
+            except (OSError, subprocess.CalledProcessError):
+                commit = "unversioned"
+        marker = {"release": store.RELEASE, "commit": commit}
+        write_atomic(dest / "build-info.json", (json.dumps(marker) + "\n").encode())
+        footer = '<footer id="release-marker" style="padding:12px;text-align:center;font:11px monospace;color:var(--muted,#7bd58a)">Release ' + html.escape(store.RELEASE) + ' · ' + html.escape(commit[:12]) + '</footer>'
         for name in PAGES:
             text = (store.ROOT / name).read_text()
-            if name == "videos.html":
+            if name in ("videos.html", "readonly.html"):
                 text = text.replace('<script src="videos.js"></script>', '<script src="videos.js"></script><script src="public-backups.js"></script>')
             text = text.replace("<head>", '<head>\n<script src="lite-data.js"></script>')
+            text = text.replace("</body>", footer + "</body>")
             write_atomic(dest / name, text.encode())
         for name in ASSETS:
             src, target = store.ROOT / name, dest / name
@@ -74,7 +88,7 @@ def generate(catalog=None, output=None):
         data = limited_catalog(catalog)
         payload = json.dumps(data, ensure_ascii=True).replace("<", "\\u003c")
         # Embedded data avoids fetch() restrictions when HTML is opened from disk.
-        write_atomic(dest / "lite-data.js", ("window.MATRIX_LITE=true;window.MATRIX_LITE_CATALOG=" + payload + ";").encode())
+        write_atomic(dest / "lite-data.js", ("window.MATRIX_LITE=true;window.MATRIX_BUILD=" + json.dumps(marker) + ";window.MATRIX_LITE_CATALOG=" + payload + ";").encode())
         write_atomic(dest / "videos.json", (payload + "\n").encode())
         # Retire the Pi/offline worker left by earlier deployments on this origin.
         # No fetch handler: video, PDFs, ranges and all requests go to the network.
