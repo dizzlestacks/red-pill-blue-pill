@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.10."""
+"""Matrix Video Hub / admin release 2026.11.15.11."""
 import hashlib
 import hmac
 import http.cookies
@@ -410,6 +410,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 revision = store.save_catalog(body.get("catalog"), body.get("revision"))
                 checkpointed = durable_state.checkpoint()
                 return self.reply({"ok": True, "revision": revision, "durable_state": checkpointed})
+            if path == "/api/admin/nas/rebuild":
+                import nas_library
+                nas_library.request_rebuild()
+                return self.reply({"ok": True, "library": nas_library.status()})
             if path == "/api/admin/checks/run":
                 return self.reply(media_check.run_all())
             if path == "/api/admin/checks/redownload":

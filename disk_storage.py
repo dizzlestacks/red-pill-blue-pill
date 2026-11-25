@@ -96,6 +96,10 @@ def reconcile_mirror():
             MIRROR_STATUS = {"state": "not set up", "count": 0, "last_check": time.time()}
             return
         MIRROR_STATUS = {**MIRROR_STATUS, "state": "syncing"}
+        import nas_library
+        # The recovery copy lives in its own clearly named folder, beside the browsable library.
+        nas_library.migrate_system(root)
+        system = root / nas_library.SYSTEM
         for prefix in ("objects", "backups"):
             directory = store.STATE / prefix
             if not directory.exists():
@@ -104,7 +108,7 @@ def reconcile_mirror():
                 if not source.is_file() or source.name.startswith("."):
                     continue
                 relative = source.relative_to(store.STATE)
-                dest = root / relative
+                dest = system / relative
                 if dest.exists() and dest.stat().st_size == source.stat().st_size and dest.stat().st_mtime_ns >= source.stat().st_mtime_ns:
                     continue
                 atomic_copy(source, dest)
@@ -113,7 +117,7 @@ def reconcile_mirror():
         with store.db() as c:
             media = c.execute("SELECT * FROM media").fetchall()
         for item in media:
-            path = root / "objects" / item["object_key"]
+            path = system / "objects" / item["object_key"]
             if path.is_file() and path.stat().st_size == item["size"]:
                 digest = hashlib.sha256()
                 with path.open("rb") as f:
@@ -130,5 +134,6 @@ def reconcile_mirror():
 def mirror_status():
     with store.db() as c:
         total = c.execute("SELECT count(*) FROM media").fetchone()[0]
+    import nas_library
     return {**MIRROR_STATUS, "total": total, "error": MIRROR_ERROR,
-            "configured": bool(os.environ.get("MIRROR_DIR", "").strip())}
+            "configured": bool(os.environ.get("MIRROR_DIR", "").strip()), "library": nas_library.status()}

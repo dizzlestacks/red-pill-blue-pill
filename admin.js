@@ -121,7 +121,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.10');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.11');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -396,6 +396,22 @@
     catch(error){$('watcher-error').textContent=error.message;if(!state.watcher){$('watcher-status').textContent='Watcher unavailable. Use Refresh watcher to retry.';$('watcher-badge').textContent='Unavailable';}if(!silent)notice(error.message,true);}
     finally{state.watcherLoading=false;$('watcher-refresh').removeAttribute('aria-busy');watcherControls();}
   }
+  function renderLibrary(m){
+    const l=m.library||{},box=$('library-box');
+    if(!m.configured){$('library-status').textContent='Set up the NAS copy first (MIRROR_DIR on the Pi). The library is built there automatically.';$('library-rebuild').disabled=true;$('library-problems').replaceChildren();return;}
+    $('library-rebuild').disabled=false;
+    const when=l.last_run?' Last update '+new Date(l.last_run*1000).toLocaleTimeString()+'.':'';
+    const progress=l.total?`${l.done} of ${l.total} files in the library`:l.last_run?'No saved videos to add yet':'Not built yet';
+    const words={'up to date':'Up to date','copying':'Copying','updating':'Updating','waiting for NAS':'Waiting for the NAS','not set up':'Not set up'};
+    $('library-status').textContent=`${words[l.state]||plainStatus(l.state||'waiting')}. ${progress}.${l.copying?' Copying “'+l.copying+'”.':''}${l.rebuild?' Rebuild in progress.':''}${when} ${l.last_error||''}`;
+    const list=$('library-problems');list.replaceChildren();
+    for(const p of (l.problems||[]).slice(0,20)){const row=node('p',undefined,'help');row.append(node('strong',p.title+': '),document.createTextNode(p.reason));list.append(row);}
+  }
+  $('library-rebuild').addEventListener('click',async()=>{
+    if(!await confirmAction('Rebuild the NAS library?','Every file in the library is checked again and anything missing is copied. Nothing is deleted. This runs gently in the background and can take a while.','Rebuild library'))return;
+    try{const r=await api('/api/admin/nas/rebuild',{});notice('Library rebuild started. Progress shows here.');renderLibrary({...(state.watcher?.mirror||{}),configured:true,library:r.library});}
+    catch(error){notice(error.message,true);}
+  });
   let backBusy=false;
   function renderBackCatalogue(data) {
     if(backBusy)return;
@@ -403,6 +419,7 @@
     $('back-status').textContent=r?`${plainStatus(r.state)}. ${r.scanned||0} posts checked. ${Object.entries(counts).map(([k,n])=>`${n} ${plainStatus(k).toLowerCase()}`).join(' · ')}. ${r.reason||''}`:'No import of all your posts has started yet.';
     $('back-badge').textContent=r&&!['done','paused'].includes(r.state)?'On':'Off';
     $('mirror-status').textContent=`${m.configured?'NAS copy: '+plainStatus(m.state):'NAS copy is not set up'}. ${m.count??'—'} of ${m.total??'—'} backups checked. ${m.error||''}`;
+    renderLibrary(m);
     const controls=$('back-actions');controls.replaceChildren();
     let toggle=$('back-enabled');
     if(!toggle){

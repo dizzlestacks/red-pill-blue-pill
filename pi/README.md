@@ -111,7 +111,7 @@ JSON. No passwords/sessions are in them. An optional mirror gets the same object
 On a fresh/replacement data folder containing the `objects/` tree, startup can
 restore missing catalogue/SQLite from current.zip. For manual disaster recovery:
 stop the service; preserve the damaged folder elsewhere; copy the mirror's
-`objects/` (and `backups/`) into an empty DATA_DIR; set ownership to `wokearewe`;
+`_system (do not edit)/objects/` (and `backups/`) into an empty DATA_DIR; set ownership to `wokearewe`;
 then start. Never replace a running database. Validate the restored catalogue
 and media counts before allowing new imports. Keep independent backups of the
 settings file using your own secure backup process.
@@ -245,3 +245,12 @@ problem" and in **Videos → Saved video checks**, with **Download again**,
 videos with a problem stay public with their current copy until a checked copy
 replaces them. Every saved copy is checked once automatically after updating;
 long videos take a few minutes each on a Pi.
+
+## NAS video library (from 2026.11.15.11)
+
+With MIRROR_DIR set, the NAS folder also gets a browsable library: `Videos/` by
+site category named "post date - title", `Originals/`, `Removed from site/`,
+`By source/`, and a searchable `index.html` / `index.csv`. The recovery copy moves
+into `_system (do not edit)/`. Nothing is deleted from the NAS automatically.
+Progress and **Rebuild library** are in /admin → Settings. See
+`pi/RELEASE-2026.11.15.11.md`.

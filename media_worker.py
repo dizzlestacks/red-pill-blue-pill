@@ -317,9 +317,13 @@ def run():
     import threading
     def mirror_loop():
         while True:
+            import nas_library
             if os.environ.get("STORAGE_BACKEND", "disk") == "disk":
                 disk_storage.reconcile_mirror()
-            time.sleep(60)
+                nas_library.run_once()
+            # A rename, category change, publish or delete on the site wakes this early.
+            nas_library.WAKE.wait(60)
+            nas_library.WAKE.clear()
     threading.Thread(target=mirror_loop, daemon=True, name="nas-mirror").start()
     while True:
         LAST_HEARTBEAT = time.time()

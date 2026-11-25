@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.10"
+RELEASE = "2026.11.15.11"
 
 
 def db():
@@ -66,6 +66,8 @@ def init():
         playback.init(c)
         import media_check
         media_check.init(c)
+        import nas_library
+        nas_library.init(c)
         # Earlier releases used a hashtag-only caption as the title. Unpublished
         # items become "Untitled <post date>" and keep their hashtags as tags.
         for job in c.execute("SELECT id,title,source_date,created FROM jobs WHERE status!='published'").fetchall():
@@ -223,6 +225,8 @@ def save_catalog(cat, revision):
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, CATALOG)
+        import nas_library
+        nas_library.wake()  # The NAS library follows renames, category changes and deletes.
         import lite_site
         try:
             lite_site.generate(cat)
@@ -322,6 +326,9 @@ def update_job(jid, **fields):
     with db() as c:
         c.execute("UPDATE jobs SET " + ",".join(k + "=?" for k in fields) + " WHERE id=?",
                   (*fields.values(), jid))
+    if fields.keys() & {"title", "tags"}:
+        import nas_library
+        nas_library.wake()
 
 
 def get_job(jid):
