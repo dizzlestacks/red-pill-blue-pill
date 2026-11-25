@@ -10,7 +10,7 @@
   $('theme').value = themes.includes(savedTheme) ? savedTheme : 'terminal';
   document.body.className = $('theme').value;
   $('theme').addEventListener('change', () => { document.body.className = $('theme').value; try { localStorage.setItem('admin:theme',$('theme').value); } catch {} });
-  let noticeTimer;
+  let noticeTimer, lastActionTrigger=null;
   function dismissNotice() { clearTimeout(noticeTimer); $('message').replaceChildren(); $('message').hidden=true; }
   function notice(message, error=false) {
     if(message&&!error&&!$('message').hidden&&$('message').classList.contains('error'))return;
@@ -22,12 +22,14 @@
     target.classList.toggle('error',error); target.classList.toggle('success',!error);
     target.setAttribute('role',error?'alert':'status'); target.setAttribute('aria-live',error?'assertive':'polite');
     // An in-flow message cannot hide a keyboard, field or action button.
-    const focus=document.activeElement, form=focus?.closest('form');
+    // A busy (disabled) trigger drops focus to <body>; keep the notice beside the last action.
+    const active=document.activeElement, focus=active&&active!==document.body?active:(lastActionTrigger?.isConnected?lastActionTrigger:null), form=focus?.closest('form');
     const anchor=!state.signedIn?$('login'):form?.id?form:focus?.closest('.panel,.login');
     if($('confirm-dialog').open) $('confirm-dialog').querySelector('.dialog-content').append(target);
     else if(anchor && !anchor.closest('dialog')) anchor.append(target);
     else document.querySelector('[role=tabpanel]:not([hidden])')?.prepend(target);
     target.hidden=false;
+    if(!target.closest('dialog')){const box=target.getBoundingClientRect(),height=window.visualViewport?.height||window.innerHeight;if(box.top<0||box.bottom>height)target.scrollIntoView({block:'nearest'});}
     target.onclick=event=>{if(!error&&!event.target.closest('button'))dismissNotice();};
     if(!error)noticeTimer=setTimeout(dismissNotice,4500);
   }
@@ -47,7 +49,7 @@
   document.addEventListener('click',event=>{
     const button=event.target.closest('button');
     if(!button || button.disabled) return;
-    pressedButton=button; button.setAttribute('aria-busy','true');
+    pressedButton=button; lastActionTrigger=button; button.setAttribute('aria-busy','true');
     button.classList.add('pressed');
     setTimeout(()=>{if(pressedButton===button)pressedButton=null;},0);
     setTimeout(()=>{button.classList.remove('pressed');if(!button.dataset.requestBusy)button.removeAttribute('aria-busy');},250);
@@ -119,7 +121,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.8');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.9');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -272,7 +274,7 @@
   }
   function confirmAction(title,text,label='Confirm') {
     if(pendingConfirm) return Promise.resolve(false);
-    confirmTrigger=pressedButton||document.activeElement;
+    confirmTrigger=pressedButton||document.activeElement; lastActionTrigger=confirmTrigger;
     // Action wrappers mark their trigger busy before awaiting confirmation.
     // The native modal makes it inert; keep it focusable for a reliable return.
     if(confirmTrigger?.tagName==='BUTTON') {confirmTrigger.disabled=false;confirmTrigger.removeAttribute('aria-busy');}
@@ -286,6 +288,15 @@
   }
   function finishConfirm(value) { const callback=pendingConfirm; pendingConfirm=null; $('confirm-dialog').close(); unlockDialog(); if(callback) callback(value); }
   $('confirm-cancel').addEventListener('click',()=>finishConfirm(false)); $('confirm-accept').addEventListener('click',()=>finishConfirm(true)); $('confirm-dialog').addEventListener('cancel',event=>{event.preventDefault();finishConfirm(false);});
+  // Keep keyboard focus inside the sheet; native modals can otherwise Tab out to browser UI.
+  $('confirm-dialog').addEventListener('keydown',event=>{
+    if(event.key!=='Tab') return;
+    const items=[...$('confirm-dialog').querySelectorAll('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);
+    if(!items.length) return;
+    const first=items[0], last=items[items.length-1], active=document.activeElement;
+    if(event.shiftKey&&(active===first||!$('confirm-dialog').contains(active))) {event.preventDefault();last.focus({preventScroll:true});}
+    else if(!event.shiftKey&&(active===last||!$('confirm-dialog').contains(active))) {event.preventDefault();first.focus({preventScroll:true});}
+  });
   $('confirm-dialog').addEventListener('close',()=>{if(scrollLock){const callback=pendingConfirm;pendingConfirm=null;unlockDialog();if(callback)callback(false);}});
   function reportResults(result,fallback) {
     const results=Array.isArray(result.results)?result.results:[];

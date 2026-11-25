@@ -221,3 +221,9 @@ the untouched original. Older saved videos are converted in the background
 after updating. Re-encoding HEVC on a Pi takes several minutes per minute of
 video, and the copy needs extra space in the data folder (the free-space guard
 applies). If a preview can't play, /admin shows why with a "Retry preview" button.
+
+## Rate-limit waits (from 2026.11.15.9)
+
+If the media service asks the Pi to slow down (HTTP 429 with Retry-After), the
+wait is saved in the data folder and honoured after a restart, for up to one
+hour. No setting is needed. See `pi/RELEASE-2026.11.15.9.md`.

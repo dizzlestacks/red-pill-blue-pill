@@ -235,6 +235,11 @@ class PlaybackRouteTests(unittest.TestCase):
 
 
 class CaptionTitleTests(unittest.TestCase):
+    def setUp(self):
+        # normalize() reads the watched profile owner from the private database.
+        from test_watcher import WatchTests
+        WatchTests.setUp(self)
+
     def test_hashtag_only_caption(self):
         import tiktok_watch
         post = dict(id="7500000000000000099", url="https://www.tiktok.com/@wokearewe1/video/7500000000000000099",

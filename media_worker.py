@@ -1,4 +1,5 @@
 """Single, rate-limited worker. Only verified independently stored bytes count as backups."""
+import email.utils
 import hashlib
 import json
 import os
@@ -26,11 +27,39 @@ class UpstreamError(Exception):
         super().__init__(message)
 
 
+MAX_RETRY_AFTER = 3600
+
+
+def retry_after_seconds(value):
+    """Retry-After as delta-seconds or HTTP-date; at least 60s, at most one hour."""
+    try:
+        delay = float(value)
+    except (TypeError, ValueError):
+        try:
+            delay = email.utils.parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, IndexError, OverflowError):
+            delay = 60
+    return min(MAX_RETRY_AFTER, max(60, delay))
+
+
+def persisted_backoff(until=None):
+    """Wall-clock Retry-After deadline shared across restarts (monotonic time is not)."""
+    with store.db() as c:
+        c.execute("CREATE TABLE IF NOT EXISTS api_backoff (id INTEGER PRIMARY KEY CHECK(id=1), until REAL NOT NULL)")
+        if until is not None:
+            c.execute("INSERT INTO api_backoff VALUES(1,?) ON CONFLICT(id) DO UPDATE SET until=excluded.until", (until,))
+            return until
+        row = c.execute("SELECT until FROM api_backoff WHERE id=1").fetchone()
+    # Never trust a deadline further out than the cap (e.g. a clock change).
+    return min(row[0], time.time() + MAX_RETRY_AFTER) if row else 0
+
+
 def api(path, payload=None, idempotency=None, binary=False):
     global LAST_REQUEST, BACKOFF_UNTIL
     # Single worker + shared gate: <= 30 requests/minute, leaving room for account use.
     with NETWORK_LOCK:
-        time.sleep(max(0, LAST_REQUEST + 2.1 - time.monotonic(), BACKOFF_UNTIL - time.monotonic()))
+        time.sleep(max(0, LAST_REQUEST + 2.1 - time.monotonic(), BACKOFF_UNTIL - time.monotonic(),
+                       persisted_backoff() - time.time()))
         headers = {"Authorization": "Bearer " + os.environ.get("YOU2MP3_API_KEY", "")}
         if idempotency:
             headers["Idempotency-Key"] = idempotency
@@ -42,11 +71,9 @@ def api(path, payload=None, idempotency=None, binary=False):
         except requests.RequestException:
             raise UpstreamError(0, "Connection timed out or unavailable; request identity retained for safe retry")
         if r.status_code == 429:
-            try:
-                delay = max(60, float(r.headers.get("Retry-After", 60)))
-            except ValueError:
-                delay = 60
+            delay = retry_after_seconds(r.headers.get("Retry-After", 60))
             BACKOFF_UNTIL = time.monotonic() + delay
+            persisted_backoff(time.time() + delay)
         if not r.ok or 300 <= r.status_code < 400:
             status = r.status_code
             r.close()
