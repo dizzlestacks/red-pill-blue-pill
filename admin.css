@@ -284,3 +284,8 @@ dialog h2 { line-height:1.4; }
 @media(min-width:768px) { .home-columns,.add-columns,.settings-columns { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:24px; align-items:start; } .automatic-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; } .automatic-grid > :first-child { grid-row:span 2; } .two,.watcher-grid { grid-template-columns:1fr 1fr; } }
 @media(max-width:767px) { .topbar { flex-wrap:nowrap; gap:12px; padding:18px 20px; } .brand { font-size:18px; gap:10px; } .brand small { font-size:11px; } .theme-label { display:block; font-size:10px; } #theme { width:104px; min-height:38px; padding:6px; } main { padding:28px 16px 30px; } .panel-body,.panel-head,.entry,.queue-card { padding:20px; } .page-heading { margin-bottom:24px; } .stat { padding:20px; } .stat strong { font-size:38px; } .health-row { grid-template-columns:8px 57px 1fr auto; gap:9px; font-size:13px; } .health-row button { padding:7px 9px; } .actions button { flex-grow:1; } .actions .danger { flex-grow:0; } .login { padding:28px 22px; margin-top:8px; } .login h1 { font-size:33px; } }
 @media(prefers-reduced-motion:reduce) { .progress-track::after { animation:none; } }
+
+.check-row { padding:16px 0; border-top:1px solid color-mix(in srgb,var(--accent) 23%,var(--border)); }
+.check-row h3 { margin:0; font-size:16px; }
+.check-row .actions button { font-size:12px; padding:10px 12px; min-height:46px; }
+#checks-list:empty { display:none; }

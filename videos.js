@@ -270,6 +270,8 @@
       containerEl.dataset.loaded='';return;
     }
     containerEl.innerHTML = iframeHTMLFor(v, true);
+    const own = containerEl.querySelector("video");
+    if (own) { own.muted = false; own.defaultMuted = false; } // Our own copies always start with sound on.
     markWatchedAfter5Min(key);
   }
 

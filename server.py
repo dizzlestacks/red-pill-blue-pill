@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.9."""
+"""Matrix Video Hub / admin release 2026.11.15.10."""
 import hashlib
 import hmac
 import http.cookies
@@ -23,6 +23,7 @@ import public_sync
 import public_catalog
 import tiktok_watch
 import playback
+import media_check
 
 SESSIONS = {}
 ATTEMPTS = []
@@ -140,6 +141,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply(store.overview(worker_thread is not None and worker_thread.is_alive()))
                 if path == "/api/admin/watcher":
                     return self.reply(tiktok_watch.status())
+                if path == "/api/admin/checks":
+                    return self.reply(media_check.report())
                 if path == "/api/admin/back-catalog/estimate":
                     import back_catalog
                     return self.reply(back_catalog.estimate())
@@ -153,14 +156,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         media = {m["source_key"]: dict(m) for m in c.execute("SELECT * FROM media")}
                         for r in rows:
                             m = media.get(r["source_key"])
-                            if r["status"] in ("imported", "published"):
+                            check = media_check.state(m)
+                            r["check_state"], r["check_reason"] = check["state"], check["reason"]
+                            r["can_keep_silent"] = check["state"] == "problem" and check["code"] in media_check.SILENCE_CODES
+                            if r["status"] in ("imported", "published", "problem") and m:
                                 st = playback.state(m)
                                 r["preview_state"], r["preview_reason"] = st["state"], st["reason"]
                                 r["poster_url"] = "/api/admin/media/" + r["id"] + "/poster" if st["poster"] else None
                             r["needs_title"] = store.needs_title(r)
                             r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
-                            r["preview_url"] = "/api/admin/media/" + r["id"] if r["status"] in ("imported", "published") else None
+                            r["preview_url"] = "/api/admin/media/" + r["id"] if m and r["status"] in ("imported", "published", "problem") else None
                             for key in ("payload", "idempotency", "upstream_id", "source_key"):
                                 r.pop(key, None)
                         rows += [dict(r) for r in c.execute("SELECT * FROM events ORDER BY created DESC LIMIT 100")]
@@ -171,7 +177,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if m:
                     j = store.get_job(m[1])
                     if m[2] == "status":
-                        return self.reply(playback.checked_state(j["source_key"]))
+                        return self.reply({**playback.checked_state(j["source_key"]),
+                                           "check": media_check.state(media_check.row(j["source_key"]))})
                     if m[2] == "poster":
                         return self.serve_poster(j["source_key"])
                     return self.serve_media(j["source_key"], head=head)
@@ -403,6 +410,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 revision = store.save_catalog(body.get("catalog"), body.get("revision"))
                 checkpointed = durable_state.checkpoint()
                 return self.reply({"ok": True, "revision": revision, "durable_state": checkpointed})
+            if path == "/api/admin/checks/run":
+                return self.reply(media_check.run_all())
+            if path == "/api/admin/checks/redownload":
+                report = media_check.report()
+                wanted = body.get("job_ids")
+                if body.get("all") is not True and (not isinstance(wanted, list) or not wanted or any(not isinstance(x, str) for x in wanted)):
+                    raise ValueError("Choose the videos to download again")
+                started = 0
+                for item in report["problems"]:
+                    if item["job_id"] and (body.get("all") is True or item["job_id"] in wanted):
+                        started += media_check.request_redownload(store.get_job(item["job_id"]))
+                durable_state.checkpoint()
+                return self.reply({"ok": True, "started": started, **media_check.report()})
             if path == "/api/admin/sync":
                 public_sync.now()
                 return self.reply(public_sync.status())
@@ -471,12 +491,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 elif action == "publish":
                     store.publish(jid)
                 elif action == "preview":
-                    if job["status"] not in ("imported", "published"):
+                    if job["status"] not in ("imported", "published", "problem") or not media_check.row(job["source_key"]):
                         raise ValueError("This item has no saved copy yet")
                     if playback.state(job["source_key"])["state"] != "processing":
                         # Always re-check the saved file: a retry is how a missing/replaced file is noticed.
                         playback.start(job["source_key"], force=True)
+                    media_check.start_check(job["source_key"])
                     return self.reply({"ok": True, "preview": playback.state(job["source_key"])})
+                elif action == "redownload":
+                    if job["status"] not in ("problem", "imported", "published", "failed"):
+                        raise ValueError("This item is already downloading")
+                    media_check.request_redownload(job)
+                elif action == "keepsilent":
+                    media_check.accept_silent(job)
+                elif action == "retry" and job["status"] == "problem":
+                    media_check.request_redownload(job)
                 elif action == "retry":
                     if job["status"] not in ("failed", "blocked", "waiting for connection"):
                         raise ValueError("Only blocked, failed or waiting items can be retried")
@@ -515,7 +544,7 @@ def main():
     global worker_thread
     worker_thread = threading.Thread(target=worker.run, daemon=True)
     worker_thread.start()
-    threading.Thread(target=playback.backfill_loop, daemon=True, name="playback-backfill").start()
+    threading.Thread(target=media_check.backfill_loop, daemon=True, name="saved-video-checks").start()
     threading.Thread(target=public_sync.run, daemon=True).start()
     threading.Thread(target=tiktok_watch.run, daemon=True).start()
     threading.Thread(target=supervise_worker, daemon=True).start()

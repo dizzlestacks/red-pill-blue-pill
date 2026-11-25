@@ -227,3 +227,21 @@ applies). If a preview can't play, /admin shows why with a "Retry preview" butto
 If the media service asks the Pi to slow down (HTTP 429 with Retry-After), the
 wait is saved in the data folder and honoured after a restart, for up to one
 hour. No setting is needed. See `pi/RELEASE-2026.11.15.9.md`.
+## Picture and sound checks (from 2026.11.15.10)
+
+A saved copy only counts as a verified permanent copy after the Pi checks it:
+it has picture and sound, the sound is not silent for the whole video, picture
+and sound last as long as each other (and as the previous good copy when it is
+downloaded again), and the file players receive decodes from start to end.
+Sound in formats browsers don't play (such as MP3) and very quiet sound are
+fixed in the playback copy; the original is never changed.
+
+A copy that fails is marked "Problem: ..." with the reason, is never offered
+for publishing, and is downloaded again automatically up to 3 downloads in
+total, about 10 minutes apart. /admin lists problems under "Videos with a
+problem" and in **Videos → Saved video checks**, with **Download again**,
+**Download all again**, **Check all saved videos**, and **Keep without sound**
+(only for no-sound problems, when the original really has no sound). Published
+videos with a problem stay public with their current copy until a checked copy
+replaces them. Every saved copy is checked once automatically after updating;
+long videos take a few minutes each on a Pi.

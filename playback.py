@@ -119,6 +119,8 @@ def describe(plan):
         reasons.append(f"{plan['audio_codec']} audio")
     if not plan["container_ok"]:
         reasons.append("index at the end of the file")
+    if plan.get("boost"):
+        reasons.append("quiet sound raised")
     return ", ".join(reasons)
 
 
@@ -140,7 +142,10 @@ def convert(source, dest, plan):
     if plan["audio"] == "copy":
         cmd += ["-c:a", "copy"]
     elif plan["audio"] == "encode":
-        cmd += ["-c:a", "aac", "-b:a", "160k", "-ac", "2"]
+        if plan.get("boost"):
+            # Very quiet originals are raised to normal phone loudness in the playback copy only.
+            cmd += ["-af", "loudnorm=I=-16:TP=-1.5:LRA=11"]
+        cmd += ["-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "48000"]
     cmd += ["-movflags", "+faststart", str(dest)]
     timeout = max(900, int(plan["duration"] * 8))  # Software encoding on a Pi is slow; allow for it.
     subprocess.run(cmd, check=True, capture_output=True, timeout=timeout)
@@ -204,6 +209,9 @@ def prepare(key, force=False):
                 original = _local_original(client, row, folder)
                 try:
                     plan = assess(original)
+                    checked = json.loads(row.get("check_details") or "{}")
+                    if checked.get("quiet") and plan["audio"] != "none":
+                        plan.update(audio="encode", boost=True, playable=False)
                 except Exception:
                     _set(key, play_status=UNSUPPORTED, play_reason="The saved file could not be read as a video.")
                     return state(key)
@@ -218,7 +226,6 @@ def prepare(key, force=False):
                 out = Path(folder) / "playback.mp4"
                 try:
                     convert(original, out, plan)
-                    worker.verify_media(out)
                     final = assess(out)
                 except subprocess.TimeoutExpired:
                     _set(key, play_status=FAILED, play_reason="Converting the video took too long. Retry the preview when the Pi is less busy.")
@@ -288,19 +295,3 @@ def start(key, force=False):
     # Mark it busy now so the caller's next status check never sees the old result.
     _set(key, play_status=PROCESSING, play_reason="Preparing a version that plays in every browser")
     threading.Thread(target=prepare, args=(key, force), daemon=True, name="playback-prepare").start()
-
-
-def backfill_loop():
-    """Prepare saved videos from earlier releases, one at a time, oldest first."""
-    while True:
-        try:
-            with store.db() as c:
-                row = c.execute("""SELECT source_key FROM media WHERE play_status IS NULL
-                    OR (play_status=? AND COALESCE(play_updated,0) < ?) ORDER BY created LIMIT 1""",
-                                (PROCESSING, time.time() - STALE_SECONDS)).fetchone()
-            if row:
-                prepare(row["source_key"])
-                continue
-        except Exception:
-            pass
-        time.sleep(30)

@@ -13,6 +13,7 @@ import requests
 import admin_store as store
 import tiktok_watch
 import watch_provider
+import media_check
 
 BASE = "https://you2mp3.music/api/v1"
 NETWORK_LOCK = threading.Lock()
@@ -162,7 +163,21 @@ def copy_media(job, filename):
                 raise ValueError("Download byte count does not match")
         finally:
             response.close()
-        duration = verify_media(video)
+        import media_check
+        with store.db() as c:
+            existing = c.execute("SELECT * FROM media WHERE source_key=?", (job["source_key"],)).fetchone()
+        expected = None
+        if existing and existing["check_status"] in media_check.GOOD:
+            expected = json.loads(existing["check_details"] or "{}").get("duration")
+        problem = None
+        try:
+            # Picture, sound, silence and length are checked before anything is saved.
+            duration = media_check.inspect(video, expected=expected, full_decode=False)["duration"]
+        except media_check.Problem as issue:
+            if existing:
+                # Never replace a saved copy with a worse download.
+                raise
+            problem, duration = issue, issue.details.get("duration") or 0
         tiktok_watch.disk_guard(extra=2 * size + 1024 * 1024)
         client = storage_client()
         object_key = "wokearewe/backups/" + job["source_key"].replace(":", "-") + "/" + digest.hexdigest() + ".mp4"
@@ -189,10 +204,17 @@ def copy_media(job, filename):
             c.execute("""INSERT OR REPLACE INTO media
                 (source_key,object_key,poster_key,size,sha256,duration,created) VALUES(?,?,?,?,?,?,?)""",
                       (job["source_key"], object_key, poster_key, size, digest.hexdigest(), duration, time.time()))
+            if problem:
+                # Kept so the owner can decide (for example "Keep without sound"), but never offered for publishing.
+                c.execute("UPDATE media SET check_status=?, check_code=?, check_reason=?, check_details=?, check_updated=? WHERE source_key=?",
+                          (media_check.PROBLEM, problem.code, problem.reason, json.dumps(problem.details), time.time(), job["source_key"]))
+        if problem:
+            raise problem
 
 
 def process(job):
     import back_catalog
+    import media_check
     if not back_catalog.allowed(job):
         return
     if job.get("automatic"):
@@ -220,6 +242,9 @@ def process(job):
         if not ready:
             store.update_job(job["id"], status="blocked", reason=message)
             return
+        if job["status"] == "problem":
+            # Automatic or requested re-download: a fresh request to the media service, same settings.
+            job = media_check.prepare_redownload(job)
         if not job["upstream_id"]:
             with store.LOCK:
                 job = store.get_job(job["id"])
@@ -258,21 +283,19 @@ def process(job):
                 return
             store.update_job(job["id"], status="copying", reason="Verifying video and copying to permanent storage")
             copy_media(job, result["outputFilename"])
-            import playback
-            store.update_job(job["id"], status="copying", reason="Preparing a version that plays in every browser")
-            preview = playback.prepare(job["source_key"])
-            if preview["state"] != "ready":
-                store.update_job(job["id"], status="imported",
-                                 reason="Saved, but the preview isn't playable yet: " + preview["reason"])
+            store.update_job(job["id"], status="copying", reason="Checking picture and sound play from start to end")
+            outcome = media_check.verify(job["source_key"])
+            if not media_check.finish_import(store.get_job(job["id"]), outcome):
                 return
-            store.update_job(job["id"], status="imported", reason="Verified permanent copy; ready for review")
-            if job.get("automatic") and job.get("auto_publish"):
+            if job.get("automatic") and job.get("auto_publish") and store.get_job(job["id"])["status"] == "imported":
                 store.publish(job["id"])
         elif status in ("error", "cancelled"):
             # Do not leak arbitrary upstream errors (which may include credentials or internal URLs).
             raise ValueError("Media service " + status + ". Check the source's availability and connection permissions.")
         else:
             store.update_job(job["id"], status="processing", reason="Media service: " + str(status or "pending")[:40])
+    except media_check.Problem as p:
+        media_check.flag_problem(store.get_job(job["id"]), p.reason)
     except (tiktok_watch.Paused, watch_provider.Unavailable) as e:
         store.update_job(job["id"], status="blocked", reason=str(e))
     except UpstreamError as e:
@@ -304,11 +327,14 @@ def run():
             with store.db() as c:
                 job = c.execute("""SELECT * FROM jobs WHERE status IN ('queued','waiting for connection','processing','copying')
                   OR (status='imported' AND automatic=1 AND auto_publish=1
-                      AND source_key IN (SELECT source_key FROM media WHERE play_status='ready'))
+                      AND source_key IN (SELECT source_key FROM media WHERE play_status='ready'
+                                         AND check_status IN ('ok','accepted')))
+                  OR (status='problem' AND download_attempts < ? AND updated < ?)
                   OR (status='blocked' AND kind!='unsupported' AND updated < ? AND
                   (reason LIKE 'This connection is TikTok-only%' OR reason LIKE 'App Storage%' OR reason LIKE 'Storage unavailable%'
                    OR reason LIKE 'Imports paused:%' OR reason LIKE 'Per-request end cards%'))
-                  ORDER BY updated LIMIT 1""", (time.time() - 60,)).fetchone()
+                  ORDER BY updated LIMIT 1""", (media_check.MAX_DOWNLOADS, time.time() - media_check.RETRY_DELAY,
+                                                time.time() - 60)).fetchone()
             if job:
                 process(dict(job))
                 # Paused run jobs must not starve independent new-post work.

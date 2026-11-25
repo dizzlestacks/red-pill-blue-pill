@@ -43,6 +43,7 @@
       <section id="videos" role="tabpanel" aria-labelledby="tab-videos" hidden>
         <header class="page-heading"><div class="eyebrow">Keep it findable</div><h1>Your videos.</h1><p class="muted">Find a favourite, give it a title or check its backup.</p></header>
         <section class="panel"><header class="panel-head"><h2>Your collection</h2><button id="reload" type="button">Reload</button></header><div class="searchbox"><label for="search" class="help">Find a video</label><input id="search" type="search" placeholder="Search titles, tags or links"><div class="filter-grid"><select id="video-filter" aria-label="Filter videos"><option value="">All videos</option><option value="title">Needs a title</option><option value="backup">No backup</option><option value="pinned">Pinned</option></select><select id="source-filter" aria-label="Filter by source"><option value="">Every source</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="direct">Direct video</option></select></div><p id="video-results" class="help"></p></div><div id="entries" aria-live="polite"><div class="skeleton"></div></div></section>
+        <section id="checks-panel" class="panel"><header class="panel-head"><h2>Saved video checks</h2><span id="checks-badge" class="badge">Checking</span></header><div class="panel-body stack"><p>Every saved copy is checked for picture and sound, plays from start to end, and matches its length. Videos with a problem are listed here.</p><p id="checks-status" role="status">Loading checks…</p><div class="actions"><button id="checks-run" type="button">Check all saved videos</button><button id="checks-redownload" type="button" class="primary" hidden>Download all again</button></div><div id="checks-list"></div></div></section>
       </section>
       <section id="add" role="tabpanel" aria-labelledby="tab-add" hidden>
         <header class="page-heading"><div class="eyebrow">One link or a whole handful</div><h1>Make room for more.</h1><p class="muted">Import TikTok posts, or add a YouTube or direct video link.</p></header>
@@ -100,7 +101,7 @@
       </nav>
     </div>
   </main>
-  <footer><span>WokeAreWe · Personal archive</span><span class="release">Release 2026.11.15.9</span></footer>
+  <footer><span>WokeAreWe · Personal archive</span><span class="release">Release 2026.11.15.10</span></footer>
   <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><h2 id="confirm-title">Confirm action</h2><div class="dialog-content"><p id="confirm-text"></p><div id="dialog-message" role="status" aria-live="polite"></div></div><div class="actions"><button id="confirm-cancel" type="button" autofocus>Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></dialog>
 </body>
 </html>

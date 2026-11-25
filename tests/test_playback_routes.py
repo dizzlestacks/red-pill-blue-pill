@@ -137,7 +137,7 @@ class PlaybackRouteTests(unittest.TestCase):
             status, _, body = self.request("GET", f"/api/admin/media/{jid}/status")
             self.assertEqual(status, 200)
             state = json.loads(body)
-            if state["state"] != "processing":
+            if state["state"] != "processing" and state["check"]["state"] not in (None, "checking"):
                 return state
             time.sleep(1)
         self.fail("Preview preparation did not finish")
@@ -177,6 +177,8 @@ class PlaybackRouteTests(unittest.TestCase):
                 seed = self.seed[name]
                 state = self.wait_ready(seed["id"])
                 self.assertEqual(state["state"], "ready", state)
+                self.assertEqual(state["check"]["state"], "ok", state)
+                self.assertTrue(state["check"]["reason"].startswith("Checked: picture (h"), state)
                 self.assertTrue(state["poster"])
                 preview = items[seed["id"]]["preview_url"]
                 self.assertEqual(preview, f"/api/admin/media/{seed['id']}")
@@ -226,6 +228,7 @@ class PlaybackRouteTests(unittest.TestCase):
             self.assertEqual(status, 200, body)
             state = self.wait_ready(seed["id"])
             self.assertEqual(state["state"], "missing")
+            self.assertEqual(state["check"]["state"], "problem")
             self.assertIn("missing", state["reason"])
             self.assertEqual(self.request("GET", f"/api/admin/media/{seed['id']}", headers={"Range": "bytes=0-1"})[0], 404)
         finally:

@@ -15,13 +15,13 @@ import lite_site
 
 FILES = [
     "server.py", "admin_store.py", "media_worker.py", "durable_state.py", "tiktok_watch.py", "watch_provider.py", "back_catalog.py",
-    "disk_storage.py", "playback.py", "tiktok_links.py", "public_sync.py", "public_catalog.py", "public-backups.js", "lite_site.py", "admin.html", "admin.css", "admin.js",
+    "disk_storage.py", "playback.py", "media_check.py", "tiktok_links.py", "public_sync.py", "public_catalog.py", "public-backups.js", "lite_site.py", "admin.html", "admin.css", "admin.js",
     "editor.html", "index.html", "choice.html", "videos.html", "learn.html",
     "readonly.html", "reset.html", "404.html", "videos.js", "themes.css", "backup-player.js",
     "offline.js", "service-worker.js", "videos.json",
     "The-Matrix-Blue-Pill-or-Red-Pill.mp4", "netlify.toml",
     "pi/install.sh", "pi/update.sh", "pi/wokearewe.service", "pi/README.md",
-    "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md", "pi/RELEASE-2026.11.15.7.md", "pi/RELEASE-2026.11.15.8.md", "pi/RELEASE-2026.11.15.9.md",
+    "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md", "pi/RELEASE-2026.11.15.7.md", "pi/RELEASE-2026.11.15.8.md", "pi/RELEASE-2026.11.15.9.md", "pi/RELEASE-2026.11.15.10.md",
     "tests/lite-smoke.cjs", "tests/package.json", "pi/LITE-RELEASE-CHECKS.md", "manual_add.py",
 ]
 

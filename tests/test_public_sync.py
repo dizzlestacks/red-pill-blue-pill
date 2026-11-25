@@ -108,8 +108,8 @@ class SyncTests(TestCase):
         os.environ["PUBLIC_SITE_ORIGIN"]="https://wokearewe.com"
         store.init()
         with store.db() as db:
-            db.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status) VALUES(?,?,?,?,?,?,?,'ready')",("yt:abcdefghijk","private-object",None,1,"sha",1,0))
-            db.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status) VALUES(?,?,?,?,?,?,?,'ready')",("yt:xxxxxxxxxxx","unpublished-private-object",None,1,"other",1,0))
+            db.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status,check_status) VALUES(?,?,?,?,?,?,?,'ready','ok')",("yt:abcdefghijk","private-object",None,1,"sha",1,0))
+            db.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status,check_status) VALUES(?,?,?,?,?,?,?,'ready','ok')",("yt:xxxxxxxxxxx","unpublished-private-object",None,1,"other",1,0))
         http=ThreadingHTTPServer(("127.0.0.1",0),server.Handler)
         thread=threading.Thread(target=http.serve_forever,daemon=True);thread.start()
         try:

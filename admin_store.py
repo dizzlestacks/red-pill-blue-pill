@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.9"
+RELEASE = "2026.11.15.10"
 
 
 def db():
@@ -64,6 +64,8 @@ def init():
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
         import playback
         playback.init(c)
+        import media_check
+        media_check.init(c)
         # Earlier releases used a hashtag-only caption as the title. Unpublished
         # items become "Untitled <post date>" and keep their hashtags as tags.
         for job in c.execute("SELECT id,title,source_date,created FROM jobs WHERE status!='published'").fetchall():
@@ -137,6 +139,8 @@ def overview(worker_alive):
     cat, _ = load_catalog()
     with db() as c:
         jobs = [dict(r) for r in c.execute("SELECT status,title FROM jobs")]
+        problems = c.execute("""SELECT count(*) FROM jobs WHERE status='problem' OR source_key IN
+            (SELECT source_key FROM media WHERE check_status='problem')""").fetchone()[0]
     counts = {}
     for job in jobs:
         counts[job["status"]] = counts.get(job["status"], 0) + 1
@@ -148,6 +152,7 @@ def overview(worker_alive):
         "queue_needs_title": sum(needs_title(j) for j in jobs if j["status"] != "published"),
         "waiting_publish": counts.get("imported", 0),
         "failed_imports": counts.get("failed", 0),
+        "problem_videos": problems,
         "active_imports": sum(counts.get(k, 0) for k in ("queued", "processing", "copying", "waiting for connection")),
         "queue_counts": counts,
         "youtube": {"state": "unavailable", "message": "YouTube watching not available yet"},
@@ -243,6 +248,8 @@ def hydrated():
         if key not in media and v["id"] in matches:
             key = matches[v["id"]]
         m = media.get(key)
+        if m and m.get("check_status") == "problem" and v.get("youtube_id"):
+            m = None  # A saved copy with a known problem (e.g. no sound) never replaces working YouTube playback.
         v["backup_available"] = bool(m)
         v["backup_status"] = "backed up" if m else "not backed up"
         v.pop("backup_url", None)
@@ -307,7 +314,8 @@ def enqueue_unsupported(v, reason):
 
 
 def update_job(jid, **fields):
-    allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts", "add_end_card"}
+    allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts", "add_end_card",
+               "idempotency", "download_attempts", "return_status"}
     if not fields.keys() <= allowed:
         raise ValueError("Invalid job update")
     fields["updated"] = time.time()
@@ -333,6 +341,11 @@ def publish(jid):
             m = c.execute("SELECT * FROM media WHERE source_key=?", (j["source_key"],)).fetchone()
         if not m:
             raise ValueError("No verified permanent copy exists")
+        if m["check_status"] not in ("ok", "accepted"):
+            import media_check
+            st = media_check.state(dict(m))
+            raise ValueError("This video can't be published until its picture and sound check passes. "
+                             + (st["reason"] if st["state"] in ("problem", "pending") else "It is still being checked."))
         if m["play_status"] != "ready":
             import playback
             st = playback.state(m)

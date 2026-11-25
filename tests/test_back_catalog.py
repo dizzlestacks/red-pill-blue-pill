@@ -48,7 +48,7 @@ class BackCatalogueTests(WatchTests):
         store.save_catalog(cat,rev)
         j=store.enqueue(self.post()["url"],title="The truth about our world!",automatic=True)
         with store.db() as c:
-            c.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status) VALUES(?,?,?,?,?,?,?,'ready')",("tt:123456789","test.mp4",None,1,"x",1,time.time()))
+            c.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status,check_status) VALUES(?,?,?,?,?,?,?,'ready','ok')",("tt:123456789","test.mp4",None,1,"x",1,time.time()))
         store.update_job(j["id"],status="imported")
         watch.configure({"auto_publish":True})
         self.assertTrue(store.get_job(j["id"])["auto_publish"])

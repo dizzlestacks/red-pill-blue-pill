@@ -88,8 +88,8 @@ class WatchTests(unittest.TestCase):
             return {}
         def copy(job, filename):
             with store.db() as c:
-                c.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status) VALUES(?,?,?,?,?,?,?,'ready')", (job["source_key"], "verified", None, 1, "hash", 1, 1))
-        with patch.object(worker, "api", side_effect=api), patch.object(worker, "copy_media", side_effect=copy), \
+                c.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status,check_status) VALUES(?,?,?,?,?,?,?,'ready','ok')", (job["source_key"], "verified", None, 1, "hash", 1, 1))
+        with patch.object(worker, "api", side_effect=api), patch.object(worker, "copy_media", side_effect=copy), patch.object(worker.media_check, "verify", return_value={"state": "ok", "code": "", "reason": "Checked (simulated)."}), \
              patch.object(watch_provider.PROVIDER, "end_card_payload", side_effect=lambda p, enabled: dict(p, simulated_end_card=enabled)):
             worker.process(store.get_job(jid))
         self.assertEqual(store.get_job(jid)["status"], "published")
@@ -123,7 +123,7 @@ class WatchTests(unittest.TestCase):
             if path == "/videos/2": return {"status": "done", "outputFilename": "clip.mp4",
                                           "endCards": [{"status": "processing"}]}
             return {}
-        with patch.object(worker, "api", side_effect=api) as calls, patch.object(worker, "copy_media") as copy:
+        with patch.object(worker, "api", side_effect=api) as calls, patch.object(worker, "copy_media") as copy, patch.object(worker.media_check, "verify", return_value={"state": "ok", "code": "", "reason": "Checked (simulated)."}):
             worker.process(store.get_job(jid))
             original = store.get_job(jid)
             worker.process(original)

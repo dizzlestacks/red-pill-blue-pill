@@ -68,7 +68,7 @@
   function list(value) { return Array.isArray(value) ? value.join(', ') : String(value ?? ''); }
   function categories(value) { return [...new Set(String(value).split(',').map(x=>x.trim()).filter(Boolean))]; }
   function tags(value) { return [...new Set(String(value).split(/[\s,]+/).map(x=>x.replace(/^#+/,'').trim()).filter(Boolean))]; }
-  function safeURL(value) { try { const u=new URL(value,location.origin); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
+  function safeURL(value) { if(!value) return ''; try { const u=new URL(value,location.origin); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
   async function api(path, data) {
     const button=pressedButton, controller=new AbortController();
     const wasDisabled=button?.disabled;
@@ -113,15 +113,15 @@
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
     resetForm();
     try {$('first-guide').hidden=localStorage.getItem('admin:guide:phone-2026-11-15')==='seen';} catch {$('first-guide').hidden=false;}
-    await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadOverview()]);
+    await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks()]);
     loadSync();
-    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();},5000);
+    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();},5000);
   }
   async function session() {
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.9');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.10');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -534,11 +534,15 @@
       record.titleInput.disabled=record.busy||(!imported&&locked);record.tagsInput.disabled=record.busy||(!imported&&locked);
       record.save.disabled=record.busy||(!imported&&locked);
       record.reviewStatus.textContent=record.draft.dirty?'You have unsaved review changes.':imported?(needsTitle(item)?'This video needs a useful title before you publish.':'Review the title and tags before publishing.'):locked?'Import in progress. You can review it when it finishes.':'You can save a title and tags while this import waits.';
-      const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty]);
+      const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty,item.can_keep_silent]);
       if(record.controlsSignature===controlsSignature)continue;
       record.controlsSignature=controlsSignature;record.controls.replaceChildren();
       const retry=action('Retry import',()=>queueMutation(record,'retry',{}),record.busy);
       if(['failed','blocked','waiting for connection'].includes(item.status)) record.controls.append(retry);
+      if(item.status==='problem') {
+        const again=action('Download again',()=>queueMutation(record,'redownload',{}),record.busy); again.className='primary'; record.controls.append(again);
+        if(item.can_keep_silent) record.controls.append(action('Keep without sound',async()=>{ if(await confirmAction('Keep this video without sound?','Only do this if the original post really has no sound. It will be checked again and can then be published.','Keep without sound')) await queueMutation(record,'keepsilent',{}); },record.busy));
+      }
       if(imported) { const publish=action('Publish to collection',async()=>{ if(await confirmAction('Publish this import?','This adds the imported video to your public catalogue with the saved review title and hashtags.','Publish video')) await queueMutation(record,'publish',{}); },record.busy||record.draft.dirty); publish.className='primary'; publish.dataset.publish='true'; record.controls.append(publish); }
       if(published) record.controls.append(node('span','Published to collection','help'));
     }
@@ -557,7 +561,7 @@
     retry.addEventListener('click',()=>retryPreview(record,retry,status));
     const show=(kind,reason)=>{ status.textContent=previewMessage(kind,reason); status.hidden=false; retry.hidden=kind==='processing'; };
     if(st==='ready') {
-      const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.setAttribute('playsinline','');
+      const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.setAttribute('playsinline',''); video.muted=false; video.defaultMuted=false;
       if(poster) video.poster=poster;
       video.src=url+(record.previewNonce?`?r=${record.previewNonce}`:'');
       video.addEventListener('error',async()=>{
@@ -595,7 +599,7 @@
   function requestLocked(item) { return item.request_locked===true || item.payload!=null || item.upstream_id!=null; }
   async function queueMutation(record,operation,data,onSuccess) {
     if(record.busy) return; record.busy=true; record.el.querySelectorAll('button,input').forEach(b=>b.disabled=true);
-    try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='publish'?'Import published.':operation==='review'?'Review saved.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
+    try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='publish'?'Import published.':operation==='review'?'Review saved.':operation==='redownload'?'Downloading again. It will be checked before it can be published.':operation==='keepsilent'?'Kept without sound. Checking it plays.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
     catch(error) { notice(error.message,true); } finally { record.busy=false;record.controlsSignature=null; await loadQueue(true); record.save.disabled=requestLocked(record.item)&&record.item.status!=='imported';record.titleInput.disabled=record.save.disabled;record.tagsInput.disabled=record.save.disabled;record.providerDefault.disabled=requestLocked(record.item);record.endCard.disabled=requestLocked(record.item)||record.providerDefault.checked; }
   }
   async function loadSync(){
@@ -613,15 +617,15 @@
     catch(error){notice(error.message,true);}
   });
   function plainStatus(value) {
-    const labels={imported:'Ready to publish',published:'Published',queued:'Waiting to start',downloading:'Downloading',processing:'Preparing video',submitted:'Preparing video',failed:'Needs help',blocked:'Needs setup','waiting for connection':'Waiting for connection',done:'Finished',paused:'Paused',running:'Importing',synced:'Up to date',pending:'Waiting to sync',off:'Off',watching:'Watching for posts',unsupported:'Not available yet',unavailable:'Unavailable',ready:'Ready',ok:'Ready','not set up':'Not set up','duplicate skipped':'Already in your collection'};
+    const labels={problem:'Problem',imported:'Ready to publish',published:'Published',queued:'Waiting to start',downloading:'Downloading',processing:'Preparing video',submitted:'Preparing video',failed:'Needs help',blocked:'Needs setup','waiting for connection':'Waiting for connection',done:'Finished',paused:'Paused',running:'Importing',synced:'Up to date',pending:'Waiting to sync',off:'Off',watching:'Watching for posts',unsupported:'Not available yet',unavailable:'Unavailable',ready:'Ready',ok:'Ready','not set up':'Not set up','duplicate skipped':'Already in your collection'};
     return labels[value]||String(value||'Not checked yet').replace(/[_-]/g,' ').replace(/^./,s=>s.toUpperCase());
   }
-  function isActive(item) {return !['imported','published','failed','blocked','waiting for connection','duplicate skipped','unsupported','skipped','matched','complete','completed'].includes(item.status);}
+  function isActive(item) {return !['imported','published','failed','problem','blocked','waiting for connection','duplicate skipped','unsupported','skipped','matched','complete','completed'].includes(item.status);}
   function filterQueue(){
     const filter=$('queue-filter').value;let visible=0;
     for(const record of state.queue.values()){
       const item=record.item;
-      record.el.hidden=filter==='review'?item.status!=='imported':filter==='failed'?!['failed','blocked','waiting for connection'].includes(item.status):filter==='active'?!isActive(item):false;
+      record.el.hidden=filter==='review'?item.status!=='imported':filter==='failed'?!['failed','blocked','waiting for connection','problem'].includes(item.status):filter==='active'?!isActive(item):false;
       if(!record.el.hidden)visible++;
     }
     let empty=$('queue-filter-empty');
@@ -659,6 +663,7 @@
     attentionItem(waiting,'Awaiting publish','Review imported videos before they go public.',()=>goToReview('review'));
     attentionItem(titles,'Need a title','Give these videos a name you will recognise.',()=>{openSection('videos');$('video-filter').value='title';renderEntries();});
     if(overview?.queue_needs_title)attentionItem(overview.queue_needs_title,'Imports need a title','Name these imports during review.',()=>goToReview('review'));
+    attentionItem(overview?.problem_videos??null,'Videos with a problem','No sound, damaged or incomplete copies. Download them again.',()=>{openSection('videos');$('checks-panel').scrollIntoView({block:'start'});loadChecks();});
     attentionItem(failed,'Imports need help','Check the reason and try again when ready.',()=>goToReview('failed'));
     attentionItem(setup,'Setup to finish','Check import connection, storage, NAS and sync.',()=>openSection('settings'));
     if(!attention.childElementCount)attention.append(node('h3','Nothing needs you right now.'),node('p','Your current imports and collection have no outstanding tasks.','help'));
@@ -682,7 +687,41 @@
     healthRow('TikTok',w?.error?'error':w?.enabled&&w?.status==='watching'?'ok':'warn',q&&!q.connection_configured?'Import key missing. Set YOU2MP3_API_KEY on the Pi.':!w?'Not checked.':w.error?w.error:w.enabled?'Watching is on.':'Watching is off.','Options',()=>openSection('automatic'));
     healthRow('YouTube','warn',overview?.youtube?.message||'Watching is not available yet.','Details',()=>openSection('automatic'));
   }
-  $('home-refresh').addEventListener('click',async()=>{await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadSync(),loadOverview()]);});
+  $('home-refresh').addEventListener('click',async()=>{await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadSync(),loadOverview(),loadChecks()]);});
+  let checksTimer=null,checksSignature='';
+  function renderChecks(data){
+    const signature=JSON.stringify(data);if(signature===checksSignature)return;checksSignature=signature;
+    const problems=data.problems||[],waiting=problems.filter(p=>!p.redownloading);
+    $('checks-badge').textContent=data.running?'Checking':problems.length?`${problems.length} need help`:'All good';
+    const when=data.run?.finished?' Last full check finished '+new Date(data.run.finished*1000).toLocaleString()+'.':'';
+    $('checks-status').textContent=data.total===0?'No saved copies yet.':data.running?`Checking ${data.checked} of ${data.total} saved videos. Long videos take a few minutes each on the Pi.`:problems.length?`${problems.length} of ${data.total} saved videos have a problem.${when}`:`All ${data.total} saved videos have working picture and sound.${when}`;
+    $('checks-run').disabled=data.running;
+    $('checks-redownload').hidden=!waiting.length;$('checks-redownload').textContent=waiting.length>1?`Download all ${waiting.length} again`:'Download it again';
+    const list=$('checks-list');list.replaceChildren();
+    for(const p of problems){
+      const row=node('article',undefined,'check-row'),head=node('div',undefined,'entry-top');
+      head.append(node('h3',p.title||'Untitled'),node('span',p.redownloading?'Downloading again':p.published?'Published':'Not published','badge'));
+      row.append(head,node('p',p.reason,'help'));
+      if(p.published&&!p.redownloading)row.append(node('p','Still public with the current copy until a checked one replaces it.','help'));
+      const buttons=node('div',undefined,'actions');
+      if(p.job_id&&!p.redownloading)buttons.append(action('Download again',()=>redownload({job_ids:[p.job_id]})));
+      if(p.job_id&&p.can_keep_silent)buttons.append(action('Keep without sound',async()=>{if(await confirmAction('Keep this video without sound?','Only do this if the original post really has no sound.','Keep without sound')){try{await api(`/api/admin/queue/${encodeURIComponent(p.job_id)}/keepsilent`,{});notice('Kept without sound. Checking it plays.');await loadChecks();}catch(error){notice(error.message,true);}}}));
+      if(buttons.childElementCount)row.append(buttons);
+      list.append(row);
+    }
+  }
+  async function loadChecks(){
+    if(!state.signedIn)return;
+    clearTimeout(checksTimer);checksTimer=null;
+    try{const data=await api('/api/admin/checks');renderChecks(data);if(data.running)checksTimer=setTimeout(loadChecks,15000);}
+    catch(error){$('checks-status').textContent='Checks could not be loaded: '+error.message;}
+  }
+  async function redownload(body){
+    try{const result=await api('/api/admin/checks/redownload',body);notice(result.started?`Downloading ${result.started} ${result.started===1?'video':'videos'} again. Each is checked before it replaces the saved copy.`:'Nothing to download again.');renderChecks(result);await loadQueue(true);}
+    catch(error){notice(error.message,true);}
+  }
+  $('checks-run').addEventListener('click',async()=>{if(!await confirmAction('Check all saved videos?','Every saved copy is played through and its sound is checked, one at a time. This can take a while on the Pi; you can keep using admin.','Start checking'))return;try{renderChecks(await api('/api/admin/checks/run',{}));notice('Checking all saved videos.');loadChecks();}catch(error){notice(error.message,true);}});
+  $('checks-redownload').addEventListener('click',async()=>{if(await confirmAction('Download these videos again?','Each is downloaded again and checked. Published videos stay public with their current copy until a checked one replaces it.','Download again'))await redownload({all:true});});
   document.addEventListener('focusin',updateViewport);
   document.addEventListener('focusout',()=>setTimeout(updateViewport,100));
   session();
