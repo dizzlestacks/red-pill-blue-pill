@@ -19,7 +19,7 @@
     container.dataset.loaded = '1';
     container.replaceChildren();
     const player = document.createElement('video');
-    player.src = video.backup_url; player.controls = true; player.playsInline = true;
+    player.src = video.backup_url; if (video.poster_url) player.poster = video.poster_url; player.controls = true; player.playsInline = true;
     player.autoplay = true; player.preload = 'metadata';
     player.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000';
     container.append(player);

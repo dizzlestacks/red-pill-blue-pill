@@ -29,7 +29,7 @@ def limited_catalog(catalog):
         if p.scheme == "https" and p.hostname and not p.username and not p.password and not p.path and not p.query and not p.fragment:
             result["public_pi_url"] = origin
     for video in result.get("videos", []):
-        for name in ("backup", "backup_url", "backup_available", "backup_status"):
+        for name in ("backup", "backup_url", "backup_available", "backup_status", "poster_url"):
             video.pop(name, None)
         video.pop("url", None)
         if not video.get("youtube_id") and not video.get("tiktok_url"):

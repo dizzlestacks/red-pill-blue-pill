@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.7"
+RELEASE = "2026.11.15.8"
 
 
 def db():
@@ -62,6 +62,14 @@ def init():
         }.items():
             if name not in columns:
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
+        import playback
+        playback.init(c)
+        # Earlier releases used a hashtag-only caption as the title. Unpublished
+        # items become "Untitled <post date>" and keep their hashtags as tags.
+        for job in c.execute("SELECT id,title,source_date,created FROM jobs WHERE status!='published'").fetchall():
+            if hashtags_only(job["title"]):
+                date = (job["source_date"] or "")[:10] or time.strftime("%Y-%m-%d", time.gmtime(job["created"]))
+                c.execute("UPDATE jobs SET title=? WHERE id=?", ("Untitled " + date, job["id"]))
     import tiktok_watch
     tiktok_watch.init()
     import back_catalog
@@ -113,9 +121,15 @@ def load_catalog():
     return cat, hashlib.sha256(raw).hexdigest()
 
 
+def hashtags_only(title):
+    """True when a title is empty apart from #hashtags and punctuation."""
+    text = re.sub(r"(?<!\w)#\w+", "", str(title or ""))
+    return "#" in str(title or "") and not re.search(r"\w", text)
+
+
 def needs_title(video):
     title = str(video.get("title") or "").strip()
-    return bool(video.get("needs_title")) or not title or title in ("Untitled clip", "Untitled video") or bool(
+    return bool(video.get("needs_title")) or not title or hashtags_only(title) or title in ("Untitled clip", "Untitled video") or bool(
         re.fullmatch(r"Untitled(?: \d{4}-\d{2}-\d{2})?|TikTok post \d+ \(caption unavailable\)", title))
 
 
@@ -232,8 +246,11 @@ def hydrated():
         v["backup_available"] = bool(m)
         v["backup_status"] = "backed up" if m else "not backed up"
         v.pop("backup_url", None)
+        v.pop("poster_url", None)
         if m:
             v["backup_url"] = "/media/" + key.replace(":", "-")
+            if m.get("poster_key"):
+                v["poster_url"] = v["backup_url"] + "/poster"
             count += 1
     return cat, rev, count
 
@@ -316,6 +333,11 @@ def publish(jid):
             m = c.execute("SELECT * FROM media WHERE source_key=?", (j["source_key"],)).fetchone()
         if not m:
             raise ValueError("No verified permanent copy exists")
+        if m["play_status"] != "ready":
+            import playback
+            st = playback.state(m)
+            raise ValueError("This video can't be published until its preview plays. "
+                             + (st["reason"] or "It is still being checked.") + " Use Retry preview.")
         cat, revision = load_catalog()
         import back_catalog
         with db() as c:

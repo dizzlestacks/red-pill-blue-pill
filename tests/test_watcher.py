@@ -88,7 +88,7 @@ class WatchTests(unittest.TestCase):
             return {}
         def copy(job, filename):
             with store.db() as c:
-                c.execute("INSERT INTO media VALUES(?,?,?,?,?,?,?)", (job["source_key"], "verified", None, 1, "hash", 1, 1))
+                c.execute("INSERT INTO media(source_key,object_key,poster_key,size,sha256,duration,created,play_status) VALUES(?,?,?,?,?,?,?,'ready')", (job["source_key"], "verified", None, 1, "hash", 1, 1))
         with patch.object(worker, "api", side_effect=api), patch.object(worker, "copy_media", side_effect=copy), \
              patch.object(watch_provider.PROVIDER, "end_card_payload", side_effect=lambda p, enabled: dict(p, simulated_end_card=enabled)):
             worker.process(store.get_job(jid))

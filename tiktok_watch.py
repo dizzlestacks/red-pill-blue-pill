@@ -174,8 +174,9 @@ def normalize(post, profile):
     except ValueError:
         raise ValueError("Profile publication dates must include a timezone")
     title = re.sub(r"(?<!\w)#[\w]+", "", caption).strip()
-    title = " ".join(title.split())[:200] or caption.strip()[:200]
-    if not title:
+    title = " ".join(title.split())[:200]
+    if not re.search(r"\w", title):
+        # A caption made only of hashtags is untitled; the hashtags go to the tags field.
         title = "Untitled " + (date[:10] if date else time.strftime("%Y-%m-%d", time.gmtime()))
     tags = list(dict.fromkeys(t.lstrip("#").strip() for t in tags + re.findall(r"#(\w+)", caption) if t.strip("# ")))
     return dict(url=url, title=title, tags=tags, source_date=date or None, metadata=post)

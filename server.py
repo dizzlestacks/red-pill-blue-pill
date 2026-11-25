@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.6."""
+"""Matrix Video Hub / admin release 2026.11.15.8."""
 import hashlib
 import hmac
 import http.cookies
@@ -22,6 +22,7 @@ import tiktok_links
 import public_sync
 import public_catalog
 import tiktok_watch
+import playback
 
 SESSIONS = {}
 ATTEMPTS = []
@@ -149,7 +150,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     ready, message = worker.storage_status()
                     with store.db() as c:
                         rows = [dict(r) for r in c.execute("SELECT * FROM jobs ORDER BY created DESC")]
+                        media = {m["source_key"]: dict(m) for m in c.execute("SELECT * FROM media")}
                         for r in rows:
+                            m = media.get(r["source_key"])
+                            if r["status"] in ("imported", "published"):
+                                st = playback.state(m)
+                                r["preview_state"], r["preview_reason"] = st["state"], st["reason"]
+                                r["poster_url"] = "/api/admin/media/" + r["id"] + "/poster" if st["poster"] else None
                             r["needs_title"] = store.needs_title(r)
                             r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
@@ -160,16 +167,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply({"items": rows, "connection_configured": bool(os.environ.get("YOU2MP3_API_KEY")),
                                        "storage_ready": ready, "storage_message": message,
                                        "state_storage_message": " ".join(filter(None, [durable_state.LAST_ERROR, disk_storage.MIRROR_ERROR, lite_site.LAST_ERROR]))})
-                if path.startswith("/api/admin/media/"):
-                    j = store.get_job(path.rsplit("/", 1)[1])
+                m = re.fullmatch(r"/api/admin/media/([a-f0-9]+)(?:/(poster|status))?", path)
+                if m:
+                    j = store.get_job(m[1])
+                    if m[2] == "status":
+                        return self.reply(playback.checked_state(j["source_key"]))
+                    if m[2] == "poster":
+                        return self.serve_poster(j["source_key"])
                     return self.serve_media(j["source_key"], head=head)
                 return self.reply({"error": "Not found"}, 404)
             if path.startswith("/media/"):
-                slug = path.split("/")[2]
+                parts = path.split("/")
+                slug = parts[2]
                 key = slug.replace("tt-", "tt:", 1) if slug.startswith("tt-") else slug.replace("yt-", "yt:", 1)
                 cat, _, _ = store.hydrated()
                 if not any(v.get("backup_url") == "/media/" + slug for v in cat["videos"]):
                     return self.reply({"error": "Not published"}, 404)
+                if len(parts) > 3 and parts[3] == "poster":
+                    return self.serve_poster(key)
                 return self.serve_media(key, download=path.endswith("/download"), head=head)
             if path == "/admin":
                 self.path = "/admin.html"
@@ -237,36 +252,82 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(chunk)
                     remaining -= len(chunk)
 
+    def local_object(self, object_key, size, sha256):
+        """Readable local path for a stored object; disk storage is read in place, never copied."""
+        client = worker.storage_client()
+        if hasattr(client, "path"):
+            file = client.path(object_key)
+            if not file.is_file():
+                raise FileNotFoundError("Saved file missing")
+            if file.stat().st_size != size:
+                raise FileNotFoundError("Saved file incomplete")
+            return file
+        cache = Path(tempfile.gettempdir()) / "waw-playback"
+        cache.mkdir(exist_ok=True)
+        file = cache / (sha256 + Path(object_key).suffix)
+        with MEDIA_LOCK:
+            if not file.exists() or file.stat().st_size != size:
+                tmp = file.with_suffix(".tmp")
+                try:
+                    client.download_to_filename(object_key, str(tmp))
+                    digest = hashlib.sha256()
+                    with tmp.open("rb") as f:
+                        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                            digest.update(chunk)
+                    if tmp.stat().st_size != size or digest.hexdigest() != sha256:
+                        raise ValueError("Storage checksum mismatch")
+                    os.replace(tmp, file)
+                except Exception:
+                    tmp.unlink(missing_ok=True)
+                    raise
+        return file
+
+    def serve_poster(self, key):
+        with store.db() as c:
+            row = c.execute("SELECT poster_key FROM media WHERE source_key=?", (key,)).fetchone()
+        if not row or not row["poster_key"]:
+            return self.reply({"error": "No poster image"}, 404)
+        try:
+            client = worker.storage_client()
+            if hasattr(client, "path"):
+                data = client.path(row["poster_key"]).read_bytes()
+            else:
+                data = client.download_as_bytes(row["poster_key"])
+        except Exception:
+            return self.reply({"error": "Poster image unavailable"}, 404)
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "private, max-age=3600")
+        self.end_headers()
+        self.wfile.write(data)
+
     def serve_media(self, key, download=False, head=False):
         with store.db() as c:
             row = c.execute("SELECT * FROM media WHERE source_key=?", (key,)).fetchone()
         if not row:
             return self.reply({"error": "Backup unavailable"}, 404)
-        cache = Path(tempfile.gettempdir()) / "waw-playback"
-        cache.mkdir(exist_ok=True)
-        file = cache / (row["sha256"] + ".mp4")
-        with MEDIA_LOCK:
-            if not file.exists() or file.stat().st_size != row["size"]:
-                tmp = file.with_suffix(".tmp")
-                try:
-                    worker.storage_client().download_to_filename(row["object_key"], str(tmp))
-                    digest = hashlib.sha256()
-                    with tmp.open("rb") as f:
-                        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-                            digest.update(chunk)
-                    if tmp.stat().st_size != row["size"] or digest.hexdigest() != row["sha256"]:
-                        raise ValueError("Storage checksum mismatch")
-                    os.replace(tmp, file)
-                except Exception:
-                    tmp.unlink(missing_ok=True)
-                    return self.reply({"error": "Permanent backup storage is currently unavailable"}, 503)
+        row = dict(row)
+        # Players get the browser-friendly version; downloads always get the untouched original.
+        if not download and row.get("play_status") == "ready" and row.get("play_key"):
+            object_key, size, sha256 = row["play_key"], row["play_size"], row["play_sha256"]
+        else:
+            object_key, size, sha256 = row["object_key"], row["size"], row["sha256"]
+        try:
+            file = self.local_object(object_key, size, sha256)
+        except FileNotFoundError:
+            return self.reply({"error": "The saved video file is missing"}, 404)
+        except Exception:
+            return self.reply({"error": "Permanent backup storage is currently unavailable"}, 503)
+        row = {"size": size}
         size, start, end = row["size"], 0, row["size"] - 1
         ranged = self.headers.get("Range")
         if ranged:
             m = re.fullmatch(r"bytes=(\d*)-(\d*)", ranged)
             if not m or not any(m.groups()):
-                return self.reply({"error": "Invalid range"}, 416)
-            if m[1]:
+                m = None
+                start = size
+            elif m[1]:
                 start = int(m[1])
                 end = min(end, int(m[2])) if m[2] else end
             else:
@@ -281,7 +342,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "video/mp4")
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
-        self.send_header("Cache-Control", "private, max-age=3600")
+        # Revalidate: the file behind this address changes when a browser-friendly version is made.
+        self.send_header("Cache-Control", "private, no-cache")
+        self.send_header("ETag", '"' + sha256 + '"')
         self.send_header("Content-Disposition", ('attachment' if download else 'inline') + f'; filename="wokearewe-{key.replace(":", "-")}.mp4"')
         if ranged:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
@@ -407,6 +470,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         store.update_job(jid, **updates)
                 elif action == "publish":
                     store.publish(jid)
+                elif action == "preview":
+                    if job["status"] not in ("imported", "published"):
+                        raise ValueError("This item has no saved copy yet")
+                    if playback.state(job["source_key"])["state"] != "processing":
+                        # Always re-check the saved file: a retry is how a missing/replaced file is noticed.
+                        playback.start(job["source_key"], force=True)
+                    return self.reply({"ok": True, "preview": playback.state(job["source_key"])})
                 elif action == "retry":
                     if job["status"] not in ("failed", "blocked", "waiting for connection"):
                         raise ValueError("Only blocked, failed or waiting items can be retried")
@@ -445,6 +515,7 @@ def main():
     global worker_thread
     worker_thread = threading.Thread(target=worker.run, daemon=True)
     worker_thread.start()
+    threading.Thread(target=playback.backfill_loop, daemon=True, name="playback-backfill").start()
     threading.Thread(target=public_sync.run, daemon=True).start()
     threading.Thread(target=tiktok_watch.run, daemon=True).start()
     threading.Thread(target=supervise_worker, daemon=True).start()

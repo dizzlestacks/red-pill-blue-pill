@@ -20,7 +20,7 @@
       }
       if('caches' in window)await Promise.all((await caches.keys()).filter(n=>n.startsWith('matrix-')).map(n=>caches.delete(n)));
       try {localStorage.removeItem('matrix:public-offline');localStorage.removeItem('videosCacheV4');}catch{}
-      const url=new URL(location.href),version=window.MATRIX_BUILD?.commit||'2026.11.15.7';
+      const url=new URL(location.href),version=window.MATRIX_BUILD?.commit||'2026.11.15.8';
       if(navigator.serviceWorker?.controller){
         if(url.searchParams.get('matrix-refresh')!==version){
           url.searchParams.set('matrix-refresh',version);location.replace(url.href);

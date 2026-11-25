@@ -119,7 +119,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.7');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.8');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -517,8 +517,7 @@
       record.providerDefault.disabled=locked||record.busy;
       record.endCard.disabled=locked||record.busy||record.providerDefault.checked;
       record.endHelp.textContent=locked&&item.add_end_card!==false&&item.add_end_card!==0?'Previously submitted request: it may include an end card. Its request is preserved.':'No end card will be added to this TikTok import.';
-      const previewURL=safeURL(item.preview_url);
-      if(previewURL!==record.previewURL) { record.preview.replaceChildren(); record.previewURL=previewURL; if(previewURL) { const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.src=previewURL; record.preview.append(video); video.addEventListener('error',()=>{ if(!record.preview.querySelector('p')) record.preview.append(node('p','Media preview unavailable. Retry the import if the file could not be retrieved.','help')); }); } }
+      renderPreview(record,item);
       const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=published||item.status==='duplicate skipped';
       record.titleInput.required=imported;
       record.titleInput.disabled=record.busy||(!imported&&locked);record.tagsInput.disabled=record.busy||(!imported&&locked);
@@ -533,6 +532,54 @@
       if(published) record.controls.append(node('span','Published to collection','help'));
     }
     for(const [key,record] of state.queue) if(!present.has(key)) {record.el.remove();state.queue.delete(key);state.drafts.delete(key);}
+  }
+  const PREVIEW_LABEL={processing:'Still processing',missing:'File missing',unsupported:'Format not supported',failed:'Preview could not be prepared',connection:'Connection problem'};
+  function previewMessage(kind,reason) { return `${PREVIEW_LABEL[kind]||'Preview unavailable'}: ${reason||'No further details were reported.'}`; }
+  function renderPreview(record,item) {
+    const url=safeURL(item.preview_url), st=item.preview_state||'processing';
+    const signature=JSON.stringify([url,st,item.preview_reason||'',item.poster_url||'',record.previewNonce||0]);
+    if(signature===record.previewSignature) return;
+    record.previewSignature=signature; record.preview.replaceChildren(); record.preview.className='queue-preview';
+    if(!url) return;
+    const poster=safeURL(item.poster_url), status=node('p','', 'help preview-status'), retry=node('button','Retry preview','preview-retry');
+    status.setAttribute('role','status'); retry.type='button'; retry.hidden=true;
+    retry.addEventListener('click',()=>retryPreview(record,retry,status));
+    const show=(kind,reason)=>{ status.textContent=previewMessage(kind,reason); status.hidden=false; retry.hidden=kind==='processing'; };
+    if(st==='ready') {
+      const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.setAttribute('playsinline','');
+      if(poster) video.poster=poster;
+      video.src=url+(record.previewNonce?`?r=${record.previewNonce}`:'');
+      video.addEventListener('error',async()=>{
+        // The player can't say why it failed, so ask the Pi what it knows about this file.
+        try { const r=await fetch(url+'/status',{credentials:'same-origin',cache:'no-store'}); const body=await r.json().catch(()=>({}));
+          if(r.status===401) show('connection','Your sign-in has expired. Sign in again to watch the preview.');
+          else if(!r.ok) show('connection',body.error||`The Pi answered with an error (${r.status}).`);
+          else if(body.state==='ready') show('connection','The video could not be loaded from the Pi. Check your connection and retry the preview.');
+          else show(body.state,body.reason);
+        } catch { show('connection','Cannot reach the Pi to load the video. Check your connection and retry the preview.'); }
+      });
+      record.preview.append(video);
+      status.hidden=true;
+    } else {
+      if(poster) { const img=node('img'); img.src=poster; img.alt='Poster frame of this import'; img.className='preview-poster'; record.preview.append(img); }
+      show(st,item.preview_reason);
+    }
+    record.preview.append(status,retry);
+  }
+  async function retryPreview(record,button,status) {
+    if(button.disabled) return;
+    button.disabled=true; button.setAttribute('aria-busy','true'); button.textContent='Retrying…';
+    status.hidden=false; status.textContent='Checking the saved file and preparing the preview. This can take a few minutes for long videos.';
+    try {
+      const result=await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/preview`,{});
+      record.previewNonce=Date.now();
+      Object.assign(record.item,{preview_state:result.preview?.state,preview_reason:result.preview?.reason});
+      renderPreview(record,record.item);
+      await loadQueue(true);
+    } catch(error) {
+      button.disabled=false; button.removeAttribute('aria-busy'); button.textContent='Retry preview';
+      status.textContent=previewMessage('connection',error.message);
+    }
   }
   function requestLocked(item) { return item.request_locked===true || item.payload!=null || item.upstream_id!=null; }
   async function queueMutation(record,operation,data,onSuccess) {

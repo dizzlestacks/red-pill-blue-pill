@@ -220,9 +220,9 @@
     if (v.url || v.tiktok_url) {
       return `
         <div class="thumb-wrap" data-key="${escapeAttr(key)}" data-type="direct" role="button" tabindex="0" aria-label="Play video">
-          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;">
+          ${v.poster_url ? `<img src="${escapeAttr(v.poster_url)}" alt="" loading="lazy"><div class="thumb-badge">▶ Tap to play</div>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;">
             ▶ Tap to play
-          </div>
+          </div>`}
         </div>
       `;
     }
@@ -246,7 +246,8 @@
 
     if (v.url) {
       const auto = autoplay ? " autoplay" : "";
-      return `<video src="${escapeAttr(v.url)}" controls${auto} playsinline preload="metadata"></video>`;
+      const poster = v.poster_url ? ` poster="${escapeAttr(v.poster_url)}"` : "";
+      return `<video src="${escapeAttr(v.url)}"${poster} controls${auto} playsinline preload="metadata"></video>`;
     }
 
     return `<div class="meta-line">No source</div>`;

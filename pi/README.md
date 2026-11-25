@@ -212,3 +212,12 @@ this does not automatically change DNS or redirect an unreachable Pi.
 With no internet at all, cached pages/catalogue remain visible, but YouTube cannot
 play. Users may see browser-specific restrictions for YouTube embeds under
 file://; Open on YouTube remains available.
+
+## Video previews (from 2026.11.15.8)
+
+TikTok downloads can arrive in formats iPhones refuse. Each saved video is
+checked; when needed the Pi makes a browser-friendly copy (H.264 + AAC) next to
+the untouched original. Older saved videos are converted in the background
+after updating. Re-encoding HEVC on a Pi takes several minutes per minute of
+video, and the copy needs extra space in the data folder (the free-space guard
+applies). If a preview can't play, /admin shows why with a "Retry preview" button.

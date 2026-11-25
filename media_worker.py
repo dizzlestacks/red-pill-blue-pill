@@ -159,7 +159,8 @@ def copy_media(job, filename):
         except Exception:
             poster_key = None
         with store.db() as c:
-            c.execute("INSERT OR REPLACE INTO media VALUES(?,?,?,?,?,?,?)",
+            c.execute("""INSERT OR REPLACE INTO media
+                (source_key,object_key,poster_key,size,sha256,duration,created) VALUES(?,?,?,?,?,?,?)""",
                       (job["source_key"], object_key, poster_key, size, digest.hexdigest(), duration, time.time()))
 
 
@@ -230,6 +231,13 @@ def process(job):
                 return
             store.update_job(job["id"], status="copying", reason="Verifying video and copying to permanent storage")
             copy_media(job, result["outputFilename"])
+            import playback
+            store.update_job(job["id"], status="copying", reason="Preparing a version that plays in every browser")
+            preview = playback.prepare(job["source_key"])
+            if preview["state"] != "ready":
+                store.update_job(job["id"], status="imported",
+                                 reason="Saved, but the preview isn't playable yet: " + preview["reason"])
+                return
             store.update_job(job["id"], status="imported", reason="Verified permanent copy; ready for review")
             if job.get("automatic") and job.get("auto_publish"):
                 store.publish(job["id"])
@@ -268,7 +276,8 @@ def run():
         try:
             with store.db() as c:
                 job = c.execute("""SELECT * FROM jobs WHERE status IN ('queued','waiting for connection','processing','copying')
-                  OR (status='imported' AND automatic=1 AND auto_publish=1)
+                  OR (status='imported' AND automatic=1 AND auto_publish=1
+                      AND source_key IN (SELECT source_key FROM media WHERE play_status='ready'))
                   OR (status='blocked' AND kind!='unsupported' AND updated < ? AND
                   (reason LIKE 'This connection is TikTok-only%' OR reason LIKE 'App Storage%' OR reason LIKE 'Storage unavailable%'
                    OR reason LIKE 'Imports paused:%' OR reason LIKE 'Per-request end cards%'))
