@@ -10,7 +10,7 @@
 const {chromium}=require('playwright'),{spawn}=require('child_process');
 const assert=require('node:assert/strict'),fs=require('node:fs');
 const arg=n=>process.argv[process.argv.indexOf(n)+1];
-const RELEASE='2026.11.15.15';
+const RELEASE='2026.11.15.16';
 (async()=>{
  let server;const remote=process.argv.includes('--url');
  const base=remote?arg('--url').replace(/\/$/,''):'http://127.0.0.1:18766';

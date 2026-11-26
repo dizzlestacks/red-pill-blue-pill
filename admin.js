@@ -158,7 +158,7 @@
     document.querySelector('main').prepend($('message'));
     state.overview=null;state.items=[];state.queueData=null;state.sync=null;homeSignature='';
     if($('confirm-dialog').open) finishConfirm(false);
-    window.WAWPublish?.clear(); state.watcher=null; state.watcherDirty=false; $('watcher-form').reset(); watcherControls();
+    window.WAWPublish?.clear(); window.WAWTitles?.clear(); state.watcher=null; state.watcherDirty=false; $('watcher-form').reset(); watcherControls();
     authGeneration++; clearInterval(state.poll); state.poll=null; state.signedIn=false; state.csrf=''; state.catalog=null; state.revision=null; state.queue.clear(); state.drafts.clear(); state.editing=null; state.stale=false; state.connection=false; state.storage=false;
     openSection('home');
     $('console').hidden=true; $('logout').hidden=true; $('login').hidden=false; $('entries').replaceChildren(); $('queue').replaceChildren(); $('raw').value=''; $('import-urls').value=''; $('video-form').reset(); resetForm(); $('password').value=''; $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='You are signed out.'; updateControls();
@@ -167,7 +167,7 @@
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
     resetForm();
     try {$('first-guide').hidden=localStorage.getItem('admin:guide:phone-2026-11-15')==='seen';} catch {$('first-guide').hidden=false;}
-    await Promise.allSettled([loadSourceDefaults().then(loadCatalog),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube(),window.WAWPublish?.load()]);
+    await Promise.allSettled([loadSourceDefaults().then(loadCatalog),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube(),window.WAWPublish?.load(),window.WAWTitles?.load()]);
     loadSync();
     clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();if(++state.ticks%6===0)loadYouTube();window.WAWPublish?.tick();},5000);
   }
@@ -175,7 +175,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.15');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.16');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -244,7 +244,7 @@
       if(filter==='title'&&!needsTitle(v)||filter==='backup'&&v.backup_available===true||filter==='pinned'&&!v.pinned||source&&videoSource(v)!==source)return;
       if(query && ![v.title,list(v.category),list(v.tags),v.url,v.youtube_id,v.notes].join(' ').toLowerCase().includes(query)) return;
       count++; shownIds.push(String(v.id)); const row=node('article',undefined,'entry');
-      if(state.bulk.on&&v.id!=null) { const id=String(v.id),pick=node('label',undefined,'bulk-pick'),box=node('input'); box.type='checkbox'; box.checked=state.bulk.ids.has(id); box.setAttribute('aria-label','Select '+displayTitle(v)); box.addEventListener('change',()=>{ if(box.checked) state.bulk.ids.add(id); else state.bulk.ids.delete(id); row.classList.toggle('selected',box.checked); updateBulk(); }); pick.append(box,node('span','Select')); row.classList.toggle('selected',box.checked); row.append(pick); } const top=node('div',undefined,'entry-top'); const heading=node('div'); heading.append(node('h3',displayTitle(v))); const bs=node('div',undefined,'badges'); if(needsTitle(v))bs.append(node('span','Needs a title','badge')); if(v.pinned) bs.append(node('span','Pinned','badge')); if(v.featured) bs.append(node('span','Featured','badge')); heading.append(bs); top.append(heading,node('span',v.backup_available===true?'Backed up':'No backup','badge')); row.append(top,node('p',[videoSource(v)==='youtube'?'YouTube':videoSource(v)==='tiktok'?'TikTok':'Direct video',list(v.category),list(v.tags),v.added?new Date(v.added).toLocaleDateString():''].filter(Boolean).join(' · '),'meta'));
+      if(state.bulk.on&&v.id!=null) { const id=String(v.id),pick=node('label',undefined,'bulk-pick'),box=node('input'); box.type='checkbox'; box.checked=state.bulk.ids.has(id); box.setAttribute('aria-label','Select '+displayTitle(v)); box.addEventListener('change',()=>{ if(box.checked) state.bulk.ids.add(id); else state.bulk.ids.delete(id); row.classList.toggle('selected',box.checked); updateBulk(); }); pick.append(box,node('span','Select')); row.classList.toggle('selected',box.checked); row.append(pick); } const top=node('div',undefined,'entry-top'); const heading=node('div','', 'entry-heading'); heading.append(node('h3',displayTitle(v))); top.append(entryThumb(v)); const bs=node('div',undefined,'badges'); if(needsTitle(v))bs.append(node('span','Needs a title','badge')); if(v.pinned) bs.append(node('span','Pinned','badge')); if(v.featured) bs.append(node('span','Featured','badge')); heading.append(bs); top.append(heading,node('span',v.backup_available===true?'Backed up':'No backup','badge')); row.append(top,node('p',[videoSource(v)==='youtube'?'YouTube':videoSource(v)==='tiktok'?'TikTok':'Direct video',list(v.category),list(v.tags),v.added?new Date(v.added).toLocaleDateString():''].filter(Boolean).join(' · '),'meta'));
       const buttons=node('div',undefined,'actions'); const locked=state.busy||state.stale;
       buttons.append(action('Edit',()=>editVideo(v,index),locked),action(v.pinned?'Unpin':'Pin',()=>mutateCatalog(c=>{c.videos[index]={...c.videos[index],pinned:!v.pinned};},'Pin updated.'),locked),action('Back up',()=>backup({video_id:String(v.id)}),locked||!v.id||v.backup_available===true));
       if(v.backup_available===true && safeURL(v.backup_url)) { const link=node('a','View backup'); link.href=safeURL(v.backup_url); link.target='_blank'; link.rel='noopener noreferrer'; buttons.append(link); }
@@ -254,6 +254,20 @@
     $('video-results').textContent=`${count} of ${state.catalog.videos.length} videos`;
     $('entries').replaceChildren(frag);
     updateBulk();
+  }
+  // Card picture for a video row: the saved TikTok cover, the YouTube thumbnail or the copy's poster frame.
+  function thumbSource(v) {
+    if(typeof v.thumb==='string'&&/^thumbs\/[\w-]+\.jpg$/.test(v.thumb)) return '/'+v.thumb;
+    if(v.youtube_id&&/^[\w-]{11}$/.test(v.youtube_id)) return `https://i.ytimg.com/vi/${v.youtube_id}/hqdefault.jpg`;
+    return safeURL(v.poster_url);
+  }
+  function entryThumb(v) {
+    const box=node('div',undefined,'entry-thumb'), src=thumbSource(v);
+    box.setAttribute('aria-hidden','true');
+    if(src) { const img=node('img'); img.src=src; img.alt=''; img.loading='lazy'; img.decoding='async'; img.referrerPolicy='no-referrer'; img.addEventListener('error',()=>{img.remove();box.classList.add('empty');}); box.append(img); }
+    else box.classList.add('empty');
+    if(!(typeof v.thumb==='string'&&v.thumb)&&v.youtube_id) box.classList.add('wide');
+    return box;
   }
   // Several videos at once: add or remove categories.
   function updateBulk() {
@@ -771,21 +785,21 @@
   function previewMessage(kind,reason) { return `${PREVIEW_LABEL[kind]||'Preview unavailable'}: ${reason||'No further details were reported.'}`; }
   function renderPreview(record,item) {
     const url=safeURL(item.preview_url), st=item.preview_state||'processing';
-    const signature=JSON.stringify([url,st,item.preview_reason||'',item.poster_url||'',record.previewNonce||0]);
+    const signature=JSON.stringify([url,st,item.preview_reason||'',item.poster_url||'',item.thumb_url||'',record.previewNonce||0]);
     if(signature===record.previewSignature) return;
     record.previewSignature=signature; record.preview.replaceChildren(); record.preview.className='queue-preview';
     if(!url) {
       // No saved copy yet: show the source's own thumbnail so the card is recognisable.
-      const thumb=safeURL(item.card?.thumbnail);
+      const thumb=safeURL(item.thumb_url)||safeURL(item.card?.thumbnail);
       if(thumb) { const img=node('img'); img.src=thumb; img.alt='Thumbnail from the original post'; img.className='preview-poster source-thumb'; img.loading='lazy'; img.referrerPolicy='no-referrer'; img.addEventListener('error',()=>img.remove()); record.preview.append(img); }
       return;
     }
-    const poster=safeURL(item.poster_url), status=node('p','', 'help preview-status'), retry=node('button','Retry preview','preview-retry');
+    const poster=safeURL(item.thumb_url)||safeURL(item.poster_url), status=node('p','', 'help preview-status'), retry=node('button','Retry preview','preview-retry');
     status.setAttribute('role','status'); retry.type='button'; retry.hidden=true;
     retry.addEventListener('click',()=>retryPreview(record,retry,status));
     const show=(kind,reason)=>{ status.textContent=previewMessage(kind,reason); status.hidden=false; retry.hidden=kind==='processing'; };
     if(st==='ready') {
-      const video=node('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.setAttribute('playsinline',''); video.muted=false; video.defaultMuted=false;
+      const video=node('video'); video.controls=true; video.preload=poster?'none':'metadata'; video.playsInline=true; video.setAttribute('playsinline',''); video.muted=false; video.defaultMuted=false;
       if(poster) video.poster=poster;
       video.src=url+(record.previewNonce?`?r=${record.previewNonce}`:'');
       video.addEventListener('error',async()=>{
@@ -961,6 +975,6 @@
   document.addEventListener('focusin',updateViewport);
   document.addEventListener('focusout',()=>setTimeout(updateViewport,100));
   // Shared with admin-publish.js (Publish to YouTube panel).
-  window.WAWAdmin={api,notice,node,confirmAction,signedIn:()=>state.signedIn};
+  window.WAWAdmin={api,notice,node,confirmAction,signedIn:()=>state.signedIn,reloadCatalog:()=>loadCatalog()};
   session();
 })();

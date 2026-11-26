@@ -348,6 +348,35 @@ input, button, select, textarea {
 }
 /* Our own copies are often portrait: show the whole poster, never crop it. */
 .thumb-wrap img.own-poster{ object-fit:contain; }
+/* TikTok covers: a portrait frame like a profile grid. The whole cover shows
+   (its title text is never cropped) over a blurred fill of the same picture. */
+.thumb-wrap.portrait{ aspect-ratio:4/5; cursor:pointer; isolation:isolate; }
+.thumb-wrap.portrait img.cover, .thumb-wrap.portrait img.own-poster{
+  position:relative; z-index:1; object-fit:contain;
+}
+.thumb-wrap img.thumb-fill{
+  position:absolute; inset:-8%; width:116%; height:116%; z-index:0;
+  object-fit:cover; filter:blur(18px) saturate(1.2) brightness(.55); transform:scale(1.04);
+}
+.thumb-wrap.thumb-broken img.thumb-fill{ display:none; }
+.thumb-play{
+  position:absolute; left:50%; top:50%; z-index:2; width:54px; height:54px; margin:-27px 0 0 -27px;
+  display:grid; place-items:center; border-radius:50%; pointer-events:none;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(3px);
+  border:1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  box-shadow:0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition:transform .18s ease, background .18s ease;
+}
+.thumb-play svg{ width:24px; height:24px; margin-left:3px; fill:var(--accent); }
+.thumb-wrap:hover .thumb-play, .thumb-wrap:focus-visible .thumb-play{ transform:scale(1.08); background:rgba(0,0,0,.75); }
+.thumb-wrap[data-loaded="1"] .thumb-play{ display:none; }
+.thumb-wrap.portrait video, .thumb-wrap.portrait iframe{ position:relative; z-index:3; background:#000; object-fit:contain; }
+/* Unavailable copy-only videos still show their cover, with the note on top. */
+.thumb-unavailable.has-cover .unavailable-box{
+  position:absolute; left:8px; right:8px; bottom:8px; z-index:2; max-width:none;
+  background:rgba(0,0,0,.72); backdrop-filter:blur(4px);
+}
+.thumb-unavailable.has-cover img.cover{ opacity:.55; }
 .thumb-unavailable{ display:flex; align-items:center; justify-content:center; cursor:default; }
 .unavailable-box{
   display:flex; flex-direction:column; gap:6px; padding:14px 16px; max-width:92%;

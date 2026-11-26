@@ -68,7 +68,64 @@ def now():
         LOCK.release()
 
 
-def request(method, path, token, **kwargs):
+def blob_sha(data):
+    """Git's id for file content (what GitHub reports as a file's sha)."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+MAX_THUMBS_PER_COMMIT = 60
+
+
+def pending_thumbs(exported, repo, branch, token, ref):
+    """Thumbnails the catalogue refers to that GitHub doesn't have yet (name -> bytes)."""
+    import thumbs
+    remote = {}
+    try:
+        listing = request("GET", "/repos/" + repo + "/contents/thumbs?ref=" + quote(ref, safe=""), token, missing_ok=True)
+    except ValueError:
+        raise
+    for entry in listing if isinstance(listing, list) else []:
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str):
+            remote[entry["name"]] = entry.get("sha")
+    want = {}
+    for v in exported["videos"]:
+        thumb = v.get("thumb")
+        if not thumb:
+            continue
+        name = thumb[len("thumbs/"):]
+        src = thumbs.find(name)
+        if not src:
+            v.pop("thumb", None)
+            continue
+        data = src.read_bytes()
+        if remote.get(name) == blob_sha(data):
+            continue
+        want[name] = data
+    return want
+
+
+def commit_with_thumbs(repo, branch, token, data, remote_sha, files):
+    """One commit with the new thumbnails and videos.json, so Netlify builds once.
+    It only fast-forwards: if the branch moved meanwhile, nothing is overwritten."""
+    base = "/repos/" + repo + "/git"
+    head = request("GET", base + "/ref/heads/" + quote(branch, safe=""), token)["object"]["sha"]
+    tree = request("GET", base + "/commits/" + head, token)["tree"]["sha"]
+    current = request("GET", "/repos/" + repo + "/contents/videos.json?ref=" + head, token)
+    if current["sha"] != remote_sha:
+        raise ValueError("Conflict: GitHub changed since the last sync. Nothing was overwritten. Review both copies; match the reviewed GitHub catalogue on the Pi and Sync now before further edits.")
+    entries = []
+    for name, raw in sorted(files.items()):
+        blob = request("POST", base + "/blobs", token, json={"content": base64.b64encode(raw).decode(), "encoding": "base64"})
+        entries.append({"path": "thumbs/" + name, "mode": "100644", "type": "blob", "sha": blob["sha"]})
+    entries.append({"path": "videos.json", "mode": "100644", "type": "blob", "content": data.decode()})
+    new_tree = request("POST", base + "/trees", token, json={"base_tree": tree, "tree": entries})["sha"]
+    commit = request("POST", base + "/commits", token, json={"message": "Update public video catalogue and card pictures from Pi",
+                                                             "tree": new_tree, "parents": [head]})["sha"]
+    request("PATCH", base + "/refs/heads/" + quote(branch, safe=""), token, json={"sha": commit, "force": False})
+    return blob_sha(data)
+
+
+def request(method, path, token, missing_ok=False, **kwargs):
     try:
         response = requests.request(method, "https://api.github.com" + path,
             headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json",
@@ -80,6 +137,8 @@ def request(method, path, token, **kwargs):
         raise ValueError("Conflict: GitHub changed. Nothing was overwritten. Review both catalogues before retrying.")
     if response.status_code in (401, 403):
         raise ValueError("GitHub denied access. Check the token expiry and repository Contents write permission.")
+    if response.status_code == 404 and missing_ok:
+        return None
     if response.status_code == 404:
         raise ValueError("GitHub repository, branch or videos.json was not found, or the token cannot access it.")
     if response.status_code not in (200, 201):
@@ -98,7 +157,8 @@ def tick():
             target = repo + ":" + branch
             if s.get("target") != target:
                 s = {"target": target, "force": s.get("force", False)}
-            data = encode(public_catalog.export(store.load_catalog()[0]))
+            exported = public_catalog.export(store.load_catalog()[0])
+            data = encode(exported)
             current = digest(data)
             stamp = time.time()
             if s.get("pending") != current:
@@ -126,6 +186,21 @@ def tick():
                     s["base_sha"] = remote["sha"]
                 if remote["sha"] != s["base_sha"]:
                     raise ValueError("Conflict: GitHub changed since the last sync. Nothing was overwritten. Review both copies; match the reviewed GitHub catalogue on the Pi and Sync now before further edits.")
+                files = pending_thumbs(exported, repo, branch, token, branch) if any(v.get("thumb") for v in exported["videos"]) else {}
+                if files:
+                    # Card pictures go first (in the same commit), so the catalogue never points at a missing file.
+                    later = sorted(files)[MAX_THUMBS_PER_COMMIT:]
+                    for v in exported["videos"]:
+                        if v.get("thumb", "")[len("thumbs/"):] in later:
+                            v.pop("thumb", None)
+                    files = {n: files[n] for n in sorted(files)[:MAX_THUMBS_PER_COMMIT]}
+                    sent_data = encode(exported)
+                    new_sha = commit_with_thumbs(repo, branch, token, sent_data, remote["sha"], files)
+                    # With more pictures still to send, the next tick sends them (the full catalogue differs).
+                    s.update(base_sha=new_sha, sent=digest(sent_data) if later else current, last_success=time.time(),
+                             status="synced", reason="", attempts=0, next_try=0, changed=0)
+                    save(s)
+                    return
                 result = request("PUT", path, token, json={"message": "Update public video catalogue from Pi",
                     "branch": branch, "sha": s["base_sha"], "content": base64.b64encode(data).decode()})
                 s.update(base_sha=result["content"]["sha"], sent=current, last_success=time.time(), status="synced", reason="", attempts=0)

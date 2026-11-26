@@ -10,6 +10,8 @@ command -v systemctl >/dev/null || { echo "Requires systemd."; exit 1; }
 [[ -f "$SOURCE/bundle-manifest.json" ]] || { echo "Use the clean Pi bundle, not an arbitrary source checkout."; exit 1; }
 apt-get update
 apt-get install -y python3 python3-requests ffmpeg ca-certificates curl
+# Reads the title printed on a TikTok cover when a caption has only hashtags (optional; titles fall back to "Untitled <date>").
+apt-get install -y tesseract-ocr tesseract-ocr-eng || echo "Cover text reading unavailable: tesseract-ocr could not be installed."
 python3 -c 'import sys; assert sys.version_info >= (3,11), "Use Raspberry Pi OS Bookworm or newer"'
 id wokearewe >/dev/null 2>&1 || useradd --system --user-group --home-dir /var/lib/wokearewe --shell /usr/sbin/nologin wokearewe
 install -d -m 750 -o root -g wokearewe /etc/wokearewe

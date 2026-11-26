@@ -86,6 +86,23 @@ def generate(catalog=None, output=None):
                     if not target.exists() or target.stat().st_mtime_ns != src.stat().st_mtime_ns or target.stat().st_size != src.stat().st_size:
                         shutil.copy2(src, target)
         data = limited_catalog(catalog)
+        # Card pictures travel with the site, so they show even when the Pi can't be reached.
+        import thumbs
+        wanted = set()
+        for video in data.get("videos", []):
+            thumb = video.get("thumb")
+            src = thumbs.find(thumb[7:]) if isinstance(thumb, str) and thumbs.PUBLIC.fullmatch(thumb) else None
+            if not src:
+                video.pop("thumb", None)
+                continue
+            target = dest / thumb
+            wanted.add(target.name)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists() or target.stat().st_size != src.stat().st_size or target.stat().st_mtime_ns != src.stat().st_mtime_ns:
+                shutil.copy2(src, target)
+        for old in (dest / "thumbs").glob("*.jpg") if (dest / "thumbs").is_dir() else ():
+            if old.name not in wanted:
+                old.unlink(missing_ok=True)
         payload = json.dumps(data, ensure_ascii=True).replace("<", "\\u003c")
         # Embedded data avoids fetch() restrictions when HTML is opened from disk.
         write_atomic(dest / "lite-data.js", ("window.MATRIX_LITE=true;window.MATRIX_BUILD=" + json.dumps(marker) + ";window.MATRIX_LITE_CATALOG=" + payload + ";").encode())

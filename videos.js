@@ -219,6 +219,22 @@
     return `https://img.youtube.com/vi/${encodeURIComponent(youtube_id)}/hqdefault.jpg`;
   }
 
+  // Card pictures: the saved TikTok cover ("thumbs/…", shipped with the site), the
+  // YouTube thumbnail, or a frame of our own copy. Video loads only when tapped.
+  function coverURL(v) {
+    const t = typeof v.thumb === "string" ? v.thumb : "";
+    return /^thumbs\/[\w-]+\.jpg$/.test(t) ? t : "";
+  }
+
+  const PLAY_ICON = `<span class="thumb-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>`;
+
+  // Portrait covers keep their whole picture (no cropped title text) over a soft blurred fill.
+  function pictureHTML(src, cls) {
+    const s = escapeAttr(src);
+    return `<img class="thumb-fill" src="${s}" alt="" aria-hidden="true" loading="lazy" decoding="async" onerror="this.remove()">` +
+      `<img class="${cls}" src="${s}" alt="" loading="lazy" decoding="async" onerror="this.closest('.thumb-wrap')&&this.closest('.thumb-wrap').classList.add('thumb-broken');this.remove()">`;
+  }
+
   function thumbHTML(v, key) {
     if (isPlaylist(v)) {
       return `
@@ -232,9 +248,12 @@
       `;
     }
 
+    const cover = coverURL(v);
+
     if (!v.youtube_id && !playable(v)) {
       return `
-        <div class="thumb-wrap thumb-unavailable" data-key="${escapeAttr(key)}" data-type="unavailable">
+        <div class="thumb-wrap thumb-unavailable${cover ? " portrait has-cover" : ""}" data-key="${escapeAttr(key)}" data-type="unavailable">
+          ${cover ? pictureHTML(cover, "cover") : ""}
           <div class="unavailable-box" role="note">
             <strong>Temporarily unavailable</strong>
             <span>${escapeHTML(unavailableReason(v))}</span>
@@ -244,21 +263,21 @@
     }
 
     if (v.youtube_id) {
-      const src = youtubeThumbURL(v.youtube_id);
+      const src = cover || youtubeThumbURL(v.youtube_id);
       return `
-        <div class="thumb-wrap" data-key="${escapeAttr(key)}" data-type="video" role="button" tabindex="0" aria-label="Play video">
-          <img src="${src}" alt="" loading="lazy" decoding="async">
-          <div class="thumb-badge">▶ Tap to play</div>
+        <div class="thumb-wrap${cover ? " portrait" : ""}" data-key="${escapeAttr(key)}" data-type="video" role="button" tabindex="0" aria-label="Play ${escapeAttr(v.title || "video")}">
+          ${cover ? pictureHTML(cover, "cover") : `<img src="${src}" alt="" loading="lazy" decoding="async">`}
+          ${PLAY_ICON}
         </div>
       `;
     }
 
     if (ownCopy(v) || v.url) {
+      const picture = cover ? pictureHTML(cover, "cover") : v.poster_url ? pictureHTML(v.poster_url, "own-poster") : "";
       return `
-        <div class="thumb-wrap" data-key="${escapeAttr(key)}" data-type="direct" role="button" tabindex="0" aria-label="Play video">
-          ${v.poster_url ? `<img class="own-poster" src="${escapeAttr(v.poster_url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"><div class="thumb-badge">▶ Tap to play</div>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;">
-            ▶ Tap to play
-          </div>`}
+        <div class="thumb-wrap${picture ? " portrait" : ""}" data-key="${escapeAttr(key)}" data-type="direct" role="button" tabindex="0" aria-label="Play ${escapeAttr(v.title || "video")}">
+          ${picture}
+          ${PLAY_ICON}
         </div>
       `;
     }
@@ -282,7 +301,8 @@
 
     if (v.url && playable(v)) {
       const auto = autoplay ? " autoplay" : "";
-      const poster = v.poster_url ? ` poster="${escapeAttr(v.poster_url)}"` : "";
+      const still = coverURL(v) || v.poster_url;
+      const poster = still ? ` poster="${escapeAttr(still)}"` : "";
       return `<video src="${escapeAttr(v.url)}"${poster} controls${auto} playsinline preload="metadata"></video>`;
     }
 

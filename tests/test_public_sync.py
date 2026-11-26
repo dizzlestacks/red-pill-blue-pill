@@ -121,5 +121,44 @@ class SyncTests(TestCase):
         finally:
             http.shutdown();http.server_close()
 
+    def test_thumbs_and_catalogue_in_one_commit(self):
+        store.init()
+        pid="7571743818165341452"
+        data=json.loads(store.CATALOG.read_text())
+        data["videos"].append({"id":"tt-video","title":"Ruth and Naomi","tags":[],"tiktok_url":f"https://www.tiktok.com/@wokearewe1/video/{pid}"})
+        store.CATALOG.write_text(json.dumps(data))
+        (store.STATE/"thumbs").mkdir()
+        (store.STATE/"thumbs"/f"tt-{pid}.jpg").write_bytes(b"\xff\xd8fixture-jpeg")
+        calls=[]
+        def request(method,path,token,missing_ok=False,**kwargs):
+            calls.append((method,path.split("?")[0],kwargs))
+            if path.startswith("/repos/fixture/repo/contents/thumbs"):return None
+            if path.startswith("/repos/fixture/repo/contents/videos.json"):return self.remote
+            if path.endswith("/git/ref/heads/throwaway"):return {"object":{"sha":"head1"}}
+            if path.endswith("/git/commits/head1"):return {"tree":{"sha":"tree1"}}
+            if path.endswith("/git/blobs"):return {"sha":"blob1"}
+            if path.endswith("/git/trees"):return {"sha":"tree2"}
+            if path.endswith("/git/commits"):return {"sha":"commit2"}
+            if method=="PATCH":return {"object":{"sha":"commit2"}}
+            raise AssertionError(path)
+        with patch.object(sync,"request",request):
+            sync.now();sync.tick()
+        self.assertEqual(sync.status()["status"],"synced",sync.status())
+        self.assertNotIn("PUT",[c[0] for c in calls])
+        self.assertEqual([c[0] for c in calls if "/git/" in c[1]],["GET","GET","POST","POST","POST","PATCH"])
+        tree=next(c[2]["json"] for c in calls if c[1].endswith("/git/trees"))
+        self.assertEqual(tree["base_tree"],"tree1")
+        paths=[e["path"] for e in tree["tree"]]
+        self.assertEqual(paths,[f"thumbs/tt-{pid}.jpg","videos.json"])
+        sent=json.loads(tree["tree"][1]["content"])
+        self.assertEqual(sent["videos"][1]["thumb"],f"thumbs/tt-{pid}.jpg")
+        self.assertFalse(next(c[2]["json"] for c in calls if c[0]=="PATCH")["force"])
+        self.assertEqual(sync.state()["base_sha"],sync.blob_sha(tree["tree"][1]["content"].encode()))
+
+    def test_thumbs_commit_refuses_moved_catalogue(self):
+        with patch.object(sync,"request",side_effect=lambda m,p,t,**k:{"object":{"sha":"h"}} if "/ref/" in p else {"tree":{"sha":"t"}} if "/commits/" in p else {"sha":"other"}):
+            with self.assertRaises(ValueError):
+                sync.commit_with_thumbs("fixture/repo","throwaway","x",b"{}","expected",{"tt-12345678.jpg":b"x"})
+
 
 if __name__=="__main__":main()

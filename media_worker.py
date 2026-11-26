@@ -356,12 +356,30 @@ def save_copy(job, filename=None, path=None):
         copy_media(job, filename)
     else:
         copy_media(job, path=path)
+    cover_and_title(job)
     store.update_job(job["id"], status="copying", reason="Checking picture and sound play from start to end")
     outcome = media_check.verify(job["source_key"])
     if not media_check.finish_import(store.get_job(job["id"]), outcome):
         return
     if job.get("automatic") and job.get("auto_publish") and store.get_job(job["id"])["status"] == "imported":
         store.publish(job["id"])
+
+
+def cover_and_title(job):
+    """Save the TikTok cover as the card picture (a frame of the copy if there is none), then
+    give a still-untitled import its caption, or the cover's text marked for review."""
+    if job.get("kind") != "tiktok":
+        return
+    try:
+        import thumbs
+        thumbs.make(job["source_key"], thumbs.cover_url(job["source_key"], job))
+    except Exception:
+        pass
+    try:
+        import captions
+        captions.fill_job(store.get_job(job["id"]))
+    except Exception:
+        pass
 
 
 def uncertain(job):
@@ -448,6 +466,11 @@ def run():
             if os.environ.get("STORAGE_BACKEND", "disk") == "disk":
                 disk_storage.reconcile_mirror()
                 nas_library.run_once()
+            try:
+                import thumbs
+                thumbs.backfill(limit=20)  # Older videos get their card pictures a few at a time.
+            except Exception:
+                pass
             # A rename, category change, publish or delete on the site wakes this early.
             nas_library.WAKE.wait(60)
             nas_library.WAKE.clear()

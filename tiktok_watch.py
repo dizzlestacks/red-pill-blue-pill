@@ -173,13 +173,13 @@ def normalize(post, profile):
             date = parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
     except ValueError:
         raise ValueError("Profile publication dates must include a timezone")
-    title = re.sub(r"(?<!\w)#[\w]+", "", caption).strip()
-    title = " ".join(title.split())[:200]
-    if not re.search(r"\w", title):
-        # A caption made only of hashtags is untitled; the hashtags go to the tags field.
-        title = "Untitled " + (date[:10] if date else time.strftime("%Y-%m-%d", time.gmtime()))
-    tags = list(dict.fromkeys(t.lstrip("#").strip() for t in tags + re.findall(r"#(\w+)", caption) if t.strip("# ")))
-    return dict(url=url, title=title, tags=tags, source_date=date or None, metadata=post)
+    import captions
+    # The caption's words are the title (tidied, never reworded); its hashtags are tags.
+    # No words: "Untitled <date>" for now; the cover text is read once the cover is saved.
+    suggestion = captions.suggest(caption, tags, date)
+    title, tags = suggestion["title"], suggestion["tags"]
+    return dict(url=url, title=title, tags=tags, source_date=date or None, metadata=post,
+                needs_review=suggestion["needs_review"])
 
 
 def check(older=False):
@@ -204,6 +204,8 @@ def check(older=False):
         if type(page.get("has_more")) is not bool or (page["has_more"] and (not next_cursor or next_cursor == cursor)):
             raise ValueError("Invalid profile pagination; cursor retained")
         posts = [normalize(p, s["profile"]) for p in page["posts"]]
+        import captions
+        captions.remember(page["posts"])
         count = 0
         for post in posts:
             if not older:

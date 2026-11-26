@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.15."""
+"""Matrix Video Hub / admin release 2026.11.15.16."""
 import hashlib
 import hmac
 import http.cookies
@@ -78,7 +78,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if origin == allowed:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Vary", "Origin")
-        if urlparse(self.path).path in ("/service-worker.js", "/offline.js", "/admin", "/admin.html", "/admin.js", "/admin.css", "/admin-publish.js"):
+        if urlparse(self.path).path in ("/service-worker.js", "/offline.js", "/admin", "/admin.html", "/admin.js", "/admin.css", "/admin-publish.js", "/admin-titles.js"):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
@@ -142,6 +142,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 own = [v for v in cat["videos"] if base and v.get("backup_available") and v.get("backup_url")]
                 return self.reply({"backups": {str(v["id"]): base + v["backup_url"] for v in own},
                                    "posters": {str(v["id"]): base + v["poster_url"] for v in own if v.get("poster_url")}})
+            if path.startswith("/thumbs/"):
+                return self.serve_thumb(path[len("/thumbs/"):], head)
             if path == "/healthz":
                 alive = worker_thread is not None and worker_thread.is_alive()
                 return self.reply({"status": "ok" if alive else "degraded", "release": store.RELEASE,
@@ -183,6 +185,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if path == "/api/admin/back-catalog/estimate":
                     import back_catalog
                     return self.reply(back_catalog.estimate())
+                if path == "/api/admin/titles":
+                    import title_review
+                    return self.reply(title_review.summary())
                 if path == "/api/admin/catalog":
                     cat, revision, count = store.hydrated()
                     return self.reply({"catalog": cat, "revision": revision, "backed_up": count, "total": len(cat["videos"])})
@@ -203,6 +208,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                 r["preview_state"], r["preview_reason"] = st["state"], st["reason"]
                                 r["poster_url"] = "/api/admin/media/" + r["id"] + "/poster" if st["poster"] else None
                             r["needs_title"] = store.needs_title(r)
+                            import thumbs
+                            thumb = thumbs.name(r["source_key"])
+                            r["thumb_url"] = "/thumbs/" + thumb if thumbs.find(thumb) else None
                             r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
                             r["category"] = store.job_categories(r)
@@ -376,6 +384,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     tmp.unlink(missing_ok=True)
                     raise
         return file
+
+    def serve_thumb(self, name, head=False):
+        """Card pictures: public for videos in the hub, and for queue items when signed in."""
+        import thumbs
+        src = thumbs.find(name)
+        if not src:
+            return self.reply({"error": "No thumbnail"}, 404)
+        if not self.session():
+            cat, _, _ = store.hydrated()
+            if not any(v.get("thumb") == "thumbs/" + name for v in cat["videos"]):
+                return self.reply({"error": "No thumbnail"}, 404)
+        data = src.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        if not head:
+            self.wfile.write(data)
 
     def serve_poster(self, key):
         with store.db() as c:
@@ -571,6 +598,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 saved = store.set_source_default(body.get("source_id"), body.get("categories"))
                 durable_state.checkpoint()
                 return self.reply({"ok": True, "categories": saved, "defaults": store.source_defaults()})
+            if path == "/api/admin/titles":
+                import title_review
+                result = title_review.apply(body)
+                durable_state.checkpoint()
+                return self.reply(dict(title_review.summary(), **result))
+            if path == "/api/admin/titles/refresh":
+                import title_review
+                return self.reply({"ok": True, "refresh": title_review.refresh()})
+            if path == "/api/admin/thumbs/backfill":
+                import thumbs
+                threading.Thread(target=thumbs.backfill, daemon=True, name="thumb-backfill").start()
+                return self.reply({"ok": True, "thumbs": thumbs.status()})
             if path == "/api/admin/manual":
                 import manual_add
                 result = manual_add.add(body)
@@ -619,6 +658,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     with store.LOCK:
                         job = store.get_job(jid)
                         updates = dict(title=title.strip(), tags=json.dumps(tags))
+                        if "needs_title" in body:
+                            updates["needs_title"] = int(body["needs_title"] is True)
                         if "category" in body:
                             updates["category"] = json.dumps(store.clean_categories(body["category"]))
                         if job["kind"] == "tiktok" and not job["payload"] and not job["upstream_id"]:

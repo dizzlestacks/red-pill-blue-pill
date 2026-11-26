@@ -1,6 +1,6 @@
-# Current release: 2026.11.15.15
+# Current release: 2026.11.15.16
 
-Latest changes (Publish to YouTube: upload your TikTok videos to your own channel once each, from /admin): see [release notes](pi/RELEASE-2026.11.15.15.md) and the setup steps in [pi/README.md](pi/README.md). Previous: [2026.11.15.14](pi/RELEASE-2026.11.15.14.md) (Twitter link removed).
+Latest changes (card pictures on every video, titles from TikTok captions, and a Review titles list in /admin): see [release notes](pi/RELEASE-2026.11.15.16.md). Previous: [2026.11.15.15](pi/RELEASE-2026.11.15.15.md) (Publish to YouTube, still switched off).
 
 The real watched-profile adapter is connected. Existing posts are opt-in batches; automatic imports only include posts newer than the persisted watching start time. See [release notes](pi/RELEASE-2026.11.15.6.md).
 

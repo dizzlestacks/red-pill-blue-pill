@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.15"
+RELEASE = "2026.11.15.16"
 
 
 def db():
@@ -67,6 +67,8 @@ def init():
             "fresh_retry": "INTEGER NOT NULL DEFAULT 0",
             # Categories (JSON list) the video is filed under when published.
             "category": "TEXT",
+            # 1 when the title is a suggestion (e.g. read from the cover) the owner should check.
+            "needs_title": "INTEGER NOT NULL DEFAULT 0",
         }.items():
             if name not in columns:
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
@@ -89,6 +91,8 @@ def init():
         media_check.init(c)
         import nas_library
         nas_library.init(c)
+        import captions
+        captions.init(c)
         # Earlier releases used a hashtag-only caption as the title. Unpublished
         # items become "Untitled <post date>" and keep their hashtags as tags.
         for job in c.execute("SELECT id,title,source_date,created FROM jobs WHERE status!='published'").fetchall():
@@ -144,7 +148,7 @@ def video_sources(v):
     its saved copy, duplicate checks and NAS name all stay on the TikTok key.
     """
     found = {}
-    links = [v.get("source_url"), v.get("url")]
+    links = [v.get("source_url"), v.get("url"), v.get("tiktok_url")]
     if v.get("youtube_id"):
         links.append("https://www.youtube.com/watch?v=" + str(v["youtube_id"]))
     for link in links:
@@ -246,11 +250,15 @@ def clean_catalog(cat):
             raise ValueError("Title is too long")
         for field in ("url", "thumb", "source_url"):
             val = v.get(field)
+            if field == "thumb" and isinstance(val, str) and re.fullmatch(r"thumbs/(?:tt-\d{8,25}|yt-[\w-]{11})\.jpg", val):
+                continue  # Published thumbnail (relative, shipped with the site).
             if val and (not isinstance(val, str) or not (val.startswith("/media/") or urlparse(val).scheme in ("https", "http"))):
                 raise ValueError("Video and thumbnail links must be HTTP(S) links")
         if v.get("youtube_id") and not re.fullmatch(r"[A-Za-z0-9_-]{5,100}", str(v["youtube_id"])):
             raise ValueError("Invalid YouTube ID")
-        if not v.get("youtube_id") and not v.get("url"):
+        if not v.get("youtube_id") and not v.get("url") and not (
+                isinstance(v.get("tiktok_url"), str) and v["tiktok_url"].startswith("https://www.tiktok.com/")):
+            # Public catalogue entries (seeded from the site) carry their TikTok post link instead.
             raise ValueError("Every video needs a video link")
         if not isinstance(v.get("tags", []), list) or any(not isinstance(t, str) for t in v.get("tags", [])):
             raise ValueError("Hashtags must be a list of text values")
@@ -310,6 +318,7 @@ def save_catalog(cat, revision):
 
 
 def hydrated():
+    import thumbs
     cat, rev = load_catalog()
     with db() as c:
         media = {r["source_key"]: dict(r) for r in c.execute("SELECT * FROM media")}
@@ -326,6 +335,11 @@ def hydrated():
         v["backup_status"] = "backed up" if m else "not backed up"
         v.pop("backup_url", None)
         v.pop("poster_url", None)
+        thumb = thumbs.for_video(v)
+        if not thumb and thumbs.find(thumbs.name(matches.get(v.get("id")))):
+            thumb = "thumbs/" + thumbs.name(matches[v["id"]])  # A TikTok copy matched to this entry.
+        if thumb:
+            v["thumb"] = thumb
         if m:
             v["backup_url"] = "/media/" + key.replace(":", "-")
             if m.get("poster_key"):
@@ -376,8 +390,21 @@ def default_categories(source_ids):
     return out
 
 
-def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
-            auto_publish=False, add_end_card=None, source_date=None, metadata=None, category=None):
+def enqueue(url, video_id=None, title="", tags=None, **options):
+    result = _enqueue(url, video_id, title, tags, **options)
+    if result.get("status") in ("queued", "waiting for connection") and result.get("id"):
+        try:
+            import captions
+            # Links added by hand take the caption from the watcher's post list when it's known.
+            captions.fill_job(get_job(result["id"]))
+        except Exception:
+            pass
+    return result
+
+
+def _enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
+             auto_publish=False, add_end_card=None, source_date=None, metadata=None, category=None,
+             needs_review=False):
     key, canonical, kind = source(url)
     if category is None and kind == "tiktok":
         category = default_categories(["tiktok"])
@@ -408,10 +435,10 @@ def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
                   (jid, key, canonical, kind, video_id, title or "Untitled clip", json.dumps(tags or []),
                    status, "" if status == "queued" else "YOU2MP3_API_KEY is not configured",
                    "waw-" + jid, now, now))
-        c.execute("""UPDATE jobs SET automatic=?,auto_publish=?,add_end_card=?,source_date=?,metadata=?,category=?
+        c.execute("""UPDATE jobs SET automatic=?,auto_publish=?,add_end_card=?,source_date=?,metadata=?,category=?,needs_title=?
                      WHERE id=?""", (int(automatic), int(auto_publish), add_end_card, source_date,
                                     json.dumps(metadata) if metadata else None,
-                                    json.dumps(clean_categories(category)) if category else None, jid))
+                                    json.dumps(clean_categories(category)) if category else None, int(bool(needs_review)), jid))
         return {"id": jid, "status": status}
 
 
@@ -433,7 +460,7 @@ def enqueue_unsupported(v, reason):
 
 def update_job(jid, **fields):
     allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts", "add_end_card",
-               "idempotency", "download_attempts", "return_status", "upstream_kind", "uncertain_checks", "fresh_retry", "category"}
+               "idempotency", "download_attempts", "return_status", "upstream_kind", "uncertain_checks", "fresh_retry", "category", "needs_title"}
     if not fields.keys() <= allowed:
         raise ValueError("Invalid job update")
     fields["updated"] = time.time()

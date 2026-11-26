@@ -22,6 +22,13 @@ def export(catalog, configured_origin=True):
         for key in ("id", "title", "added", "published"):
             if isinstance(item.get(key), str):
                 v[key] = item[key][:1000]
+        try:
+            import thumbs
+            thumb = thumbs.for_video(item)
+        except Exception:
+            thumb = None
+        if thumb:
+            v["thumb"] = thumb  # "thumbs/tt-<post>.jpg", published alongside the catalogue.
         for key in ("pinned", "featured"):
             v[key] = item.get(key) is True
         v["tags"] = [t[:100] for t in item.get("tags", []) if isinstance(t, str)][:100]

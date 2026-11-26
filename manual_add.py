@@ -2,6 +2,7 @@
 import time
 import uuid
 import admin_store as store
+import captions
 import tiktok_links
 
 
@@ -40,8 +41,16 @@ def add(body):
             added = metadata.get("added") or time.strftime("%Y-%m-%d", time.gmtime())
             title = metadata.get("title", "").strip()
             video = {k: metadata[k] for k in ("category", "tags", "notes", "featured", "pinned", "start", "end") if k in metadata}
+            review = not title or bool(metadata.get("needs_title"))
+            post = captions.post(key) if kind == "tiktok" and not title else None
+            if post:
+                # A TikTok link added by hand takes its caption as the title (the watcher's post list knows it).
+                s = captions.suggest(post.get("caption"), post.get("hashtags"), post.get("posted_at"))
+                if s["origin"] == "caption":
+                    title, review = s["title"], bool(metadata.get("needs_title"))
+                video["tags"] = list(dict.fromkeys(list(video.get("tags") or []) + s["tags"]))
             video.update(id=uuid.uuid4().hex, title=title or "Untitled " + added[:10],
-                         needs_title=not title or bool(metadata.get("needs_title")),
+                         needs_title=review,
                          added=added, source_url=url, source=kind,
                          youtube_id=key[3:] if kind == "youtube" else "",
                          url="" if kind == "youtube" else url)

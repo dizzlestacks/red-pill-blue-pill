@@ -113,6 +113,8 @@ def tick():
                     (not page.get("next_cursor") or page["next_cursor"] == run["cursor"])):
                 raise ValueError("Invalid pagination; cursor retained.")
             posts = [watch.normalize(p, run["profile"]) for p in page["posts"]]
+            import captions
+            captions.remember(page["posts"])
             for post in posts:
                 watch.disk_guard()
                 result = store.enqueue(**post, automatic=True,
