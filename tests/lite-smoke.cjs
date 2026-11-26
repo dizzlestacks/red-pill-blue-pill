@@ -37,6 +37,8 @@ const arg=n=>process.argv[process.argv.indexOf(n)+1];
    const data=await (await context.request.get(base+'/videos.json')).json();
    const expected=Array.isArray(data)?data.length:data.videos.length;
    assert(expected>0,'Release catalogue is empty');
+   // The hub counts videos only; playlists have their own row (Read Only lists everything).
+   const hubExpected=(Array.isArray(data)?data:data.videos).filter(v=>!String(v.youtube_id||'').startsWith('PL')).length;
    if(mode==='old-data'||mode==='old-site')await context.addInitScript(data=>{
     if(window.top!==window)return;
     try {
@@ -72,7 +74,7 @@ const arg=n=>process.argv[process.argv.indexOf(n)+1];
     }));
     throw error;
    });
-   await page.waitForFunction(n=>document.querySelector('#resultCount')?.textContent===`Showing ${n} of ${n}`,expected);
+   await page.waitForFunction(n=>document.querySelector('#resultCount')?.textContent===`Showing ${n} of ${n}`,hubExpected);
    assert.equal(await page.locator('#limited-mode').textContent(),'Limited view');
    assert((await page.locator('#release-marker').textContent()).includes(marker.commit.slice(0,12)));
    if(await page.locator('#popupClose').isVisible())await page.locator('#popupClose').click();
