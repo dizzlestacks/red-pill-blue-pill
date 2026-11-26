@@ -176,6 +176,12 @@ def add(video_id, automatic=False, keep_copy=True):
         existing = next((v for v in cat["videos"] if v.get("youtube_id") == video_id), None)
         if existing:
             vid = existing["id"]
+            # Our own upload of a TikTok post: the hub already keeps that post's copy.
+            own = [k for k in store.video_keys(existing) if k != "yt:" + video_id]
+            if own:
+                with store.db() as c:
+                    if c.execute("SELECT 1 FROM media WHERE source_key IN (%s)" % ",".join("?" * len(own)), own).fetchone():
+                        keep_copy = False
         else:
             vid = uuid.uuid4().hex
             title = str(data.get("title") or "").strip()[:300]

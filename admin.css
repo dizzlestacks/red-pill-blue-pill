@@ -192,6 +192,33 @@ details[open] > summary { margin-bottom:12px; }
 .yt-video img { width:100%; aspect-ratio:16/9; object-fit:cover; background:#000; border-radius:6px; }
 .yt-video h3 { font-size:.9rem; text-transform:none; margin:0 0 4px; }
 .yt-video .actions { margin-top:8px; }
+/* Publish to YouTube */
+.publish-connection p + p { margin-top:8px; }
+.publish-connection strong { color:var(--accent); }
+.publish-settings { border-top:1px solid color-mix(in srgb, var(--accent) 15%, var(--border)); padding-top:14px; }
+.publish-warning { border:1px solid color-mix(in srgb, #ffcc4d 55%, var(--border)); border-left-width:4px; border-radius:8px; padding:12px 14px; background:rgba(255,204,77,.06); }
+.publish-warning h3 { margin:0 0 6px; color:#ffcc4d; }
+.publish-warning p + p { margin-top:8px; }
+.publish-warning .error { color:var(--bad); }
+.publish-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.publish-stat { border:1px solid color-mix(in srgb, var(--accent) 15%, var(--border)); border-radius:8px; padding:8px; text-align:center; background:rgba(0,0,0,.4); }
+.publish-stat strong { display:block; font-size:1.3rem; color:var(--accent); }
+.publish-stat span { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; }
+.publish-progress > p { margin-top:8px; }
+.publish-uploading { margin-top:10px; }
+.publish-uploading progress { width:100%; height:10px; accent-color:var(--accent); }
+.publish-lists { display:grid; gap:8px; }
+.publish-group summary { cursor:pointer; padding:6px 0; }
+.publish-list { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.publish-item { border:1px solid color-mix(in srgb, var(--accent) 12%, var(--border)); border-radius:8px; background:rgba(0,0,0,.4); padding:10px 12px; overflow-wrap:anywhere; display:grid; gap:6px; }
+.publish-item-head { display:flex; justify-content:space-between; gap:10px; }
+.publish-item-head .muted { white-space:nowrap; }
+.publish-item .actions a { align-self:center; font-size:.8rem; }
+.publish-item select { width:100%; }
+.publish-item .actions button { white-space:normal; text-align:left; }
+.publish-steps { padding-left:20px; display:grid; gap:8px; }
+.publish-steps code { overflow-wrap:anywhere; }
+@media (max-width:420px){ .publish-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
 /* ---------- Login ---------- */
 .login.featured { max-width:480px; margin:10px auto 40px; padding:20px 16px; }

@@ -158,7 +158,8 @@
 
   // Stable key to prevent index drift bugs during sort/filter
   function videoKey(v) {
-    if (v.youtube_id) return `yt:${String(v.youtube_id)}`;
+    // A TikTok post later published to YouTube keeps its key (watched marks survive).
+    if (v.youtube_id && !v.tiktok_url) return `yt:${String(v.youtube_id)}`;
     if (v.url) return `url:${String(v.url)}`;
     const t = (v.title || "").trim();
     const a = (v.added || "").trim();
@@ -192,7 +193,7 @@
      SHARE / OPEN
      ============================ */
   function shareLink(v) {
-    if (!v.youtube_id && (ownCopy(v) || v.url || v.tiktok_url) && v.id) return location.origin + location.pathname + '#video=' + encodeURIComponent(v.id);
+    if ((!v.youtube_id || v.tiktok_url) && (ownCopy(v) || v.url || v.tiktok_url) && v.id) return location.origin + location.pathname + '#video=' + encodeURIComponent(v.id);
     if (v.youtube_id) {
       if (isPlaylist(v)) return `https://www.youtube.com/playlist?list=${v.youtube_id}`;
       return `https://youtu.be/${v.youtube_id}`;

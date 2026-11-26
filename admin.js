@@ -158,7 +158,7 @@
     document.querySelector('main').prepend($('message'));
     state.overview=null;state.items=[];state.queueData=null;state.sync=null;homeSignature='';
     if($('confirm-dialog').open) finishConfirm(false);
-    state.watcher=null; state.watcherDirty=false; $('watcher-form').reset(); watcherControls();
+    window.WAWPublish?.clear(); state.watcher=null; state.watcherDirty=false; $('watcher-form').reset(); watcherControls();
     authGeneration++; clearInterval(state.poll); state.poll=null; state.signedIn=false; state.csrf=''; state.catalog=null; state.revision=null; state.queue.clear(); state.drafts.clear(); state.editing=null; state.stale=false; state.connection=false; state.storage=false;
     openSection('home');
     $('console').hidden=true; $('logout').hidden=true; $('login').hidden=false; $('entries').replaceChildren(); $('queue').replaceChildren(); $('raw').value=''; $('import-urls').value=''; $('video-form').reset(); resetForm(); $('password').value=''; $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='You are signed out.'; updateControls();
@@ -167,15 +167,15 @@
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
     resetForm();
     try {$('first-guide').hidden=localStorage.getItem('admin:guide:phone-2026-11-15')==='seen';} catch {$('first-guide').hidden=false;}
-    await Promise.allSettled([loadSourceDefaults().then(loadCatalog),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube()]);
+    await Promise.allSettled([loadSourceDefaults().then(loadCatalog),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube(),window.WAWPublish?.load()]);
     loadSync();
-    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();if(++state.ticks%6===0)loadYouTube();},5000);
+    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();if(++state.ticks%6===0)loadYouTube();window.WAWPublish?.tick();},5000);
   }
   async function session() {
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.14');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.15');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -334,7 +334,7 @@
   function meaningfulTitle(title) {return !!String(title||'').trim()&&!/^untitled(?:\s|$)/i.test(String(title).trim());}
   function needsTitle(video) {return video.needs_title===true||video.needs_title===1||!meaningfulTitle(video.title);}
   function displayTitle(video) {return String(video.title||'').trim()||`Untitled${video.added?' '+String(video.added).slice(0,10):' video'}`;}
-  function videoSource(video) {return video.youtube_id||/youtube\.com|youtu\.be|\/media\/yt-/.test(video.url||video.backup_url||'')?'youtube':video.source==='tiktok'||video.kind==='tiktok'||/tiktok\.com|\/media\/tt-|^tt:/.test([video.url,video.backup_url,video.source_url,video.id].join(' '))?'tiktok':'direct';}
+  function videoSource(video) {if(/tiktok\.com/.test(video.source_url||''))return 'tiktok'; return video.youtube_id||/youtube\.com|youtu\.be|\/media\/yt-/.test(video.url||video.backup_url||'')?'youtube':video.source==='tiktok'||video.kind==='tiktok'||/tiktok\.com|\/media\/tt-|^tt:/.test([video.url,video.backup_url,video.source_url,video.id].join(' '))?'tiktok':'direct';}
   function sourceFields(value) {
     const raw=value.trim(); if(/^[\w-]{11}$/.test(raw)) return {youtube_id:raw};
     if (/^\/media\/(?:tt-\d+|yt-[\w-]+)$/.test(raw)) return {youtube_id:'',url:raw};
@@ -960,5 +960,7 @@
   $('checks-redownload').addEventListener('click',async()=>{if(await confirmAction('Download these videos again?','Each is downloaded again and checked. Published videos stay public with their current copy until a checked one replaces it.','Download again'))await redownload({all:true});});
   document.addEventListener('focusin',updateViewport);
   document.addEventListener('focusout',()=>setTimeout(updateViewport,100));
+  // Shared with admin-publish.js (Publish to YouTube panel).
+  window.WAWAdmin={api,notice,node,confirmAction,signedIn:()=>state.signedIn};
   session();
 })();

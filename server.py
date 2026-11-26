@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.14."""
+"""Matrix Video Hub / admin release 2026.11.15.15."""
 import hashlib
 import hmac
 import http.cookies
@@ -78,7 +78,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if origin == allowed:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Vary", "Origin")
-        if urlparse(self.path).path in ("/service-worker.js", "/offline.js", "/admin", "/admin.html", "/admin.js", "/admin.css"):
+        if urlparse(self.path).path in ("/service-worker.js", "/offline.js", "/admin", "/admin.html", "/admin.js", "/admin.css", "/admin-publish.js"):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
@@ -173,6 +173,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     from urllib.parse import parse_qs
                     view = parse_qs(urlparse(self.path).query).get("view", ["new"])[0]
                     return self.reply(youtube_watch.status(view))
+                if path == "/api/admin/publish":
+                    import youtube_publish
+                    return self.reply(youtube_publish.status(self.headers.get("X-Page-Origin"), self.headers.get("Host")))
                 if path == "/api/admin/checks":
                     return self.reply(media_check.report())
                 if path == "/api/admin/source-defaults":
@@ -238,6 +241,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if len(parts) > 3 and parts[3] == "poster":
                     return self.serve_poster(key)
                 return self.serve_media(key, download=path.endswith("/download"), head=head)
+            if path == youtube_callback_path():
+                import youtube_publish
+                from urllib.parse import parse_qs, quote
+                q = parse_qs(urlparse(self.path).query)
+                try:
+                    youtube_publish.finish_connect(q.get("state", [""])[0], q.get("code", [None])[0], q.get("error", [None])[0])
+                    target = "/admin?youtube=connected#automatic"
+                except ValueError as e:
+                    target = "/admin?youtube_error=" + quote(str(e)[:300]) + "#automatic"
+                self.send_response(303)
+                self.send_header("Location", target)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             if path == "/admin":
                 self.path = "/admin.html"
             elif path.lstrip("/") in ("admin.html",):
@@ -529,6 +547,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply({"error": "Not found"}, 404)
                 durable_state.checkpoint()
                 return self.reply(result)
+            if path.startswith("/api/admin/publish/"):
+                import youtube_publish as yp
+                operation = path[len("/api/admin/publish/"):]
+                if operation == "connect":
+                    return self.reply(yp.begin_connect(body.get("origin"), self.headers.get("Host")))
+                if operation == "callback":
+                    return self.reply(yp.finish_from_pasted(body.get("url")))
+                actions = {"disconnect": lambda: yp.disconnect(), "settings": lambda: yp.configure(body.get("settings")),
+                           "start": lambda: yp.start(), "stop": lambda: yp.stop(),
+                           "pause": lambda: yp.pause(body.get("paused")), "scan": lambda: yp.request_scan(),
+                           "item": lambda: yp.correct(body.get("video_id"), body.get("action"), body.get("youtube_id"))}
+                if operation not in actions:
+                    return self.reply({"error": "Not found"}, 404)
+                result = actions[operation]()
+                durable_state.checkpoint()
+                return self.reply(result)
             if path in ("/api/admin/watcher/check", "/api/admin/watcher/older"):
                 result = tiktok_watch.request(older=path.endswith("/older"))
                 durable_state.checkpoint()
@@ -559,7 +593,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 results = []
                 for v in selected:
                     try:
-                        results.append(store.enqueue(store.video_source(v), v["id"], v["title"], v.get("tags", [])))
+                        results.append(store.enqueue(store.own_source(v), v["id"], v["title"], v.get("tags", [])))
                     except ValueError as e:
                         results.append(store.enqueue_unsupported(v, str(e)))
                 durable_state.checkpoint()
@@ -639,6 +673,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.reply({"error": "Operation failed. No success was recorded."}, 500)
 
 
+def youtube_callback_path():
+    import youtube_publish
+    return youtube_publish.CALLBACK
+
+
 def main():
     if not os.environ.get("DATA_DIR") and store.STATE == store.ROOT / ".private" and not (store.STATE / ".disk-layout").exists() and not store.CATALOG.exists() and (store.ROOT / "videos.json").exists():
         # One-time migration from the former root catalogue; never overwrite data.
@@ -656,6 +695,8 @@ def main():
     threading.Thread(target=tiktok_watch.run, daemon=True).start()
     import youtube_watch
     threading.Thread(target=youtube_watch.run, daemon=True, name="youtube-watch").start()
+    import youtube_publish
+    threading.Thread(target=youtube_publish.run, daemon=True, name="youtube-publish").start()
     threading.Thread(target=supervise_worker, daemon=True).start()
     http.server.ThreadingHTTPServer((os.environ.get("BIND_HOST", "0.0.0.0"), int(os.environ.get("PORT", "5000"))), Handler).serve_forever()
 

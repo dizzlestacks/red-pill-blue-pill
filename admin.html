@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/admin.css">
   <script defer src="/admin-pickers.js"></script>
   <script defer src="/admin.js"></script>
+  <script defer src="/admin-publish.js"></script>
 </head>
 <body class="terminal">
   <canvas id="matrixRain" aria-hidden="true"></canvas>
@@ -113,6 +114,37 @@
             <div id="youtube-videos" class="yt-videos"></div>
             <div class="actions"><button id="youtube-check" type="button" disabled>Check now</button><button type="button" data-go="add">Add a YouTube link</button></div>
           </div></section>
+          <section id="publish-panel" class="panel featured publish-panel" aria-labelledby="publish-heading"><header class="panel-head"><h2 id="publish-heading">Publish to YouTube</h2><span id="publish-badge" class="badge">Checking</span></header><div class="panel-body stack">
+            <p class="help">Puts your TikTok videos on your own YouTube channel, once each. Videos already there are matched, not uploaded again.</p>
+            <div id="publish-connection" class="publish-connection" role="status">Checking the YouTube connection…</div>
+            <div class="actions"><button id="publish-connect" type="button" class="primary" hidden>Connect YouTube</button><button id="publish-disconnect" type="button" hidden>Disconnect</button></div>
+            <details id="publish-paste-box" hidden><summary>Sign-in page didn't come back here?</summary><div class="stack"><p class="help">After allowing access, copy the full address from your browser's address bar and paste it here.</p><label for="publish-paste">Address after signing in<input id="publish-paste" type="url" autocapitalize="none" spellcheck="false" placeholder="https://…/admin/youtube/callback?state=…"></label><button id="publish-paste-send" type="button">Finish connecting</button></div></details>
+            <form id="publish-form" class="stack publish-settings" hidden>
+              <h3>Upload settings</h3>
+              <label for="publish-visibility">Who can see the uploads<select id="publish-visibility" required><option value="">Choose…</option><option value="public">Public</option><option value="unlisted">Unlisted (link only)</option><option value="private">Private (only you)</option></select></label>
+              <label for="publish-category">YouTube category<select id="publish-category"></select></label>
+              <label class="toggle-line" for="publish-kids">Made for kids<input id="publish-kids" class="switch-input" type="checkbox" role="switch"></label>
+              <label class="toggle-line" for="publish-paid">Videos include paid promotion<input id="publish-paid" class="switch-input" type="checkbox" role="switch"></label>
+              <label for="publish-per-day">Uploads per day<input id="publish-per-day" type="number" min="1" max="100" step="1" required></label>
+              <label for="publish-start-after">Don't start before<input id="publish-start-after" type="datetime-local"></label>
+              <label class="toggle-line" for="publish-end-card">Add the end card to YouTube uploads<input id="publish-end-card" class="switch-input" type="checkbox" role="switch" aria-describedby="publish-end-card-help"></label>
+              <p id="publish-end-card-help" class="help">Off: your saved copy is uploaded as it is. On: you2mp3 makes a separate end-card version for YouTube only (uses your you2mp3 allowance). The site copy never changes.</p>
+              <label class="toggle-line" for="publish-auto">Also upload new TikTok imports<input id="publish-auto" class="switch-input" type="checkbox" role="switch"></label>
+              <label for="publish-audit">Google API audit<select id="publish-audit"><option value="not requested">Not requested</option><option value="requested">Requested, waiting</option><option value="passed">Passed</option></select></label>
+              <p class="help">Each upload gets the video's title, its TikTok caption with a wokearewe.com link, and its hashtags as tags. Short vertical videos are marked for Shorts.</p>
+              <div class="actions"><button id="publish-save" type="submit" class="primary" disabled>Save upload settings</button></div><p id="publish-save-status" class="help" role="status"></p>
+            </form>
+            <div id="publish-warning" class="publish-warning" hidden></div>
+            <div id="publish-progress" class="publish-progress" hidden></div>
+            <div class="actions" id="publish-actions"></div>
+            <div id="publish-lists" class="publish-lists"></div>
+            <details><summary>Google setup steps (once)</summary><ol class="help publish-steps">
+              <li>Open console.cloud.google.com, create a project, and turn on <b>YouTube Data API v3</b>.</li>
+              <li>Under <b>Google Auth Platform</b>, set the app as <b>External</b>, add your Google account as a test user, then set publishing status to <b>In production</b>. In Testing, Google ends the sign-in every 7 days. It stays unverified, which is fine for your own channel (you'll see an "unverified app" screen; choose Advanced, then continue).</li>
+              <li>Create an <b>OAuth client ID</b> of type <b>Web application</b>. Add this authorised redirect URI: <code id="publish-redirect">set PI_PUBLIC_URL first</code></li>
+              <li>Put <code>YOUTUBE_CLIENT_ID</code> and <code>YOUTUBE_CLIENT_SECRET</code> in the Pi settings file and restart the service, then press Connect YouTube here and sign in to the account that owns @wokearewe1.</li>
+            </ol></details>
+          </div></section>
         </div>
       </section>
       <section id="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
@@ -136,7 +168,7 @@
       </nav>
     </div>
   </main>
-  <footer><span>WokeAreWe · Personal archive</span><span class="release">Release 2026.11.15.14</span></footer>
+  <footer><span>WokeAreWe · Personal archive</span><span class="release">Release 2026.11.15.15</span></footer>
   <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><div id="popupBox"><h2 id="confirm-title">Confirm action</h2><div class="dialog-content"><p id="confirm-text"></p><div id="dialog-message" role="status" aria-live="polite"></div></div><div class="actions"><button id="confirm-cancel" type="button" autofocus>Cancel</button><button id="confirm-accept" type="button" class="primary">Confirm</button></div></div></dialog>
 </body>
 </html>

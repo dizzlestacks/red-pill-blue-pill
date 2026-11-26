@@ -119,12 +119,7 @@ def items():
         memory = {r["source_key"]: json.loads(r["details"]) for r in c.execute("SELECT * FROM library_memory")}
     on_site = {}
     for v in cat["videos"]:
-        try:
-            key = store.source(store.video_source(v))[0]
-        except ValueError:
-            key = ""
-        if key not in media and v.get("id") in matches:
-            key = matches[v["id"]]
+        key = store.media_key(v, media, matches)
         if key in media and key not in on_site:
             on_site[key] = v
     remember = []
@@ -143,14 +138,14 @@ def items():
             title, cats, tags = v.get("title"), categories(v.get("category")), v.get("tags") or []
             untitled = store.needs_title(v)
             published = "Yes"
-            link = job.get("url") or store.video_source(v)
+            link = job.get("url") or store.own_source(v)
             if link.startswith("/"):
                 link = job.get("url") or ""
         elif gone:
             title, cats, tags = gone.get("title"), categories(gone.get("category")), gone.get("tags") or []
             untitled = store.needs_title(gone)
             published = "Removed from site"
-            link = job.get("url") or store.video_source(gone)
+            link = job.get("url") or store.own_source(gone)
             if link.startswith("/"):
                 link = ""
         else:

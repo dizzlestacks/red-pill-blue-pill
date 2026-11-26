@@ -254,3 +254,48 @@ site category named "post date - title", `Originals/`, `Removed from site/`,
 into `_system (do not edit)/`. Nothing is deleted from the NAS automatically.
 Progress and **Rebuild library** are in /admin → Settings. See
 `pi/RELEASE-2026.11.15.11.md`.
+
+## Publish to YouTube (from 2026.11.15.15)
+
+Admin → Automatic → **Publish to YouTube** puts every TikTok-sourced hub video
+on your own channel (default `@wokearewe1`), once each. It uses only Google's
+official sign-in and the YouTube Data API. Your Google password is never asked
+for or stored.
+
+One-time Google setup (about 10 minutes):
+
+1. At console.cloud.google.com create a project and enable **YouTube Data API v3**.
+2. Google Auth Platform: audience **External**, add your Google account as a test
+   user, then set publishing status to **In production**. (In "Testing", Google
+   ends the sign-in every 7 days.) The app stays unverified, which is fine for
+   your own channel; on the warning screen choose Advanced → continue.
+3. Create an **OAuth client ID** of type **Web application** with the redirect URI
+   `PI_PUBLIC_URL` + `/admin/youtube/callback`, for example
+   `https://harriet.example/admin/youtube/callback`.
+4. Add to `/etc/wokearewe/settings.env` and restart:
+
+       YOUTUBE_CLIENT_ID="…apps.googleusercontent.com"
+       YOUTUBE_CLIENT_SECRET="…"
+       # optional: YOUTUBE_CHANNEL_HANDLE="@wokearewe1"
+       # optional: YOUTUBE_REDIRECT_URI (if /admin is reached on another address)
+
+5. In /admin press **Connect YouTube**, sign in as the channel owner and allow
+   both permissions (upload, and see your channel's videos).
+
+Google's lasting permission is kept only in `DATA_DIR/youtube-connection.json`
+(owner-only file). It is not in recovery snapshots, the NAS or GitHub. After a
+restore you just press Connect YouTube again. Disconnect removes it and asks
+Google to cancel it.
+
+Duplicates: the Pi reads your channel and matches by YouTube link, by the
+`wokearewe-tt-<post id>` tag it adds to its own uploads, and by title plus
+length. Unsure matches wait for you. Every upload is resumable; after a restart
+it continues or picks up the finished video instead of starting again.
+
+Limits: a Google project gets 100 uploads a day (from 2 November 2026 that has
+its own allowance) plus 10,000 units for reading; both reset at midnight
+Pacific time. The Pi uploads your chosen number per day, spread out, and waits
+for the reset when YouTube says a limit is reached. Since 2 November 2026,
+uploads from projects that weren't audited keep the visibility you choose; the
+audit (https://support.google.com/youtube/contact/yt_api_form) only matters to
+go above 100 a day.

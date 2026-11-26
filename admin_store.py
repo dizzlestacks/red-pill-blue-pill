@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.14"
+RELEASE = "2026.11.15.15"
 
 
 def db():
@@ -101,6 +101,8 @@ def init():
     youtube_watch.init()
     import back_catalog
     back_catalog.init()
+    import youtube_publish
+    youtube_publish.init()
 
 
 def source(url):
@@ -133,6 +135,48 @@ def video_source(v):
     if v.get("youtube_id"):
         return "https://www.youtube.com/watch?v=" + str(v["youtube_id"])
     return v.get("source_url") or v.get("url", "")
+
+
+def video_sources(v):
+    """(key, canonical link) for every source of a hub entry, its own source first.
+
+    A TikTok post that was also published to YouTube keeps its TikTok source:
+    its saved copy, duplicate checks and NAS name all stay on the TikTok key.
+    """
+    found = {}
+    links = [v.get("source_url"), v.get("url")]
+    if v.get("youtube_id"):
+        links.append("https://www.youtube.com/watch?v=" + str(v["youtube_id"]))
+    for link in links:
+        if not isinstance(link, str) or not link.startswith("https://"):
+            continue
+        try:
+            key, canonical, _ = source(link)
+        except ValueError:
+            continue
+        found.setdefault(key, canonical)
+    return list(found.items())
+
+
+def own_source(v):
+    """Link a copy of this entry is made from: its own source, never a YouTube upload of it."""
+    sources = video_sources(v)
+    return sources[0][1] if sources else video_source(v)
+
+
+def video_keys(v):
+    return [key for key, _ in video_sources(v)]
+
+
+def media_key(v, media, matches=None):
+    """The key of the saved copy a hub entry uses (first own source with a copy, then a confirmed match)."""
+    keys = video_keys(v)
+    for key in keys:
+        if key in media:
+            return key
+    if matches and v.get("id") in matches:
+        return matches[v["id"]]
+    return keys[0] if keys else ""
 
 
 def load_catalog():
@@ -274,12 +318,7 @@ def hydrated():
     count = 0
     for v in cat["videos"]:
         v["needs_title"] = needs_title(v)
-        try:
-            key = source(video_source(v))[0]
-        except ValueError:
-            key = ""
-        if key not in media and v["id"] in matches:
-            key = matches[v["id"]]
+        key = media_key(v, media, matches)
         m = media.get(key)
         if m and m.get("check_status") == "problem" and v.get("youtube_id"):
             m = None  # A saved copy with a known problem (e.g. no sound) never replaces working YouTube playback.
@@ -353,11 +392,7 @@ def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
             c.execute("DELETE FROM removed_sources WHERE source_key=?", (key,))
         if video_id is None:
             for v in load_catalog()[0]["videos"]:
-                try:
-                    duplicate = source(video_source(v))[0] == key
-                except ValueError:
-                    duplicate = False
-                if duplicate:
+                if key in video_keys(v):
                     return {"id": v["id"], "status": "duplicate skipped"}
         existing = c.execute("SELECT id FROM jobs WHERE source_key=?", (key,)).fetchone()
         if existing:

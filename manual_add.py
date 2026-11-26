@@ -31,12 +31,9 @@ def add(body):
         for key, url, kind in resolved:
             existing = None
             for video in cat["videos"]:
-                try:
-                    if store.source(store.video_source(video))[0] == key:
-                        existing = video
-                        break
-                except ValueError:
-                    pass
+                if key in store.video_keys(video):
+                    existing = video
+                    break
             if existing:
                 results.append({"id": existing["id"], "status": "duplicate skipped", "video": existing})
                 continue
@@ -56,7 +53,7 @@ def add(body):
             if keep:
                 # Existing catalogue metadata is deliberately never overwritten.
                 try:
-                    result["backup"] = store.enqueue(store.video_source(video), video["id"], video["title"], video.get("tags", []))
+                    result["backup"] = store.enqueue(store.own_source(video), video["id"], video["title"], video.get("tags", []))
                 except Exception:
                     # Catalogue already saved: report the partial outcome, never
                     # suggest nothing happened or silently discard the queue failure.

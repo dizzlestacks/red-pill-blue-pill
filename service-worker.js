@@ -1,4 +1,4 @@
-const CACHE='matrix-public-2026.11.15.14';
+const CACHE='matrix-public-2026.11.15.15';
 const CORE=['./','index.html','choice.html','videos.html','learn.html','readonly.html','reset.html',
  'themes.css','hub.css','videos.js','offline.js','backup-player.js','videos.json',
  'assets/favicon-32x32.png','assets/favicon.ico','assets/pill-choice.png',

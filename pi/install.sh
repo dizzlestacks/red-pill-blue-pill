@@ -30,6 +30,7 @@ values={"ADMIN_PASSWORD":os.environ["ADMIN_PASSWORD"],"YOU2MP3_API_KEY":os.envir
         "DATA_DIR":"/var/lib/wokearewe","MIRROR_DIR":"","STORAGE_BACKEND":"disk","PORT":"5002","BIND_HOST":"127.0.0.1",
         "GITHUB_SYNC_REPO":"","GITHUB_SYNC_BRANCH":"","GITHUB_SYNC_TOKEN":"",
         "PI_PUBLIC_URL":"","PUBLIC_SITE_ORIGIN":"https://wokearewe.com",
+        "YOUTUBE_CLIENT_ID":"","YOUTUBE_CLIENT_SECRET":"","YOUTUBE_CHANNEL_HANDLE":"@wokearewe1",
         "TIKTOK_PROFILE":"https://www.tiktok.com/@wokearewe1","TIKTOK_WATCH_ENABLED":"true",
         "TIKTOK_CHECK_MINUTES":"15","IMPORTS_PER_HOUR":"6","MIN_FREE_GB":"5",
         "TIKTOK_AUTO_PUBLISH":"false","TIKTOK_ADD_END_CARD":"true"}

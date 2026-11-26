@@ -54,10 +54,7 @@ def site_keys():
     cat, _ = store.load_catalog()
     keys = set()
     for v in cat["videos"]:
-        try:
-            keys.add(store.source(store.video_source(v))[0])
-        except ValueError:
-            pass
+        keys.update(store.video_keys(v))
     ids = {v["id"] for v in cat["videos"]}
     with store.db() as c:
         for r in c.execute("SELECT * FROM backup_matches WHERE undone=0"):
