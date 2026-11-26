@@ -1,6 +1,6 @@
-# Current release: 2026.11.15.13
+# Current release: 2026.11.15.14
 
-Latest changes (/admin uses the Video Hub's own stylesheet `hub.css`: same font, themes, top bars, buttons, chips and backdrop): see [release notes](pi/RELEASE-2026.11.15.13.md). Previous: [2026.11.15.12](pi/RELEASE-2026.11.15.12.md).
+Latest changes (Twitter link removed from the Video Hub links bar, remaining links evenly spaced): see [release notes](pi/RELEASE-2026.11.15.14.md). Previous: [2026.11.15.13](pi/RELEASE-2026.11.15.13.md) (/admin uses the Video Hub's own stylesheet).
 
 The real watched-profile adapter is connected. Existing posts are opt-in batches; automatic imports only include posts newer than the persisted watching start time. See [release notes](pi/RELEASE-2026.11.15.6.md).
 

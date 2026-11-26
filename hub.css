@@ -146,7 +146,7 @@ input, button, select, textarea {
   font-size:.60rem;
   line-height:1.15;
 }
-.top-social .bar-inner{ flex-wrap:wrap; gap:10px; }
+.top-social .bar-inner{ flex-wrap:wrap; justify-content:center; gap:4px 18px; }
 .top-social a{
   color: var(--accent);
   text-decoration:none;

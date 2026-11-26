@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.13."""
+"""Matrix Video Hub / admin release 2026.11.15.14."""
 import hashlib
 import hmac
 import http.cookies
