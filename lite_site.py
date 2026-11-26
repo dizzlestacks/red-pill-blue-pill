@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import admin_store as store
 
 PAGES = ("index.html", "choice.html", "videos.html", "learn.html", "readonly.html", "reset.html")
-ASSETS = ("404.html", "themes.css", "videos.js", "offline.js", "backup-player.js", "public-backups.js", "The-Matrix-Blue-Pill-or-Red-Pill.mp4")
+ASSETS = ("404.html", "themes.css", "hub.css", "videos.js", "offline.js", "backup-player.js", "public-backups.js", "The-Matrix-Blue-Pill-or-Red-Pill.mp4")
 LAST_ERROR = ""
 _lock = threading.Lock()
 

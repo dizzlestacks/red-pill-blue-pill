@@ -77,8 +77,11 @@ const fs=require('node:fs');
   // Simulated keyboard: shrink the visual viewport and confirm the sheet follows it.
   await page.setViewportSize({width:390,height:844});
   await page.locator('#overwrite').click();
+  // Let the opening scroll lock and viewport events finish first, as a real keyboard opens after the sheet.
+  await page.waitForTimeout(400);
   await page.evaluate(()=>{const s=document.documentElement.style;s.setProperty('--visual-height','420px');s.setProperty('--visual-top','0px');});
-  await page.waitForTimeout(60);
+  // The page animates (falling code, pop-up entrance), so allow up to 2s for the sheet to settle.
+  await page.waitForFunction(()=>document.getElementById('confirm-accept').getBoundingClientRect().bottom<=421,null,{timeout:2000}).catch(()=>{});
   const kb=await page.locator('#confirm-accept').boundingBox();
   assert(kb.y+kb.height<=421,'actions hidden behind simulated keyboard '+JSON.stringify(kb));
   await page.locator('#confirm-cancel').click();

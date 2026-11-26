@@ -109,7 +109,7 @@
     }
 
     function chip(value, on, isNew) {
-      const b = el("button", "chip" + (isNew ? " chip-new" : ""));
+      const b = el("button", "chip cat-chip" + (isNew ? " chip-new" : ""));
       b.type = "button";
       b.setAttribute("aria-pressed", on ? "true" : "false");
       b.textContent = (kind === "tag" ? "#" : "") + value;

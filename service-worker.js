@@ -1,6 +1,6 @@
-const CACHE='matrix-public-2026.11.15.12';
+const CACHE='matrix-public-2026.11.15.13';
 const CORE=['./','index.html','choice.html','videos.html','learn.html','readonly.html','reset.html',
- 'themes.css','videos.js','offline.js','backup-player.js','videos.json',
+ 'themes.css','hub.css','videos.js','offline.js','backup-player.js','videos.json',
  'assets/favicon-32x32.png','assets/favicon.ico','assets/pill-choice.png',
  'assets/tiktok.png','assets/instagram.png'];
 const ALLOWED=new Set(CORE.map(p=>new URL(p,self.registration.scope).pathname));

@@ -4,13 +4,35 @@
   const themes = ['dark','light','grey','pink','blue','vaporwave','solarized-dark','dracula','cyberpunk','sepia','midnight','facebook','mcdonalds','walmart','office','discord','netflix','apple','google','amazon','spotify','twitch','youtube','terminal','desert','ocean','forest','blood','gold','ice'];
   const state = { bulk:{on:false,ids:new Set(),shown:[]}, sourceDefaults:{}, dupesShown:false, csrf:'', signedIn:false, catalog:null, revision:null, editing:null, stale:false, busy:false, queueBusy:false, poll:null, queue:new Map(), drafts:new Map(), connection:false, storage:false, watcher:null, watcherDirty:false, watcherBusy:false, watcherLoading:false };
   let authGeneration = 0;
-  for (const name of themes) { const option = document.createElement('option'); option.value = name; option.textContent = name.split('-').map(s => s[0].toUpperCase()+s.slice(1)).join(' '); $('theme').append(option); }
-  // Same theme as the public site unless the owner picked a different one here.
+  // Same theme list, labels, default (terminal) and saved choice as the Video Hub.
+  const keepBodyFlags = () => [...document.body.classList].filter(c => c === 'keyboard-open');
+  function setTheme(name) { document.body.className = [name, ...keepBodyFlags()].join(' '); try { localStorage.setItem('preferredTheme', name); } catch {} }
+  for (const name of themes) { const option = document.createElement('option'); option.value = name; option.textContent = name.toUpperCase(); $('theme').append(option); }
   let savedTheme = 'terminal';
-  try { savedTheme = localStorage.getItem('admin:theme') || localStorage.getItem('preferredTheme') || localStorage.getItem('editor:theme') || 'terminal'; } catch {}
-  $('theme').value = themes.includes(savedTheme) ? savedTheme : 'terminal';
-  document.body.className = $('theme').value;
-  $('theme').addEventListener('change', () => { document.body.className = $('theme').value; try { localStorage.setItem('admin:theme',$('theme').value); } catch {} });
+  try { savedTheme = localStorage.getItem('preferredTheme') || localStorage.getItem('admin:theme') || 'terminal'; } catch {}
+  if (!themes.includes(savedTheme)) savedTheme = 'terminal';
+  $('theme').value = savedTheme; setTheme(savedTheme);
+  $('theme').addEventListener('change', () => { if (themes.includes($('theme').value)) setTheme($('theme').value); });
+  // The hub's sticky bars stack using their measured heights.
+  function updateStickyHeights() { const bar = $('topLearn'); if (bar) document.documentElement.style.setProperty('--meta-h', Math.ceil(bar.getBoundingClientRect().height) + 'px'); }
+  addEventListener('resize', updateStickyHeights, { passive:true }); addEventListener('load', updateStickyHeights, { passive:true }); updateStickyHeights();
+  // Give every control the Video Hub's own classes (hub.css): buttons -> .btn,
+  // main actions -> .lucky-btn, text fields and menus -> .hub-field.
+  function hubSkin(root) {
+    const all = root.querySelectorAll ? [root, ...root.querySelectorAll('button,input,textarea,select')] : [];
+    for (const el of all) {
+      if (el.tagName === 'BUTTON') {
+        if (el.classList.contains('hud-tab') || el.classList.contains('cat-chip') || el.classList.contains('notice-close')) continue;
+        el.classList.toggle('lucky-btn', el.classList.contains('primary'));
+        el.classList.toggle('btn', !el.classList.contains('primary'));
+      } else if ((el.tagName === 'INPUT' && !['checkbox','hidden','radio'].includes(el.type)) || el.tagName === 'TEXTAREA' || (el.tagName === 'SELECT' && !el.classList.contains('theme-select'))) {
+        if (!el.classList.contains('hub-field')) el.classList.add('hub-field'); // add() always rewrites the attribute, which would re-trigger the observer
+      }
+    }
+  }
+  hubSkin(document.body);
+  new MutationObserver(records => { for (const r of records) { if (r.type === 'attributes') hubSkin(r.target); else r.addedNodes.forEach(n => { if (n.nodeType === 1) hubSkin(n); }); } })
+    .observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
   // The public site's falling code, kept faint so text stays readable.
   (() => {
     const canvas=$('matrixRain'); if(!canvas||matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -153,7 +175,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.12');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.13');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -178,7 +200,7 @@
     sectionScroll.set(currentSection,window.scrollY); currentSection=name;
     // Move the one message with its section without generating a notification.
     if(!$('message').hidden) $(name).prepend($('message'));
-    document.querySelectorAll('[data-tab]').forEach(tab=>{const selected=tab.dataset.tab===name;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;$(tab.dataset.tab).hidden=!selected;});
+    document.querySelectorAll('[data-tab]').forEach(tab=>{const selected=tab.dataset.tab===name;tab.setAttribute('aria-selected',String(selected));tab.classList.toggle('active',selected);tab.tabIndex=selected?0:-1;$(tab.dataset.tab).hidden=!selected;});
     window.scrollTo({top:sectionScroll.get(name)||0,behavior:'instant'});
   }
   document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>openSection(button.dataset.tab)));
