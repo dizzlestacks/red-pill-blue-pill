@@ -4,8 +4,9 @@
   const strip = data => {
     const result=JSON.parse(JSON.stringify(data));
     (Array.isArray(result)?result:result.videos||[]).forEach(v=>{
-      ['backup','backup_available','backup_url','backup_status','url'].forEach(k=>delete v[k]);
-      if(!v.youtube_id&&!v.tiktok_url)v.limited_unavailable=true;
+      ['backup','backup_available','backup_url','backup_status','url','poster_url'].forEach(k=>delete v[k]);
+      // Copy-only videos stay listed (and searchable); the hub says they are temporarily unavailable.
+      if(!v.youtube_id)v.limited_unavailable=true;
     });
     return result;
   };
@@ -20,7 +21,7 @@
       }
       if('caches' in window)await Promise.all((await caches.keys()).filter(n=>n.startsWith('matrix-')).map(n=>caches.delete(n)));
       try {localStorage.removeItem('matrix:public-offline');localStorage.removeItem('videosCacheV4');}catch{}
-      const url=new URL(location.href),version=window.MATRIX_BUILD?.commit||'2026.11.15.11';
+      const url=new URL(location.href),version=window.MATRIX_BUILD?.commit||'2026.11.15.12';
       if(navigator.serviceWorker?.controller){
         if(url.searchParams.get('matrix-refresh')!==version){
           url.searchParams.set('matrix-refresh',version);location.replace(url.href);
@@ -42,7 +43,8 @@
     window.MATRIX_LIMITED=value;
     if(value && !window.MATRIX_LITE)window.dispatchEvent(new Event('matrix-server-unavailable'));
     const banner=document.getElementById('limited-mode');
-    if(banner)banner.hidden=!value;
+    // The lite site is always "limited"; only the Pi shows the banner when it drops to its offline copy.
+    if(banner)banner.hidden=!value||!!window.MATRIX_LITE;
     hideUnavailable();
   };
   window.fetch = async (input, init) => {

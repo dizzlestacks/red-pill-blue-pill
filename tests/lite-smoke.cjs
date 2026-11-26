@@ -19,7 +19,7 @@ const arg=n=>process.argv[process.argv.indexOf(n)+1];
   const markerResponse=await probe.request.get(base+'/build-info.json');
   assert.equal(markerResponse.status(),200);
   const marker=await markerResponse.json();
-  assert.equal(marker.release,'2026.11.15.11');
+  assert.equal(marker.release,'2026.11.15.12');
   if(process.env.EXPECTED_COMMIT)assert.equal(marker.commit,process.env.EXPECTED_COMMIT,'Deployment is still serving a different commit');
   console.log('Build marker',marker);
   await probe.close();

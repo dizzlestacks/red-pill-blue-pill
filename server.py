@@ -1,4 +1,4 @@
-"""Matrix Video Hub / admin release 2026.11.15.11."""
+"""Matrix Video Hub / admin release 2026.11.15.12."""
 import hashlib
 import hmac
 import http.cookies
@@ -31,6 +31,32 @@ AUTH_LOCK = threading.Lock()
 MEDIA_LOCK = threading.Lock()
 SESSION_SECONDS = 12 * 3600
 PUBLIC_HTML = {"index.html", "choice.html", "videos.html", "learn.html", "readonly.html", "reset.html", "videos-backup.html"}
+
+
+def build_commit():
+    try:
+        commit = json.loads((store.ROOT / "bundle-manifest.json").read_text()).get("commit", "")
+        if commit:
+            return commit
+    except (OSError, ValueError):
+        pass
+    try:
+        import subprocess
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=store.ROOT, text=True,
+                                       stderr=subprocess.DEVNULL).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
+COMMIT = build_commit()
+
+
+def release_footer(text):
+    import html as html_lib
+    footer = ('<footer id="release-marker" style="padding:12px;text-align:center;font:11px monospace;'
+              'color:var(--muted,#7bd58a)">Release ' + html_lib.escape(store.RELEASE)
+              + (' · ' + html_lib.escape(COMMIT[:12]) if COMMIT else '') + '</footer>')
+    return text.replace("</body>", footer + "</body>", 1)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -113,8 +139,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if path == "/api/public/backups":
                 base = public_catalog.pi_origin()
                 cat, _, _ = store.hydrated()
-                return self.reply({"backups": {str(v["id"]): base+v["backup_url"]
-                    for v in cat["videos"] if base and v.get("backup_available") and v.get("backup_url")}})
+                own = [v for v in cat["videos"] if base and v.get("backup_available") and v.get("backup_url")]
+                return self.reply({"backups": {str(v["id"]): base + v["backup_url"] for v in own},
+                                   "posters": {str(v["id"]): base + v["poster_url"] for v in own if v.get("poster_url")}})
             if path == "/healthz":
                 alive = worker_thread is not None and worker_thread.is_alive()
                 return self.reply({"status": "ok" if alive else "degraded", "release": store.RELEASE,
@@ -148,6 +175,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply(youtube_watch.status(view))
                 if path == "/api/admin/checks":
                     return self.reply(media_check.report())
+                if path == "/api/admin/source-defaults":
+                    return self.reply({"defaults": store.source_defaults()})
                 if path == "/api/admin/back-catalog/estimate":
                     import back_catalog
                     return self.reply(back_catalog.estimate())
@@ -173,6 +202,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             r["needs_title"] = store.needs_title(r)
                             r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
+                            r["category"] = store.job_categories(r)
                             r["preview_url"] = "/api/admin/media/" + r["id"] if m and r["status"] in ("imported", "published", "problem") else None
                             on_site = r["source_key"] in site_keys
                             r["card"] = queue_actions.card(r, m, on_site, on_site or r.get("video_id") in site_ids)
@@ -224,7 +254,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 root_file = len(Path(path).parts) == 2
                 subdir = path.startswith(("/assets/", "/pdfs/"))
                 if not safe or not allowed or not (root_file or subdir) or not target.is_file():
-                    return self.reply({"error": "Not found"}, 404)
+                    return self.not_found_page(head)
+            if path == "/" or path.lstrip("/") in PUBLIC_HTML:
+                return self.serve_public_page("index.html" if path == "/" else path.lstrip("/"), head)
             target = (store.ROOT / path.lstrip("/")).resolve()
             if target.suffix.lower() in (".mp4", ".pdf") and target.is_file():
                 return self.serve_public_file(target, head)
@@ -235,6 +267,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.reply({"error": "Not found"}, 404)
         except Exception:
             self.reply({"error": "Unable to read requested data"}, 500)
+
+    def send_html(self, text, status=200, head=False):
+        raw = text.encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        if not head:
+            self.wfile.write(raw)
+
+    def serve_public_page(self, name, head=False):
+        """Public pages carry the same release line as wokearewe.com, so the two sites look the same."""
+        file = store.ROOT / name
+        if not file.is_file():
+            return self.not_found_page(head)
+        return self.send_html(release_footer(file.read_text()), head=head)
+
+    def not_found_page(self, head=False):
+        page = store.ROOT / "404.html"
+        if page.is_file():
+            return self.send_html(page.read_text(), 404, head)
+        return self.reply({"error": "Not found"}, 404)
 
     def serve_public_file(self, file, head=False):
         size = file.stat().st_size
@@ -478,6 +533,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 result = tiktok_watch.request(older=path.endswith("/older"))
                 durable_state.checkpoint()
                 return self.reply(result)
+            if path == "/api/admin/source-defaults":
+                saved = store.set_source_default(body.get("source_id"), body.get("categories"))
+                durable_state.checkpoint()
+                return self.reply({"ok": True, "categories": saved, "defaults": store.source_defaults()})
             if path == "/api/admin/manual":
                 import manual_add
                 result = manual_add.add(body)
@@ -526,6 +585,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     with store.LOCK:
                         job = store.get_job(jid)
                         updates = dict(title=title.strip(), tags=json.dumps(tags))
+                        if "category" in body:
+                            updates["category"] = json.dumps(store.clean_categories(body["category"]))
                         if job["kind"] == "tiktok" and not job["payload"] and not job["upstream_id"]:
                             updates["add_end_card"] = False
                         elif job["kind"] != "tiktok" and ("add_end_card" in body or body.get("use_provider_default") is True):

@@ -19,7 +19,7 @@ def export(catalog, configured_origin=True):
         tiktok = item.get("source_url") or item.get("tiktok_url") or ""
         if isinstance(tiktok,str) and re.fullmatch(r"https://www\.tiktok\.com/@[\w.-]+/video/\d{8,25}",tiktok):
             v["tiktok_url"] = tiktok
-        for key in ("id", "title", "added"):
+        for key in ("id", "title", "added", "published"):
             if isinstance(item.get(key), str):
                 v[key] = item[key][:1000]
         for key in ("pinned", "featured"):

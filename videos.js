@@ -127,6 +127,30 @@
     return v.youtube_id && String(v.youtube_id).startsWith("PL");
   }
 
+  // A video plays from the owner's own copy when one is published (Pi site, or
+  // lite site while the Pi is reachable). Never hide such videos: when the copy
+  // can't be reached they stay listed and say they are temporarily unavailable.
+  function ownCopy(v) {
+    return !!(v && v.backup_available && v.backup_url);
+  }
+
+  function playable(v) {
+    if (!v || v.limited_unavailable) return false;
+    if (v.youtube_id || ownCopy(v)) return true;
+    // On the lite site a copy-only video without the Pi has nothing to play here.
+    return !window.MATRIX_LITE && !!v.url;
+  }
+
+  function unavailableReason(v) {
+    return "This video plays from our own archive, which can't be reached right now. Please try again later.";
+  }
+
+  // "New" means newest to the hub: when it was published, else its date.
+  function newestTime(v) {
+    const t = Date.parse(v.published || "") || 0;
+    return Math.max(t, Date.parse(v.added || "") || 0);
+  }
+
   function categoryArray(v) {
     if (!v.category) return [];
     return Array.isArray(v.category) ? v.category.filter(Boolean) : [v.category];
@@ -168,7 +192,7 @@
      SHARE / OPEN
      ============================ */
   function shareLink(v) {
-    if(window.MATRIX_LITE && !v.youtube_id && v.backup_url)return location.origin+location.pathname+'#video='+encodeURIComponent(v.id||'');
+    if (!v.youtube_id && (ownCopy(v) || v.url || v.tiktok_url) && v.id) return location.origin + location.pathname + '#video=' + encodeURIComponent(v.id);
     if (v.youtube_id) {
       if (isPlaylist(v)) return `https://www.youtube.com/playlist?list=${v.youtube_id}`;
       return `https://youtu.be/${v.youtube_id}`;
@@ -207,6 +231,17 @@
       `;
     }
 
+    if (!v.youtube_id && !playable(v)) {
+      return `
+        <div class="thumb-wrap thumb-unavailable" data-key="${escapeAttr(key)}" data-type="unavailable">
+          <div class="unavailable-box" role="note">
+            <strong>Temporarily unavailable</strong>
+            <span>${escapeHTML(unavailableReason(v))}</span>
+          </div>
+        </div>
+      `;
+    }
+
     if (v.youtube_id) {
       const src = youtubeThumbURL(v.youtube_id);
       return `
@@ -217,17 +252,17 @@
       `;
     }
 
-    if (v.url || v.tiktok_url) {
+    if (ownCopy(v) || v.url) {
       return `
         <div class="thumb-wrap" data-key="${escapeAttr(key)}" data-type="direct" role="button" tabindex="0" aria-label="Play video">
-          ${v.poster_url ? `<img src="${escapeAttr(v.poster_url)}" alt="" loading="lazy"><div class="thumb-badge">▶ Tap to play</div>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;">
+          ${v.poster_url ? `<img class="own-poster" src="${escapeAttr(v.poster_url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"><div class="thumb-badge">▶ Tap to play</div>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;">
             ▶ Tap to play
           </div>`}
         </div>
       `;
     }
 
-    return v.limited_unavailable ? "" : `<div class="thumb-wrap"><div class="meta-line">No source</div></div>`;
+    return `<div class="thumb-wrap"><div class="meta-line">No source</div></div>`;
   }
 
   function iframeHTMLFor(v, autoplay = true) {
@@ -244,7 +279,7 @@
         referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
     }
 
-    if (v.url) {
+    if (v.url && playable(v)) {
       const auto = autoplay ? " autoplay" : "";
       const poster = v.poster_url ? ` poster="${escapeAttr(v.poster_url)}"` : "";
       return `<video src="${escapeAttr(v.url)}"${poster} controls${auto} playsinline preload="metadata"></video>`;
@@ -258,16 +293,12 @@
       window.open(shareLink(v), "_blank", "noopener");
       return;
     }
-    if (!containerEl || containerEl.dataset.loaded === "1") return;
+    if (!containerEl || containerEl.dataset.loaded === "1" || !playable(v)) return;
     containerEl.dataset.loaded = "1";
-    if (v.backup_available && v.backup_url && !isPlaylist(v) && window.matrixPlayYouTubeWithBackup) {
+    if (ownCopy(v) && !isPlaylist(v) && window.matrixPlayYouTubeWithBackup) {
       window.matrixPlayYouTubeWithBackup(containerEl, v);
       markWatchedAfter5Min(key);
       return;
-    }
-    if(/https:\/\/(?:www\.)?tiktok\.com\//.test(v.tiktok_url||v.url||'')){
-      window.open(v.tiktok_url||v.url,'_blank','noopener');
-      containerEl.dataset.loaded='';return;
     }
     containerEl.innerHTML = iframeHTMLFor(v, true);
     const own = containerEl.querySelector("video");
@@ -296,10 +327,10 @@
         ${thumbHTML(v, key)}
         <div class="meta-line">Added: ${escapeHTML(dateStr)}</div>
         <div class="chips">${cats || ""}</div>
-        <div class="card-actions"${v.limited_unavailable ? ' hidden style="display:none"' : ""}>
+        <div class="card-actions"${playable(v) ? "" : ' hidden style="display:none"'}>
           <button class="btn" data-open="${escapeAttr(key)}">▶ Open</button>
           <button class="btn secondary" data-share="${escapeAttr(key)}">🔗 Share</button>
-          ${v.backup_available && v.backup_url && window.matrixPlayBackup ? `<button class="btn" data-backup="${escapeAttr(key)}">Watch backup</button><a class="btn" href="${escapeAttr(v.backup_url)}/download">Download backup</a>` : ""}
+          ${ownCopy(v) && v.youtube_id && window.matrixPlayBackup ? `<button class="btn" data-backup="${escapeAttr(key)}">Watch backup</button><a class="btn" href="${escapeAttr(v.backup_url)}/download">Download backup</a>` : ""}
         </div>
       </div>
     `;
@@ -391,7 +422,7 @@
     });
 
     const byDate = x => new Date(x.added || 0).getTime() || 0;
-    if (sortMode === "newest") filteredList.sort((a, b) => byDate(b) - byDate(a));
+    if (sortMode === "newest") filteredList.sort((a, b) => newestTime(b) - newestTime(a));
     else if (sortMode === "oldest") filteredList.sort((a, b) => byDate(a) - byDate(b));
     else if (sortMode === "az") filteredList.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
     else if (sortMode === "za") filteredList.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
@@ -424,8 +455,13 @@
       if (els.featuredContainer) els.featuredContainer.innerHTML = "";
     }
 
-    const { filtered, total } = applyFilters();
-    els.resultCount.textContent = `Showing ${filtered.length} of ${total}`;
+    const { filtered } = applyFilters();
+    // Count exactly what this view shows (playlists only appear on their own tab).
+    const shownTotal = state.view === "playlists" ? state.playlists.length
+      : state.videos.filter(v => !isPlaylist(v) && (state.view !== "pinned" || v.pinned)).length;
+    const shownCount = state.view === "playlists" ? filtered.length
+      : filtered.filter(v => !isPlaylist(v) && (state.view !== "pinned" || v.pinned)).length;
+    els.resultCount.textContent = `Showing ${shownCount} of ${shownTotal}`;
 
     const keyToVideo = new Map();
     state.videos.forEach(v => keyToVideo.set(videoKey(v), v));
@@ -503,9 +539,9 @@
       el.onclick = () => {
         const key = el.getAttribute("data-open");
         const v = keyToVideo.get(key);
-        if(v && v.backup_available && v.backup_url){
-          window.matrixPlayBackup(el.closest('.card').querySelector('.thumb-wrap'),v);
-        } else if (v) window.open(shareLink(v), "_blank", "noopener");
+        if (v && ownCopy(v)) {
+          window.matrixPlayBackup(el.closest('.card').querySelector('.thumb-wrap'), v);
+        } else if (v && playable(v)) window.open(shareLink(v), "_blank", "noopener");
       };
     });
 
@@ -581,19 +617,37 @@
     populateCategories();
     showPopupOnce();
     render();
-    if(location.hash.startsWith('#video=')){
-      const wanted=decodeURIComponent(location.hash.slice(7));
-      const selected=state.videos.find(v=>v.id===wanted||videoKey(v)===wanted);
-      if(selected){
-        const target=[...document.querySelectorAll('.thumb-wrap[data-key]')].find(el=>el.dataset.key===videoKey(selected));
-        if(target){replaceThumbWithPlayer(target,selected,videoKey(selected));target.scrollIntoView({block:'center'});}
-      }
-    }
+    if (location.hash.startsWith('#video=')) playFromHash();
 
     document.dispatchEvent(new CustomEvent("videosloaded", {
       detail: { videos: state.videos, popup: state.popup }
     }));
   }
+
+  // Plays a video in the hub's own player and brings it into view.
+  function playInHub(v) {
+    const key = videoKey(v);
+    let target = [...document.querySelectorAll('.thumb-wrap[data-key]')].find(el => el.dataset.key === key);
+    if (!target) {
+      // Not on screen (filters, pinned tab): show everything, then find it.
+      els.search.value = ""; els.category.value = "";
+      state.view = "all"; setActiveTab("all"); render();
+      target = [...document.querySelectorAll('.thumb-wrap[data-key]')].find(el => el.dataset.key === key);
+    }
+    if (!target) return false;
+    target.scrollIntoView({ block: 'center' });
+    if (playable(v)) replaceThumbWithPlayer(target, v, key);
+    return true;
+  }
+
+  let hashHandled = "";
+  function playFromHash() {
+    const wanted = decodeURIComponent(location.hash.slice(7));
+    if (!wanted || hashHandled === wanted) return;
+    const selected = state.videos.find(v => v.id === wanted || videoKey(v) === wanted);
+    if (selected && playInHub(selected) && playable(selected)) hashHandled = wanted;
+  }
+  window.addEventListener('hashchange', () => { hashHandled = ""; if (location.hash.startsWith('#video=')) playFromHash(); });
 
   /* ============================
      LOAD JSON (CACHE + NETWORK)
@@ -656,14 +710,15 @@
         ? filtered
         : filtered.filter(v => !isPlaylist(v) && (state.view !== "pinned" || v.pinned));
 
-    const pool = candidates.filter(v => !v.limited_unavailable && (v.youtube_id || v.url));
+    const pool = candidates.filter(playable);
     if (!pool.length) {
       alert("No videos match your current filters.");
       return;
     }
 
     const v = pool[(Math.random() * pool.length) | 0];
-    window.open(shareLink(v), "_blank", "noopener");
+    if (isPlaylist(v)) { window.open(shareLink(v), "_blank", "noopener"); return; }
+    playInHub(v);
   }
 
   function wireEvents() {

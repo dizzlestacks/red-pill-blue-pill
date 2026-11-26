@@ -373,6 +373,19 @@
       border:0; display:block;
       object-fit:cover;
     }
+    /* Our own copies are often portrait: show the whole poster, never crop it. */
+    .thumb-wrap img.own-poster{ object-fit:contain; }
+    .thumb-unavailable{ display:flex; align-items:center; justify-content:center; cursor:default; }
+    .unavailable-box{
+      display:flex; flex-direction:column; gap:6px; padding:14px 16px; max-width:92%;
+      text-align:center; font-size:.78rem; line-height:1.45; color:var(--fg);
+      border:1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+      background:color-mix(in srgb, var(--bg) 80%, var(--accent) 4%);
+    }
+    .unavailable-box strong{
+      color:var(--accent); text-transform:uppercase; letter-spacing:.12em; font-weight:400;
+      text-shadow:0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
     .thumb-badge{
       position:absolute;
       left:6px; bottom:6px;
@@ -938,64 +951,7 @@
     updateFooter();
     setInterval(updateFooter, 1000);
 
-    (function(){
-      const btn = document.getElementById("luckyBtn");
-      if (!btn) return;
-
-      let all = [];
-      function normalizePayload(d){
-        if (Array.isArray(d)) return d;
-        if (d && Array.isArray(d.videos)) return d.videos;
-        if (Array.isArray(d?.[0]?.videos)) return d[0].videos;
-        return [];
-      }
-      function isPlaylist(v){ return v?.youtube_id && String(v.youtube_id).startsWith("PL"); }
-      function catArray(v){
-        if (!v?.category) return [];
-        return Array.isArray(v.category) ? v.category.filter(Boolean) : [v.category];
-      }
-      function shareLink(v){
-        if (v.youtube_id) {
-          if (isPlaylist(v)) return "https://www.youtube.com/playlist?list=" + v.youtube_id;
-          return "https://youtu.be/" + v.youtube_id;
-        }
-        if (v.url) return v.url;
-        return location.href;
-      }
-
-      fetch("videos.json", { cache: "no-store" })
-        .then(r => r.json())
-        .then(data => { all = normalizePayload(data).filter(v => !isPlaylist(v) && (v.youtube_id || v.url)); })
-        .catch(()=>{ all = []; });
-
-      btn.addEventListener("click", () => {
-        if (!all.length) { alert("No videos loaded yet. Try again."); return; }
-
-        const qRaw = (document.getElementById("searchInput")?.value || "").trim();
-        const q = qRaw.toLowerCase();
-        const catVal = (document.getElementById("categoryFilter")?.value || "").trim().toLowerCase();
-
-        const filtered = all.filter(v => {
-          const cats = catArray(v).map(c => String(c).trim());
-          const catsLower = cats.map(c => c.toLowerCase());
-          const tagsLower = (v.tags || []).map(t => String(t||"").toLowerCase());
-          const titleLower = String(v.title || "").toLowerCase();
-
-          if (catVal && !catsLower.some(c => c === catVal)) return false;
-          if (!q) return true;
-
-          const isTagMode = qRaw.startsWith("#");
-          const tq = isTagMode ? qRaw.replace(/^#/, "").toLowerCase() : null;
-
-          if (isTagMode) return tagsLower.some(t => t.includes(tq)) || catsLower.some(c => c.includes(tq));
-          return titleLower.includes(q) || tagsLower.some(t => t.includes(q)) || catsLower.some(c => c.includes(q));
-        });
-
-        const pickFrom = filtered.length ? filtered : all;
-        const v = pickFrom[(Math.random() * pickFrom.length) | 0];
-        window.open(shareLink(v), "_blank", "noopener");
-      });
-    })();
+    // "I'm feeling lucky" lives in videos.js so it plays in the hub's own player.
 
     (function(){
       const canvas = document.getElementById("matrixRain");

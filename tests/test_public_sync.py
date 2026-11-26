@@ -117,7 +117,7 @@ class SyncTests(TestCase):
             with urllib.request.urlopen(req) as response:
                 self.assertEqual(response.headers["Access-Control-Allow-Origin"],"https://wokearewe.com")
                 data=json.load(response)
-            self.assertEqual(data,{"backups":{"public-id":"https://backup.example/media/yt-abcdefghijk"}})
+            self.assertEqual(data,{"backups":{"public-id":"https://backup.example/media/yt-abcdefghijk"},"posters":{}})
         finally:
             http.shutdown();http.server_close()
 

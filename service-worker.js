@@ -1,4 +1,4 @@
-const CACHE='matrix-public-2026.11.15.3';
+const CACHE='matrix-public-2026.11.15.12';
 const CORE=['./','index.html','choice.html','videos.html','learn.html','readonly.html','reset.html',
  'themes.css','videos.js','offline.js','backup-player.js','videos.json',
  'assets/favicon-32x32.png','assets/favicon.ico','assets/pill-choice.png',
@@ -7,7 +7,7 @@ const ALLOWED=new Set(CORE.map(p=>new URL(p,self.registration.scope).pathname));
 const clean = data => {
  const result=JSON.parse(JSON.stringify(data));
  (Array.isArray(result)?result:result.videos||[]).forEach(v=>{
-  ['backup','backup_url','backup_available','backup_status','url'].forEach(k=>delete v[k]);
+  ['backup','backup_url','backup_available','backup_status','url','poster_url'].forEach(k=>delete v[k]);
   if(!v.youtube_id)v.limited_unavailable=true;
  });
  return result;

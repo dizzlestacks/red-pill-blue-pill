@@ -2,14 +2,25 @@
 (() => {
   const $ = id => document.getElementById(id);
   const themes = ['dark','light','grey','pink','blue','vaporwave','solarized-dark','dracula','cyberpunk','sepia','midnight','facebook','mcdonalds','walmart','office','discord','netflix','apple','google','amazon','spotify','twitch','youtube','terminal','desert','ocean','forest','blood','gold','ice'];
-  const state = { csrf:'', signedIn:false, catalog:null, revision:null, editing:null, stale:false, busy:false, queueBusy:false, poll:null, queue:new Map(), drafts:new Map(), connection:false, storage:false, watcher:null, watcherDirty:false, watcherBusy:false, watcherLoading:false };
+  const state = { bulk:{on:false,ids:new Set(),shown:[]}, sourceDefaults:{}, dupesShown:false, csrf:'', signedIn:false, catalog:null, revision:null, editing:null, stale:false, busy:false, queueBusy:false, poll:null, queue:new Map(), drafts:new Map(), connection:false, storage:false, watcher:null, watcherDirty:false, watcherBusy:false, watcherLoading:false };
   let authGeneration = 0;
   for (const name of themes) { const option = document.createElement('option'); option.value = name; option.textContent = name.split('-').map(s => s[0].toUpperCase()+s.slice(1)).join(' '); $('theme').append(option); }
+  // Same theme as the public site unless the owner picked a different one here.
   let savedTheme = 'terminal';
-  try { savedTheme = localStorage.getItem('admin:theme') || localStorage.getItem('editor:theme') || 'terminal'; } catch {}
+  try { savedTheme = localStorage.getItem('admin:theme') || localStorage.getItem('preferredTheme') || localStorage.getItem('editor:theme') || 'terminal'; } catch {}
   $('theme').value = themes.includes(savedTheme) ? savedTheme : 'terminal';
   document.body.className = $('theme').value;
   $('theme').addEventListener('change', () => { document.body.className = $('theme').value; try { localStorage.setItem('admin:theme',$('theme').value); } catch {} });
+  // The public site's falling code, kept faint so text stays readable.
+  (() => {
+    const canvas=$('matrixRain'); if(!canvas||matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx=canvas.getContext('2d'), chars='ｦｧｨｩｪｫｬｭｮｯｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', size=16; let w,h,drops,running=true;
+    const resize=()=>{w=canvas.width=innerWidth;h=canvas.height=innerHeight;drops=Array.from({length:Math.floor(w/size)},()=>-(Math.random()*h/size));ctx.font=size+'px monospace';};
+    addEventListener('resize',resize,{passive:true}); resize();
+    document.addEventListener('visibilitychange',()=>{running=document.visibilityState==='visible';});
+    (function tick(){ requestAnimationFrame(tick); if(!running) return; ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,w,h);
+      for(let i=0;i<drops.length;i++){ const x=i*size,y=drops[i]*size; ctx.fillStyle='#afffbf'; ctx.fillText(chars[Math.random()*chars.length|0],x,y); ctx.fillStyle='#00ff41'; ctx.fillText(chars[Math.random()*chars.length|0],x,y-size); if(y>h&&Math.random()>.975) drops[i]=-(Math.random()*20); drops[i]+=.5; } })();
+  })();
   let noticeTimer, lastActionTrigger=null;
   function dismissNotice() { clearTimeout(noticeTimer); $('message').replaceChildren(); $('message').hidden=true; }
   function notice(message, error=false) {
@@ -68,6 +79,27 @@
   function list(value) { return Array.isArray(value) ? value.join(', ') : String(value ?? ''); }
   function categories(value) { return [...new Set(String(value).split(',').map(x=>x.trim()).filter(Boolean))]; }
   function tags(value) { return [...new Set(String(value).split(/[\s,]+/).map(x=>x.replace(/^#+/,'').trim()).filter(Boolean))]; }
+  function categoryList(value) { return (Array.isArray(value)?value:categories(value??'')).map(x=>String(x).trim()).filter(Boolean); }
+  // Existing categories and hashtags, most used first, for the chip pickers.
+  function usage(field) {
+    const counts=new Map();
+    for(const v of state.catalog?.videos||[]) for(const raw of field==='tags'?(Array.isArray(v.tags)?v.tags:tags(v.tags??'')):categoryList(v.category)) {
+      const value=String(raw).replace(field==='tags'?/^#+/:/^$/,'').trim(); if(!value) continue;
+      const key=value.toLowerCase(), entry=counts.get(key)||{value,count:0}; entry.count++; counts.set(key,entry);
+    }
+    for(const sourceCats of Object.values(state.sourceDefaults||{})) if(field!=='tags') for(const value of sourceCats) { const key=value.toLowerCase(); if(!counts.has(key)) counts.set(key,{value,count:0}); }
+    return [...counts.values()].sort((a,b)=>field==='tags'?b.count-a.count||a.value.localeCompare(b.value):a.value.localeCompare(b.value));
+  }
+  const pickers=new Set();
+  function picker(options) { const p=window.WAWChipPicker({...options,choices:()=>usage(options.kind==='tag'?'tags':'category')}); pickers.add(p); return p; }
+  function refreshPickers() { for(const p of pickers) if(p.el.isConnected) p.refresh(); else pickers.delete(p); }
+  const formCats=picker({kind:'category',label:'Categories',input:$('categories')});
+  const formTags=picker({kind:'tag',label:'Hashtags',input:$('tags'),limit:18});
+  $('categories-field').prepend(formCats.el); $('tags-field').prepend(formTags.el);
+  const bulkCats=picker({kind:'category',label:'Categories to add or remove',onChange:()=>updateBulk()});
+  $('bulk-picker').append(bulkCats.el);
+  const tiktokCats=picker({kind:'category',label:'Categories',onChange:()=>{$('tiktok-default-save').disabled=false;$('tiktok-default-status').textContent='Unsaved changes.';}});
+  $('tiktok-default-picker').append(tiktokCats.el);
   function safeURL(value) { if(!value) return ''; try { const u=new URL(value,location.origin); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
   async function api(path, data) {
     const button=pressedButton, controller=new AbortController();
@@ -113,7 +145,7 @@
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
     resetForm();
     try {$('first-guide').hidden=localStorage.getItem('admin:guide:phone-2026-11-15')==='seen';} catch {$('first-guide').hidden=false;}
-    await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube()]);
+    await Promise.allSettled([loadSourceDefaults().then(loadCatalog),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube()]);
     loadSync();
     clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();if(++state.ticks%6===0)loadYouTube();},5000);
   }
@@ -121,7 +153,7 @@
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
     try {
       const result=await api('/api/admin/session');
-      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.11');
+      document.querySelector('.release').textContent='Release '+(result.release||'2026.11.15.12');
       if(!result.configured) { $('login-submit').textContent='Password setup needed'; $('login-status').textContent='Set ADMIN_PASSWORD in the Pi settings file, then restart the service and try again. Sign-in stays disabled until then.'; $('session-retry').hidden=false; return; }
       if(result.authenticated) return signedIn(result.csrf);
       $('password').disabled=false; $('login-submit').disabled=false; $('login-submit').textContent='Sign in'; $('login-status').textContent='Only the owner can manage this archive.';
@@ -169,27 +201,28 @@
       const backed=result.backed_up ?? result.catalog.videos.filter(v=>v.backup_available===true).length;
       $('backup-count').textContent=String(backed); $('missing-count').textContent=String(Math.max(0,(result.total ?? result.catalog.videos.length)-backed));
       renderEntries(); updateControls(); renderHome();
-      const opts=new Set(state.catalog.videos.flatMap(v=>Array.isArray(v.category)?v.category:categories(v.category??''))); $('category-options').replaceChildren(...[...opts].sort().map(c=>{ const o=node('option'); o.value=c; return o; }));
+      refreshPickers(); if(!$('dupes-list').hidden&&state.dupesShown) renderDuplicates();
       return true;
     } catch(error) { notice(error.message,true); if(!state.catalog) { const box=node('div',undefined,'empty'); box.append(node('h3','Collection unavailable'),node('p','Your videos have not been loaded.','muted'),action('Retry',loadCatalog)); $('entries').replaceChildren(box); } return false; }
   }
   $('reload').addEventListener('click',async()=>{ if(await confirmAction('Reload your collection?','This gets the latest saved videos. Your unsaved form and JSON edits stay here; check them before saving.','Reload')) { if(await loadCatalog()) notice('Your collection is up to date. Check any unsaved edits before saving.'); } });
-  function resetForm() { state.editing=null; $('video-form').reset(); $('added-date').value=new Date().toISOString().slice(0,10); $('form-heading').textContent='Add a video link'; $('form-mode').textContent='New video'; $('save-video').textContent='Save video'; $('reset-video').textContent='Clear form'; }
+  function resetForm() { state.editing=null; $('video-form').reset(); formCats.set([]); formTags.set([]); $('added-date').value=new Date().toISOString().slice(0,10); $('form-heading').textContent='Add a video link'; $('form-mode').textContent='New video'; $('save-video').textContent='Save video'; $('reset-video').textContent='Clear form'; }
   $('reset-video').addEventListener('click',()=>{resetForm();notice('Form cleared.');});
   function editVideo(v,index) {
-    state.editing={index,original:v}; $('source').value=v.youtube_id ? `https://www.youtube.com/watch?v=${v.youtube_id}` : v.url||''; $('title').value=v.title||''; $('categories').value=list(v.category); $('tags').value=list(v.tags); $('clip-start').value=v.start??v.clip_start??''; $('clip-end').value=v.end??v.clip_end??''; $('notes').value=v.notes??''; $('featured').checked=!!v.featured; $('pinned').checked=!!v.pinned;
+    state.editing={index,original:v}; $('source').value=v.youtube_id ? `https://www.youtube.com/watch?v=${v.youtube_id}` : v.url||''; $('title').value=v.title||''; formCats.set(categoryList(v.category)); formTags.set(Array.isArray(v.tags)?v.tags:tags(v.tags??'')); $('clip-start').value=v.start??v.clip_start??''; $('clip-end').value=v.end??v.clip_end??''; $('notes').value=v.notes??''; $('featured').checked=!!v.featured; $('pinned').checked=!!v.pinned;
     $('needs-title').checked=needsTitle(v); $('added-date').value=/^\d{4}-\d{2}-\d{2}/.exec(v.added||'')?.[0]||'';
     openSection('add');
     $('form-heading').textContent='Edit video'; $('form-mode').textContent='Editing'; $('save-video').textContent='Save changes'; $('reset-video').textContent='Cancel edit'; $('video-form').scrollIntoView({behavior:'instant',block:'start'}); $('title').focus({preventScroll:true});
   }
   function renderEntries() {
     if(!state.catalog) return;
-    const query=$('search').value.toLowerCase().trim(); const frag=document.createDocumentFragment(); let count=0;
+    const query=$('search').value.toLowerCase().trim(); const frag=document.createDocumentFragment(); let count=0; const shownIds=[]; state.bulk.shown=shownIds;
     state.catalog.videos.forEach((v,index)=>{
       const filter=$('video-filter').value,source=$('source-filter').value;
       if(filter==='title'&&!needsTitle(v)||filter==='backup'&&v.backup_available===true||filter==='pinned'&&!v.pinned||source&&videoSource(v)!==source)return;
       if(query && ![v.title,list(v.category),list(v.tags),v.url,v.youtube_id,v.notes].join(' ').toLowerCase().includes(query)) return;
-      count++; const row=node('article',undefined,'entry'); const top=node('div',undefined,'entry-top'); const heading=node('div'); heading.append(node('h3',displayTitle(v))); const bs=node('div',undefined,'badges'); if(needsTitle(v))bs.append(node('span','Needs a title','badge')); if(v.pinned) bs.append(node('span','Pinned','badge')); if(v.featured) bs.append(node('span','Featured','badge')); heading.append(bs); top.append(heading,node('span',v.backup_available===true?'Backed up':'No backup','badge')); row.append(top,node('p',[videoSource(v)==='youtube'?'YouTube':videoSource(v)==='tiktok'?'TikTok':'Direct video',list(v.category),list(v.tags),v.added?new Date(v.added).toLocaleDateString():''].filter(Boolean).join(' · '),'meta'));
+      count++; shownIds.push(String(v.id)); const row=node('article',undefined,'entry');
+      if(state.bulk.on&&v.id!=null) { const id=String(v.id),pick=node('label',undefined,'bulk-pick'),box=node('input'); box.type='checkbox'; box.checked=state.bulk.ids.has(id); box.setAttribute('aria-label','Select '+displayTitle(v)); box.addEventListener('change',()=>{ if(box.checked) state.bulk.ids.add(id); else state.bulk.ids.delete(id); row.classList.toggle('selected',box.checked); updateBulk(); }); pick.append(box,node('span','Select')); row.classList.toggle('selected',box.checked); row.append(pick); } const top=node('div',undefined,'entry-top'); const heading=node('div'); heading.append(node('h3',displayTitle(v))); const bs=node('div',undefined,'badges'); if(needsTitle(v))bs.append(node('span','Needs a title','badge')); if(v.pinned) bs.append(node('span','Pinned','badge')); if(v.featured) bs.append(node('span','Featured','badge')); heading.append(bs); top.append(heading,node('span',v.backup_available===true?'Backed up':'No backup','badge')); row.append(top,node('p',[videoSource(v)==='youtube'?'YouTube':videoSource(v)==='tiktok'?'TikTok':'Direct video',list(v.category),list(v.tags),v.added?new Date(v.added).toLocaleDateString():''].filter(Boolean).join(' · '),'meta'));
       const buttons=node('div',undefined,'actions'); const locked=state.busy||state.stale;
       buttons.append(action('Edit',()=>editVideo(v,index),locked),action(v.pinned?'Unpin':'Pin',()=>mutateCatalog(c=>{c.videos[index]={...c.videos[index],pinned:!v.pinned};},'Pin updated.'),locked),action('Back up',()=>backup({video_id:String(v.id)}),locked||!v.id||v.backup_available===true));
       if(v.backup_available===true && safeURL(v.backup_url)) { const link=node('a','View backup'); link.href=safeURL(v.backup_url); link.target='_blank'; link.rel='noopener noreferrer'; buttons.append(link); }
@@ -198,7 +231,80 @@
     if(!count) { const empty=node('div',undefined,'empty'); empty.append(node('h3','No videos here yet'),node('p','Try another search or filter, or add a video to your collection.','muted'),action('Add a video',()=>openSection('add'))); frag.append(empty); }
     $('video-results').textContent=`${count} of ${state.catalog.videos.length} videos`;
     $('entries').replaceChildren(frag);
+    updateBulk();
   }
+  // Several videos at once: add or remove categories.
+  function updateBulk() {
+    if(!state.bulk) return;
+    const known=new Set((state.catalog?.videos||[]).map(v=>String(v.id)));
+    for(const id of [...state.bulk.ids]) if(!known.has(id)) state.bulk.ids.delete(id);
+    const n=state.bulk.ids.size, cats=bulkCats.get(), locked=state.busy||state.stale;
+    $('bulk-count').textContent=n?`${n} video${n===1?'':'s'} selected.`:'No videos selected. Tick the videos you want to change.';
+    $('bulk-add').disabled=locked||!n||!cats.length; $('bulk-remove').disabled=locked||!n||!cats.length;
+    $('bulk-add').textContent=n?`Add to ${n} selected`:'Add to selected'; $('bulk-remove').textContent=n?`Remove from ${n} selected`:'Remove from selected';
+  }
+  $('bulk-toggle').addEventListener('click',()=>{ state.bulk.on=!state.bulk.on; $('bulk-tools').hidden=!state.bulk.on; $('bulk-toggle').setAttribute('aria-expanded',String(state.bulk.on)); $('bulk-toggle').textContent=state.bulk.on?'Done selecting':'Select several'; if(!state.bulk.on) state.bulk.ids.clear(); renderEntries(); });
+  $('bulk-all').addEventListener('click',()=>{ for(const id of state.bulk.shown||[]) state.bulk.ids.add(id); renderEntries(); });
+  $('bulk-clear').addEventListener('click',()=>{ state.bulk.ids.clear(); renderEntries(); });
+  async function bulkChange(add) {
+    const ids=new Set(state.bulk.ids), cats=bulkCats.get(); if(!ids.size||!cats.length) return;
+    const names=cats.map(c=>`“${c}”`).join(', ');
+    if(!await confirmAction(add?'Add categories?':'Remove categories?',`${add?'Add':'Remove'} ${names} ${add?'to':'from'} ${ids.size} video${ids.size===1?'':'s'}.`,add?'Add categories':'Remove categories')) return;
+    const lower=new Set(cats.map(c=>c.toLowerCase()));
+    const ok=await mutateCatalog(c=>{ for(const v of c.videos) if(ids.has(String(v.id))) { const current=categoryList(v.category); v.category=add?[...current,...cats.filter(x=>!current.some(y=>y.toLowerCase()===x.toLowerCase()))]:current.filter(x=>!lower.has(x.toLowerCase())); } },`Categories ${add?'added to':'removed from'} ${ids.size} video${ids.size===1?'':'s'}.`);
+    if(ok) { bulkCats.set([]); updateBulk(); }
+  }
+  $('bulk-add').addEventListener('click',()=>bulkChange(true));
+  $('bulk-remove').addEventListener('click',()=>bulkChange(false));
+  // Duplicates: grouped by YouTube video, TikTok post or title. Nothing happens without the owner's choice.
+  function normTitle(t) { return String(t||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,' ').trim(); }
+  function duplicateKeys(v) {
+    const keys=[]; if(v.youtube_id) keys.push('yt:'+v.youtube_id);
+    for(const s of [v.source_url,v.tiktok_url,v.url,v.backup_url]) { const m=/tiktok\.com\/@[^/]+\/video\/(\d{8,25})|\/media\/tt-(\d{8,25})/.exec(String(s||'')); if(m) keys.push('tt:'+(m[1]||m[2])); }
+    const title=normTitle(v.title); if(title.length>=8&&!/^untitled\b/.test(title)) keys.push('title:'+title);
+    return keys;
+  }
+  function findDuplicates(videos) {
+    const parent=videos.map((_,i)=>i), find=i=>parent[i]===i?i:(parent[i]=find(parent[i])), seen=new Map(), reasons=new Map();
+    videos.forEach((v,i)=>{ if(v.youtube_id&&String(v.youtube_id).startsWith('PL')) return; for(const k of duplicateKeys(v)) { if(seen.has(k)) { const a=find(seen.get(k)),b=find(i); if(a!==b) parent[b]=a; reasons.set(k,true); } else seen.set(k,i); } });
+    const groups=new Map(); videos.forEach((v,i)=>{ const r=find(i); if(!groups.has(r)) groups.set(r,[]); groups.get(r).push(i); });
+    return [...groups.values()].filter(g=>g.length>1).map(indexes=>{ const keys=new Set(); for(const i of indexes) for(const k of duplicateKeys(videos[i])) if(reasons.has(k)) keys.add(k.split(':')[0]); return {indexes,why:[...keys].map(k=>({yt:'same YouTube video',tt:'same TikTok post',title:'same title'})[k]).join(' and ')}; });
+  }
+  function mergedVideo(keep,others) {
+    const out={...keep}, all=[keep,...others];
+    const cats=[],tagsOut=[]; for(const v of all) { for(const c of categoryList(v.category)) if(!cats.some(x=>x.toLowerCase()===c.toLowerCase())) cats.push(c); for(const t of (Array.isArray(v.tags)?v.tags:[])) if(!tagsOut.some(x=>x.toLowerCase()===String(t).toLowerCase())) tagsOut.push(t); }
+    out.category=cats; out.tags=tagsOut; out.pinned=all.some(v=>v.pinned===true); out.featured=all.some(v=>v.featured===true);
+    const dates=all.map(v=>v.added).filter(Boolean).sort(); if(dates.length) out.added=dates[0];
+    if(!String(out.notes||'').trim()) { const note=others.map(v=>v.notes).find(n=>String(n||'').trim()); if(note) out.notes=note; }
+    return out;
+  }
+  function renderDuplicates() {
+    state.dupesShown=true; const box=$('dupes-list'); box.replaceChildren(); if(!state.catalog) return;
+    const videos=state.catalog.videos, groups=findDuplicates(videos), locked=state.busy||state.stale;
+    if(!groups.length) { box.append(node('p','No duplicates found. Every video is listed once.','help')); return; }
+    box.append(node('p',`${groups.length} group${groups.length===1?'':'s'} of possible duplicates.`,'help'));
+    for(const group of groups) {
+      const card=node('article',undefined,'dupe-group'); card.append(node('h3',`${group.indexes.length} entries · ${group.why}`));
+      for(const index of group.indexes) {
+        const v=videos[index], row=node('div',undefined,'dupe-row');
+        row.append(node('strong',displayTitle(v)),node('p',[videoSource(v)==='youtube'?'YouTube':videoSource(v)==='tiktok'?'TikTok':'Direct video',v.backup_available===true?'Own copy saved':'No own copy',v.added?'Added '+new Date(v.added).toLocaleDateString():'',list(v.category)].filter(Boolean).join(' · '),'meta'));
+        const id=String(v.id), acts=node('div',undefined,'actions');
+        const keep=action('Keep this, merge the others',async()=>{
+          const others=group.indexes.filter(i=>i!==index).map(i=>videos[i]);
+          if(!await confirmAction('Merge these entries?',`“${displayTitle(v)}” stays in your hub with the categories and hashtags of all ${group.indexes.length} entries. The other ${others.length} entr${others.length===1?'y is':'ies are'} removed from the list. Saved copies on the Pi and NAS are kept.`,'Merge entries')) return;
+          const otherIds=new Set(others.map(o=>String(o.id)));
+          await mutateCatalog(c=>{ const k=c.videos.findIndex(x=>String(x.id)===id); if(k<0) throw new Error('This video changed. Find duplicates again.'); const rest=c.videos.filter(x=>otherIds.has(String(x.id))); if(rest.length!==others.length) throw new Error('These videos changed. Find duplicates again.'); c.videos[k]=mergedVideo(c.videos[k],rest); c.videos=c.videos.filter(x=>!otherIds.has(String(x.id))); },'Duplicates merged.');
+        },locked); keep.className='primary';
+        const remove=action('Remove this one',async()=>{
+          if(!await confirmAction('Remove this entry?',`“${displayTitle(v)}” is removed from the list. The other ${group.indexes.length-1===1?'entry stays':'entries stay'}. Saved copies on the Pi and NAS are kept.`,'Remove entry')) return;
+          await mutateCatalog(c=>{ const before=c.videos.length; c.videos=c.videos.filter(x=>String(x.id)!==id); if(c.videos.length!==before-1) throw new Error('This video changed. Find duplicates again.'); },'Duplicate removed.');
+        },locked); remove.className='danger';
+        acts.append(keep,remove); row.append(acts); card.append(row);
+      }
+      box.append(card);
+    }
+  }
+  $('dupes-scan').addEventListener('click',renderDuplicates);
   $('search').addEventListener('input',renderEntries);
   $('video-filter').addEventListener('change',renderEntries);
   $('source-filter').addEventListener('change',renderEntries);
@@ -463,6 +569,23 @@
   $('watcher-reset').addEventListener('click',()=>{watcherEditVersion++;state.watcherDirty=false;fillWatcher();watcherControls();notice('Watcher edits discarded.');});
   $('watcher-refresh').addEventListener('click',()=>loadWatcher());
   const YT_STATE={watching:'Watching',unsupported:'Not switched on',failed:'Problem','waiting for connection':'Needs setup',pending:'Starting'};
+  // Categories new imports are filed under, per source.
+  async function loadSourceDefaults() {
+    try { const data=await api('/api/admin/source-defaults'); state.sourceDefaults=data.defaults||{}; tiktokCats.set(state.sourceDefaults.tiktok||[]); $('tiktok-default-save').disabled=true; $('tiktok-default-status').textContent=(state.sourceDefaults.tiktok||[]).length?'New TikTok posts are filed under these automatically.':'New TikTok posts are not filed under a category yet.'; refreshPickers(); }
+    catch(error) { $('tiktok-default-status').textContent='Could not load default categories: '+error.message; }
+  }
+  async function saveSourceDefault(sourceId,cats) {
+    const data=await api('/api/admin/source-defaults',{source_id:sourceId,categories:cats}); state.sourceDefaults=data.defaults||{}; refreshPickers(); return data.categories;
+  }
+  $('tiktok-default-save').addEventListener('click',async()=>{ const b=$('tiktok-default-save'); b.disabled=true; try { const saved=await saveSourceDefault('tiktok',tiktokCats.get()); $('tiktok-default-status').textContent=saved.length?'Saved. New TikTok posts are filed under '+saved.join(', ')+'.':'Saved. New TikTok posts are not filed under a category.'; notice('TikTok categories saved.'); } catch(error) { b.disabled=false; notice(error.message,true); } });
+  function sourceDefaultsEditor(sourceId,name) {
+    const box=node('details',undefined,'source-default'), summary=node('summary'); const current=state.sourceDefaults[sourceId]||[];
+    summary.textContent=current.length?'Filed under: '+current.join(', '):'Choose categories for new videos'; box.append(summary);
+    const p=picker({kind:'category',label:`Categories for new videos from “${name}”`,initial:current,onChange:()=>{save.disabled=false;status.textContent='Unsaved changes.';}});
+    const save=node('button','Save categories','primary'); save.type='button'; save.disabled=true; const status=node('p','', 'help'); status.setAttribute('role','status');
+    save.addEventListener('click',async()=>{ save.disabled=true; try { const saved=await saveSourceDefault(sourceId,p.get()); summary.textContent=saved.length?'Filed under: '+saved.join(', '):'Choose categories for new videos'; status.textContent='Saved.'; notice('Categories saved for “'+name+'”.'); } catch(error) { save.disabled=false; notice(error.message,true); } });
+    const acts=node('div',undefined,'actions'); acts.append(save); box.append(p.el,acts,status); return box;
+  }
   let ytBusy=false;
   async function loadYouTube(){
     if(!state.signedIn)return;
@@ -474,7 +597,9 @@
       const when=data.last_check?'Last checked '+new Date(data.last_check*1000).toLocaleString()+'.':'Not checked yet.';
       $('youtube-help').textContent=data.error?data.error:data.enabled?`${when} New videos from your sources wait here for you to add or decline.`:'Off. Turn on to check your sources every '+data.interval_minutes+' minutes.';
       $('youtube-help').classList.toggle('error',!!data.error);
-      const sources=$('youtube-sources');sources.replaceChildren();
+      const sources=$('youtube-sources');const sourceSig=JSON.stringify([data.sources,data.status]);
+      // Rebuilding would throw away a category choice in progress; only rebuild when the sources change.
+      if(state.ytSourceSig!==sourceSig){state.ytSourceSig=sourceSig;sources.replaceChildren();
       for(const src of data.sources||[]){
         const row=node('div',undefined,'yt-source'),label=node('label',undefined,'toggle-line'),input=node('input');
         input.type='checkbox';input.className='switch-input';input.setAttribute('role','switch');input.id='yt-auto-'+src.id.replace(/[^A-Za-z0-9_-]/g,'');input.checked=!!src.auto_add;label.htmlFor=input.id;
@@ -483,9 +608,10 @@
         row.append(label);
         const info=[src.kind||src.type,src.lastError?'Last check failed: '+src.lastError:src.warning||'',src.lastSuccess?'Checked '+new Date(src.lastSuccess).toLocaleString():''].filter(Boolean).join(' · ');
         if(info)row.append(node('p',info,'help'));
+        row.append(sourceDefaultsEditor('yt:'+src.id,src.title||src.name||src.url||'this source'));
         sources.append(row);
       }
-      if(!(data.sources||[]).length&&data.status==='watching')sources.append(node('p','No channels or playlists are being watched yet.','help'));
+      if(!(data.sources||[]).length&&data.status==='watching')sources.append(node('p','No channels or playlists are being watched yet.','help'));}
       const list=$('youtube-videos');list.replaceChildren();
       for(const v of data.videos||[]){
         const card=node('article',undefined,'yt-video'),img=node('img'),body=node('div',undefined,'yt-video-body');
@@ -564,29 +690,34 @@
       const key=String(item.id); present.add(key); let record=state.queue.get(key);
       if(!record) {
         const el=node('article',undefined,'queue-card'),head=node('div',undefined,'entry-top'),title=node('h3'),badge=node('span',undefined,'badge'),url=node('p',undefined,'queue-url muted'),reason=node('p',undefined,'reason help'),preview=node('div'),controls=node('div',undefined,'actions'),form=node('form',undefined,'stack');
-        const draft=state.drafts.get(key)||{title:item.title||'',tags:list(item.tags),add_end_card:item.add_end_card??true,use_provider_default:false,dirty:false};
+        const draft=state.drafts.get(key)||{title:item.title||'',tags:list(item.tags),category:item.category||[],add_end_card:item.add_end_card??true,use_provider_default:false,dirty:false};
         const titleField=queueField('Review title',draft.title,'title',`review-title-${key}`),tagField=queueField('Review hashtags',draft.tags,'tags',`review-tags-${key}`);
+        tagField.input.type='hidden'; tagField.wrapper.hidden=true;
+        const catPicker=picker({kind:'category',label:'Categories',initial:draft.category||[],onChange:values=>{draft.category=values;markDirty();}});
+        const tagPicker=picker({kind:'tag',label:'Hashtags',input:tagField.input,initial:tags(draft.tags),limit:12});
         titleField.input.required=true; const save=node('button','Save review'); save.type='submit'; const reviewStatus=node('p','Review title and tags before publishing.','help');
         const endCard=node('input'); endCard.type='checkbox'; endCard.id=`review-end-card-${key}`; endCard.checked=draft.add_end_card;
         const endLabel=node('label',undefined,'end-card-control'); endLabel.htmlFor=endCard.id; endLabel.append(endCard,document.createTextNode('Add end-card'));
         const providerDefault=node('input');providerDefault.type='checkbox';providerDefault.id=`review-provider-default-${key}`;providerDefault.checked=!!draft.use_provider_default;
         const providerLabel=node('label',undefined,'end-card-control');providerLabel.htmlFor=providerDefault.id;providerLabel.append(providerDefault,document.createTextNode('Use service default instead'));
         const endHelp=node('p',undefined,'help');
-        form.append(titleField.wrapper,tagField.wrapper,endLabel,providerLabel,endHelp,save,reviewStatus); head.append(title,badge); el.append(head,url,reason,preview,form,controls);
-        record={el,title,badge,url,reason,preview,controls,form,endCard,providerDefault,endHelp,titleInput:titleField.input,tagsInput:tagField.input,save,reviewStatus,draft,previewURL:'',busy:false,item};
+        form.append(titleField.wrapper,catPicker.el,tagField.wrapper,tagPicker.el,endLabel,providerLabel,endHelp,save,reviewStatus); head.append(title,badge); el.append(head,url,reason,preview,form,controls);
+        record={el,title,badge,url,reason,preview,controls,form,endCard,providerDefault,endHelp,titleInput:titleField.input,tagsInput:tagField.input,catPicker,tagPicker,save,reviewStatus,draft,previewURL:'',busy:false,item};
         state.queue.set(key,record);
         endLabel.hidden=true;providerLabel.hidden=true;
         const markDirty=()=>{draft.title=titleField.input.value; draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked;endCard.disabled=providerDefault.checked||requestLocked(record.item); draft.dirty=true; state.drafts.set(key,draft); reviewStatus.textContent='Unsaved review changes'; const publish=controls.querySelector('[data-publish]'); if(publish) publish.disabled=true; };
         titleField.input.addEventListener('input',markDirty); tagField.input.addEventListener('input',markDirty);
         endCard.addEventListener('change',markDirty);
         providerDefault.addEventListener('change',markDirty);
-        form.addEventListener('submit',async e=>{e.preventDefault(); if(record.item.status==='imported'&&!titleField.input.value.trim()) return; const data={title:titleField.input.value.trim(),tags:tags(tagField.input.value),needs_title:!meaningfulTitle(titleField.input.value)}; if(!requestLocked(record.item)){if(record.item.kind==='tiktok')data.add_end_card=false;else if(providerDefault.checked)data.use_provider_default=true;else data.add_end_card=endCard.checked;} await queueMutation(record,'review',data,()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked; reviewStatus.textContent='Review saved.';});});
+        form.addEventListener('submit',async e=>{e.preventDefault(); if(record.item.status==='imported'&&!titleField.input.value.trim()) return; const data={title:titleField.input.value.trim(),tags:tags(tagField.input.value),category:catPicker.get(),needs_title:!meaningfulTitle(titleField.input.value)}; if(!requestLocked(record.item)){if(record.item.kind==='tiktok')data.add_end_card=false;else if(providerDefault.checked)data.use_provider_default=true;else data.add_end_card=endCard.checked;} await queueMutation(record,'review',data,()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked; reviewStatus.textContent='Review saved.';});});
         container.append(el);
       }
       record.item=item; record.title.textContent=displayTitle(item); const card=item.card||{label:plainStatus(item.status),line:item.reason||'',actions:['remove'],group:'active'};
       record.badge.textContent=card.label; record.badge.dataset.group=card.group; record.url.textContent=item.url||''; record.reason.textContent=card.line||'';
       const locked=requestLocked(item);
-      if(!record.draft.dirty && !record.busy) { record.titleInput.value=item.title||''; record.tagsInput.value=list(item.tags); record.endCard.checked=item.add_end_card??true; }
+      if(!record.draft.dirty && !record.busy) { record.titleInput.value=item.title||''; record.endCard.checked=item.add_end_card??true;
+        if(JSON.stringify(record.tagPicker.get())!==JSON.stringify(tags(list(item.tags)))) record.tagPicker.set(item.tags||[]);
+        if(JSON.stringify(record.catPicker.get())!==JSON.stringify(item.category||[])) { record.catPicker.set(item.category||[]); record.draft.category=item.category||[]; } }
       if(locked) {record.endCard.checked=item.add_end_card===true;record.draft.add_end_card=item.add_end_card;record.providerDefault.checked=item.add_end_card==null;}
       record.providerDefault.disabled=locked||record.busy;
       record.endCard.disabled=locked||record.busy||record.providerDefault.checked;
@@ -596,8 +727,9 @@
       const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=published||item.status==='duplicate skipped';
       record.titleInput.required=imported;
       record.titleInput.disabled=record.busy||(!imported&&locked);record.tagsInput.disabled=record.busy||(!imported&&locked);
+      const pickLock=record.busy||(!imported&&locked); if(record.pickLock!==pickLock){record.pickLock=pickLock;record.catPicker.disable(pickLock);record.tagPicker.disable(pickLock);}
       record.save.disabled=record.busy||(!imported&&locked);
-      record.reviewStatus.textContent=record.draft.dirty?'You have unsaved review changes.':imported?(needsTitle(item)?'This video needs a useful title before you publish.':'Review the title and tags before publishing.'):locked?(card.group==='active'?'You can edit the title and hashtags when the download finishes.':'You can edit the title and hashtags once it downloads.'):'You can save a title and hashtags while this waits.';
+      record.reviewStatus.textContent=record.draft.dirty?'You have unsaved review changes.':imported?(needsTitle(item)?'This video needs a useful title before you publish.':'Review the title and tags before publishing.'):locked?(card.group==='active'?'You can edit the title, categories and hashtags when the download finishes.':'You can edit the title, categories and hashtags once it downloads.'):'You can save a title, categories and hashtags while this waits.';
       const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty,item.can_keep_silent,card.actions,item.remove_text]);
       if(record.controlsSignature===controlsSignature)continue;
       record.controlsSignature=controlsSignature;record.controls.replaceChildren();

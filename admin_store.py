@@ -15,7 +15,7 @@ ROOT = Path(__file__).parent.resolve()
 STATE = Path(os.environ.get("DATA_DIR", os.environ.get("ADMIN_DATA_DIR", str(ROOT / ".private")))).resolve()
 CATALOG = STATE / "videos.json"
 LOCK = threading.RLock()
-RELEASE = "2026.11.15.11"
+RELEASE = "2026.11.15.12"
 
 
 def db():
@@ -65,12 +65,17 @@ def init():
             "uncertain_checks": "INTEGER NOT NULL DEFAULT 0",
             # Retry must start a brand-new request (the old one's outcome is unknown).
             "fresh_retry": "INTEGER NOT NULL DEFAULT 0",
+            # Categories (JSON list) the video is filed under when published.
+            "category": "TEXT",
         }.items():
             if name not in columns:
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
         # Posts/videos the owner removed from the queue: watchers never bring them back.
         c.execute("""CREATE TABLE IF NOT EXISTS removed_sources (source_key TEXT PRIMARY KEY, url TEXT NOT NULL,
                      title TEXT NOT NULL, removed REAL NOT NULL)""")
+        # Categories new imports from a source are filed under ("tiktok" or "yt:<source id>").
+        c.execute("""CREATE TABLE IF NOT EXISTS source_defaults (source_id TEXT PRIMARY KEY,
+                     categories TEXT NOT NULL, updated REAL NOT NULL)""")
         # you2mp3 requests to cancel; retried by the worker so removing never waits on the network.
         c.execute("""CREATE TABLE IF NOT EXISTS pending_cancels (id TEXT PRIMARY KEY, path TEXT NOT NULL,
                      tries INTEGER NOT NULL DEFAULT 0, next_try REAL NOT NULL, created REAL NOT NULL)""")
@@ -228,10 +233,16 @@ def clean_catalog(cat):
 
 def save_catalog(cat, revision):
     with LOCK:
-        _, current = load_catalog()
+        previous, current = load_catalog()
         if revision != current:
             raise FileExistsError("The video list changed. Reload before saving to avoid overwriting another edit.")
         cat = clean_catalog(cat)
+        # "New" in the hub means new to the hub: stamp when each video first appears.
+        known = {str(v.get("id")) for v in previous["videos"]}
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        for v in cat["videos"]:
+            if v["id"] not in known and not v.get("published"):
+                v["published"] = stamp
         backups = STATE / "backups"
         backups.mkdir(exist_ok=True)
         shutil.copyfile(CATALOG, backups / f"videos-{time.time_ns()}.json")
@@ -284,9 +295,53 @@ def hydrated():
     return cat, rev, count
 
 
+def clean_categories(values):
+    """A list of distinct, trimmed category names (case-insensitive), as the hub expects."""
+    if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
+        raise ValueError("Categories must be a list of names")
+    out, seen = [], set()
+    for v in values:
+        v = " ".join(v.replace(",", " ").split())[:100]
+        if v and v.lower() not in seen:
+            seen.add(v.lower())
+            out.append(v)
+    return out[:50]
+
+
+def source_defaults():
+    with db() as c:
+        return {r["source_id"]: json.loads(r["categories"]) for r in c.execute("SELECT * FROM source_defaults")}
+
+
+def set_source_default(source_id, categories):
+    if not isinstance(source_id, str) or not re.fullmatch(r"tiktok|yt:[\w.:-]{1,200}", source_id):
+        raise ValueError("Unknown source")
+    categories = clean_categories(categories)
+    with db() as c:
+        if categories:
+            c.execute("INSERT INTO source_defaults VALUES(?,?,?) ON CONFLICT(source_id) DO UPDATE SET "
+                      "categories=excluded.categories, updated=excluded.updated",
+                      (source_id, json.dumps(categories), time.time()))
+        else:
+            c.execute("DELETE FROM source_defaults WHERE source_id=?", (source_id,))
+    return categories
+
+
+def default_categories(source_ids):
+    """Union of the default categories of the given sources, in order."""
+    defaults, out = source_defaults(), []
+    for sid in source_ids:
+        for cat in defaults.get(sid, []):
+            if cat.lower() not in {c.lower() for c in out}:
+                out.append(cat)
+    return out
+
+
 def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
-            auto_publish=False, add_end_card=None, source_date=None, metadata=None):
+            auto_publish=False, add_end_card=None, source_date=None, metadata=None, category=None):
     key, canonical, kind = source(url)
+    if category is None and kind == "tiktok":
+        category = default_categories(["tiktok"])
     if kind == "tiktok":
         add_end_card = False
     now = time.time()
@@ -318,9 +373,10 @@ def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
                   (jid, key, canonical, kind, video_id, title or "Untitled clip", json.dumps(tags or []),
                    status, "" if status == "queued" else "YOU2MP3_API_KEY is not configured",
                    "waw-" + jid, now, now))
-        c.execute("""UPDATE jobs SET automatic=?,auto_publish=?,add_end_card=?,source_date=?,metadata=?
+        c.execute("""UPDATE jobs SET automatic=?,auto_publish=?,add_end_card=?,source_date=?,metadata=?,category=?
                      WHERE id=?""", (int(automatic), int(auto_publish), add_end_card, source_date,
-                                    json.dumps(metadata) if metadata else None, jid))
+                                    json.dumps(metadata) if metadata else None,
+                                    json.dumps(clean_categories(category)) if category else None, jid))
         return {"id": jid, "status": status}
 
 
@@ -342,7 +398,7 @@ def enqueue_unsupported(v, reason):
 
 def update_job(jid, **fields):
     allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts", "add_end_card",
-               "idempotency", "download_attempts", "return_status", "upstream_kind", "uncertain_checks", "fresh_retry"}
+               "idempotency", "download_attempts", "return_status", "upstream_kind", "uncertain_checks", "fresh_retry", "category"}
     if not fields.keys() <= allowed:
         raise ValueError("Invalid job update")
     fields["updated"] = time.time()
@@ -360,6 +416,13 @@ def get_job(jid):
     if not r:
         raise LookupError("Queue item not found")
     return dict(r)
+
+
+def job_categories(job):
+    try:
+        return clean_categories(json.loads(job.get("category") or "[]"))
+    except (ValueError, TypeError):
+        return []
 
 
 def publish(jid):
@@ -403,7 +466,7 @@ def publish(jid):
         if target is None:
             target = {"id": uuid.uuid4().hex, "youtube_id": "", "url": "/media/" + j["source_key"].replace(":", "-"),
                       "source_url": j["url"], "added": j.get("source_date") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                      "category": [], "featured": False, "pinned": False}
+                      "category": job_categories(j), "featured": False, "pinned": False}
             cat["videos"].append(target)
             target["title"] = j["title"]
             target["tags"] = json.loads(j["tags"])

@@ -1,6 +1,7 @@
 """Build allowlisted, secret-free Pi and lite release archives."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import tarfile
 import tempfile
@@ -21,8 +22,8 @@ FILES = [
     "offline.js", "service-worker.js", "videos.json",
     "The-Matrix-Blue-Pill-or-Red-Pill.mp4", "netlify.toml",
     "pi/install.sh", "pi/update.sh", "pi/wokearewe.service", "pi/README.md",
-    "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md", "pi/RELEASE-2026.11.15.7.md", "pi/RELEASE-2026.11.15.8.md", "pi/RELEASE-2026.11.15.9.md", "pi/RELEASE-2026.11.15.10.md", "pi/RELEASE-2026.11.15.11.md",
-    "tests/lite-smoke.cjs", "tests/package.json", "pi/LITE-RELEASE-CHECKS.md", "manual_add.py",
+    "admin-pickers.js", "pi/build_bundle.py", "pi/RELEASE-2026.11.15.5.md", "pi/RELEASE-2026.11.15.6.md", "pi/RELEASE-2026.11.15.7.md", "pi/RELEASE-2026.11.15.8.md", "pi/RELEASE-2026.11.15.9.md", "pi/RELEASE-2026.11.15.10.md", "pi/RELEASE-2026.11.15.11.md", "pi/RELEASE-2026.11.15.12.md",
+    "tests/lite-smoke.cjs", "tests/hub-sources.cjs", "tests/package.json", "pi/LITE-RELEASE-CHECKS.md", "manual_add.py",
 ]
 
 
@@ -38,7 +39,11 @@ def build():
                     and p.suffix.lower() in (".png", ".jpg", ".ico", ".svg", ".webp", ".pdf")]
     with tempfile.TemporaryDirectory() as temp:
         stage = Path(temp) / "wokearewe"
-        manifest = {"release": release, "files": {}}
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        expected = os.environ.get("EXPECTED_COMMIT")
+        if expected and expected != commit:
+            raise SystemExit(f"Checked-out commit {commit} is not the expected {expected}")
+        manifest = {"release": release, "commit": commit, "files": {}}
         for name in files:
             source = ROOT / name
             if source.is_symlink():

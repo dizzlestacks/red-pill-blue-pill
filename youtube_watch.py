@@ -180,8 +180,9 @@ def add(video_id, automatic=False, keep_copy=True):
             vid = uuid.uuid4().hex
             title = str(data.get("title") or "").strip()[:300]
             added = str(data.get("publishedAt") or "") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            category = store.default_categories(["yt:" + sid for sid in _video_sources(data)])
             video = {"id": vid, "title": title or "Untitled " + added[:10], "youtube_id": video_id, "source_url": url,
-                     "url": "", "category": [], "tags": [], "added": added, "featured": False, "pinned": False,
+                     "url": "", "category": category, "tags": [], "added": added, "featured": False, "pinned": False,
                      "source": "youtube"}
             video["needs_title"] = store.needs_title(video)
             cat["videos"].append(video)

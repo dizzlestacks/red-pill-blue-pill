@@ -252,6 +252,12 @@
       color: var(--accent);
       border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
     }
+    .ro-badge.ro-unavailable {
+      background: transparent;
+      color: var(--accent);
+      border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+      white-space: nowrap;
+    }
     .ro-tags {
       margin-top: 4px;
       font-size: .68rem;
@@ -455,6 +461,12 @@
       return [v.category];
     }
     function isPlaylist(v){ return v.youtube_id && String(v.youtube_id).startsWith("PL"); }
+    // Same rule as the hub: copy-only videos need the archive (the Pi) to play.
+    function roPlayable(v){
+      if(!v||v.limited_unavailable)return false;
+      if(v.youtube_id||(v.backup_available&&v.backup_url))return true;
+      return !window.MATRIX_LITE&&!!v.url;
+    }
     function shareLink(v){
       if(v.backup_available&&v.backup_url)return 'videos.html#video='+encodeURIComponent(v.id);
       if(v.tiktok_url)return v.tiktok_url;
@@ -519,7 +531,8 @@
       }
 
       const byDate = x => new Date(x.added || 0).getTime() || 0;
-      if (sort === "newest") list.sort((a, b) => byDate(b) - byDate(a));
+      const newest = x => Math.max(Date.parse(x.published || "") || 0, byDate(x));
+      if (sort === "newest") list.sort((a, b) => newest(b) - newest(a));
       else if (sort === "oldest") list.sort((a, b) => byDate(a) - byDate(b));
       else if (sort === "az") list.sort((a, b) => (a.title||"").localeCompare(b.title||""));
       else if (sort === "za") list.sort((a, b) => (b.title||"").localeCompare(a.title||""));
@@ -583,7 +596,7 @@
       });
       content.querySelectorAll(".ro-item").forEach(el => {
         const idx = parseInt(el.dataset.idx);
-        el.addEventListener("click", () => window.open(shareLink(flatList[idx]), "_blank", "noopener"));
+        el.addEventListener("click", () => { if (roPlayable(flatList[idx])) window.open(shareLink(flatList[idx]), "_blank", "noopener"); });
       });
     }
 
@@ -607,7 +620,7 @@
             ${tags ? `<div class="ro-tags">${tags}</div>` : ""}
           </div>
           <div class="ro-actions">
-            ${v.limited_unavailable?'':`<button class="ro-btn" data-open="${flatIdx}">▶ Watch</button>
+            ${!roPlayable(v)?`<span class="ro-badge ro-unavailable" title="This video plays from our own archive, which can't be reached right now.">Temporarily unavailable</span>`:`<button class="ro-btn" data-open="${flatIdx}">▶ Watch</button>
             <button class="ro-btn secondary" data-share="${flatIdx}">🔗 Share</button>`}
           </div>
         </div>
