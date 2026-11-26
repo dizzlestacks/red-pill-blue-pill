@@ -141,6 +141,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply(store.overview(worker_thread is not None and worker_thread.is_alive()))
                 if path == "/api/admin/watcher":
                     return self.reply(tiktok_watch.status())
+                if path == "/api/admin/youtube":
+                    import youtube_watch
+                    from urllib.parse import parse_qs
+                    view = parse_qs(urlparse(self.path).query).get("view", ["new"])[0]
+                    return self.reply(youtube_watch.status(view))
                 if path == "/api/admin/checks":
                     return self.reply(media_check.report())
                 if path == "/api/admin/back-catalog/estimate":
@@ -151,6 +156,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.reply({"catalog": cat, "revision": revision, "backed_up": count, "total": len(cat["videos"])})
                 if path == "/api/admin/queue":
                     ready, message = worker.storage_status()
+                    import queue_actions
+                    site_keys, site_ids = queue_actions.site_keys()
                     with store.db() as c:
                         rows = [dict(r) for r in c.execute("SELECT * FROM jobs ORDER BY created DESC")]
                         media = {m["source_key"]: dict(m) for m in c.execute("SELECT * FROM media")}
@@ -167,9 +174,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             r["request_locked"] = bool(r["payload"] or r["upstream_id"])
                             r["tags"] = json.loads(r["tags"])
                             r["preview_url"] = "/api/admin/media/" + r["id"] if m and r["status"] in ("imported", "published", "problem") else None
-                            for key in ("payload", "idempotency", "upstream_id", "source_key"):
+                            on_site = r["source_key"] in site_keys
+                            r["card"] = queue_actions.card(r, m, on_site, on_site or r.get("video_id") in site_ids)
+                            r["remove_text"] = queue_actions.describe_removal(r, on_site, m)
+                            for key in ("payload", "idempotency", "upstream_id", "source_key", "metadata"):
                                 r.pop(key, None)
-                        rows += [dict(r) for r in c.execute("SELECT * FROM events ORDER BY created DESC LIMIT 100")]
+                        for r in c.execute("SELECT * FROM events ORDER BY created DESC LIMIT 100"):
+                            r = dict(r)
+                            r["card"] = {"label": "Already in your collection", "line": "This link was already added, so nothing new was downloaded.",
+                                         "actions": ["remove"], "group": "done", "has_copy": False, "thumbnail": None}
+                            r["remove_text"] = "This clears the note from the import list. Nothing else changes."
+                            rows.append(r)
                     return self.reply({"items": rows, "connection_configured": bool(os.environ.get("YOU2MP3_API_KEY")),
                                        "storage_ready": ready, "storage_message": message,
                                        "state_storage_message": " ".join(filter(None, [durable_state.LAST_ERROR, disk_storage.MIRROR_ERROR, lite_site.LAST_ERROR]))})
@@ -440,6 +455,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 result = back_catalog.undo(body.get("job_id")) if operation == "undo" else back_catalog.action(operation, body)
                 durable_state.checkpoint()
                 return self.reply(result)
+            if path.startswith("/api/admin/youtube"):
+                import youtube_watch
+                operation = path[len("/api/admin/youtube"):]
+                if operation == "":
+                    result = youtube_watch.configure(body)
+                elif operation == "/check":
+                    result = youtube_watch.request_check()
+                elif operation == "/source":
+                    result = youtube_watch.set_auto(body.get("source_id"), body.get("auto_add"))
+                elif operation in ("/add", "/decline", "/undecline"):
+                    vid = body.get("video_id")
+                    if not isinstance(vid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{6,20}", vid):
+                        raise ValueError("Choose a YouTube video")
+                    result = {"/add": youtube_watch.add, "/decline": youtube_watch.decline,
+                              "/undecline": youtube_watch.undecline}[operation](vid)
+                else:
+                    return self.reply({"error": "Not found"}, 404)
+                durable_state.checkpoint()
+                return self.reply(result)
             if path in ("/api/admin/watcher/check", "/api/admin/watcher/older"):
                 result = tiktok_watch.request(older=path.endswith("/older"))
                 durable_state.checkpoint()
@@ -471,7 +505,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         results.append(store.enqueue_unsupported(v, str(e)))
                 durable_state.checkpoint()
                 return self.reply({"ok": True, "results": results})
+            if path == "/api/admin/queue/remove-all":
+                import queue_actions
+                result = queue_actions.remove_all(body.get("group"))
+                durable_state.checkpoint()
+                return self.reply(dict(result, ok=True))
             m = re.fullmatch(r"/api/admin/queue/([a-f0-9]+)/(\w+)", path)
+            if m and m.group(2) == "remove":
+                import queue_actions
+                queue_actions.remove(m.group(1))
+                durable_state.checkpoint()
+                return self.reply({"ok": True})
             if m:
                 jid, action = m.groups()
                 job = store.get_job(jid)
@@ -511,14 +555,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 elif action == "retry" and job["status"] == "problem":
                     media_check.request_redownload(job)
                 elif action == "retry":
-                    if job["status"] not in ("failed", "blocked", "waiting for connection"):
-                        raise ValueError("Only blocked, failed or waiting items can be retried")
-                    if job["upstream_id"] and job["status"] == "failed":
-                        # Retry is not idempotent; invoke only on explicit user action.
-                        upstream = worker.api("/videos/" + str(job["upstream_id"]))
-                        if upstream.get("status") in ("error", "cancelled"):
-                            worker.api("/videos/" + str(job["upstream_id"]) + "/retry", {})
-                    store.update_job(jid, status="queued", reason="")
+                    # Retry is not idempotent; invoke only on explicit user action.
+                    import queue_actions
+                    queue_actions.retry(job)
+                elif action == "addhub":
+                    import queue_actions
+                    queue_actions.add_to_hub(job)
                 else:
                     return self.reply({"error": "Not found"}, 404)
                 durable_state.checkpoint()
@@ -551,6 +593,8 @@ def main():
     threading.Thread(target=media_check.backfill_loop, daemon=True, name="saved-video-checks").start()
     threading.Thread(target=public_sync.run, daemon=True).start()
     threading.Thread(target=tiktok_watch.run, daemon=True).start()
+    import youtube_watch
+    threading.Thread(target=youtube_watch.run, daemon=True, name="youtube-watch").start()
     threading.Thread(target=supervise_worker, daemon=True).start()
     http.server.ThreadingHTTPServer((os.environ.get("BIND_HOST", "0.0.0.0"), int(os.environ.get("PORT", "5000"))), Handler).serve_forever()
 

@@ -39,3 +39,39 @@ Earlier releases put `objects/` and `backups/` at the top of the NAS folder.
 On first start they are moved into `_system (do not edit)/` (a rename, no
 copying). For manual recovery, copy `objects/` and `backups/` from inside that
 folder. No settings change is needed.
+
+# Also in 2026.11.15.11 — a tidier import queue and YouTube copies
+
+## Remove anything from the import queue
+- Every item in **Add → Imports and review** has a **Remove** button, whatever
+  its state (waiting, downloading, needs help, failed, ready to publish,
+  published). The confirmation says exactly what will happen.
+- Removing something that was never published deletes its saved file from the
+  Pi; its NAS copy moves to `Removed from site/` (nothing on the NAS is erased).
+  A published video stays in the hub with its copy; only the queue entry goes.
+- An open download at you2mp3 is cancelled. The cancel is retried in the
+  background if you2mp3 can't be reached, so Remove always works straight away.
+- **Need help** and **Failed** views have **Remove all in this list**.
+- Removed TikTok posts and YouTube videos are never brought back by the
+  watchers. Pasting the link again by hand brings it back.
+
+## Clearer cards
+- Each card shows one status, one plain reason and only the buttons that make
+  sense. Items with no saved copy say "Not downloaded yet" and why, with the
+  source thumbnail where one is available.
+- The end-card note only appears on TikTok posts.
+- "Upstream request outcome is uncertain…" is gone. The Pi now asks you2mp3
+  again automatically (shown as **Checking**); if it still can't confirm, the
+  card offers **Retry** (a fresh download) or **Remove**.
+
+## YouTube
+- Single YouTube links now use you2mp3's YouTube import API, so your own copy
+  is kept (never with an end card unless you choose one).
+- If the connection isn't allowed to copy YouTube yet the card says "YouTube
+  copies are not switched on for this connection yet", offers **Add to hub
+  (YouTube only)**, and retries by itself every 30 minutes.
+- **Automatic → YouTube watcher** lists the channels and playlists chosen on
+  the you2mp3 developers page. New videos can be added (hub entry plus a copy)
+  or declined; each source can add new videos automatically. Videos already
+  there when watching began are kept apart under "Already there when watching
+  began" so they don't flood the New list.

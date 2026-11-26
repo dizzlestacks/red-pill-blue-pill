@@ -62,7 +62,7 @@
             <div class="actions"><button id="save-video" class="primary" disabled>Save video</button><button id="reset-video" type="button">Clear form</button></div>
           </form></section>
         </div>
-        <section id="review-panel" class="panel"><header class="panel-head"><h2>Imports and review</h2><button id="queue-refresh" type="button">Refresh</button></header><div class="searchbox"><label for="queue-filter">Show imports<select id="queue-filter"><option value="">All imports</option><option value="review">Awaiting publish</option><option value="failed">Need help</option><option value="active">In progress</option></select></label></div><div id="queue"><div class="skeleton"></div></div></section>
+        <section id="review-panel" class="panel"><header class="panel-head"><h2>Imports and review</h2><button id="queue-refresh" type="button">Refresh</button></header><div class="searchbox"><label for="queue-filter">Show imports<select id="queue-filter"><option value="">All imports</option><option value="review">Ready to publish</option><option value="needhelp">Need help</option><option value="failed">Failed</option><option value="active">In progress</option><option value="done">Done</option></select></label><button id="queue-remove-all" class="danger" type="button" hidden>Remove all in this list</button></div><div id="queue"><div class="skeleton"></div></div></section>
       </section>
       <section id="automatic" role="tabpanel" aria-labelledby="tab-automatic" hidden>
         <header class="page-heading"><div class="eyebrow">A little less to do by hand</div><h1>Let it come to you.</h1><p class="muted">Watch for new posts or bring your older TikToks home.</p></header>
@@ -77,7 +77,15 @@
             <div class="watcher-readout"><p id="watcher-error" class="help error"></p><p id="watcher-last" class="help"></p><p id="watcher-next" class="help"></p><details><summary>Recent checks</summary><p id="watcher-free" class="help"></p><p id="watcher-history" class="help"></p><div class="actions"><button id="watcher-older" type="button" disabled>Import next older posts</button><button id="watcher-refresh" type="button">Refresh</button></div></details><div class="actions"><button id="watcher-check" type="button" disabled>Check now</button></div></div>
           </div></section>
           <section class="panel"><header class="panel-head"><h2>Import everything</h2><span id="back-badge" class="badge">Checking</span></header><div class="panel-body stack"><p>Bring in every available TikTok post. Existing posts are skipped and clear matches become backups.</p><p id="back-status" role="status">Checking older imports…</p><div class="actions" id="back-actions"></div><details><summary>Options and matches</summary><p class="help">You will see a space estimate before starting. Imports pause if space runs low. TikTok imports never request end cards.</p><h3>Matched videos</h3><div id="back-matches"></div></details></div></section>
-          <section class="panel"><header class="panel-head"><h2>YouTube watcher</h2></header><div class="panel-body stack"><label class="toggle-line" for="youtube-enabled">Watch for new videos<input id="youtube-enabled" class="switch-input" type="checkbox" role="switch" disabled aria-describedby="youtube-help"></label><p id="youtube-help" class="help">Not available yet. You can add individual YouTube links in Add.</p><details><summary>Options</summary><p class="help">There are no YouTube watcher settings yet. This switch will stay off.</p><button type="button" data-go="add">Add a YouTube link</button></details></div></section>
+          <section id="youtube-panel" class="panel youtube-panel"><header class="panel-head"><h2>YouTube watcher</h2><span id="youtube-badge" class="badge">Checking</span></header><div class="panel-body stack">
+            <label class="toggle-line" for="youtube-enabled">Watch channels and playlists<input id="youtube-enabled" class="switch-input" type="checkbox" role="switch" disabled aria-describedby="youtube-help"></label>
+            <p id="youtube-help" class="help" role="status">Checking YouTube watching…</p>
+            <p class="help">Choose which channels and playlists are watched on the you2mp3 developers page. They appear here after the next check.</p>
+            <div id="youtube-sources" class="yt-sources"></div>
+            <label for="youtube-view">Show videos<select id="youtube-view"><option value="new">New</option><option value="earlier">Already there when watching began</option><option value="added">Added</option><option value="declined">Declined</option></select></label>
+            <div id="youtube-videos" class="yt-videos"></div>
+            <div class="actions"><button id="youtube-check" type="button" disabled>Check now</button><button type="button" data-go="add">Add a YouTube link</button></div>
+          </div></section>
         </div>
       </section>
       <section id="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>

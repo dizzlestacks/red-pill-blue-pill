@@ -289,3 +289,20 @@ dialog h2 { line-height:1.4; }
 .check-row h3 { margin:0; font-size:16px; }
 .check-row .actions button { font-size:12px; padding:10px 12px; min-height:46px; }
 #checks-list:empty { display:none; }
+
+/* Import queue: removable cards and source thumbnails */
+.queue-card .badge[data-group="needhelp"],.queue-card .badge[data-group="failed"] { border-color:#e86b71; color:color-mix(in srgb,#e86b71 70%,var(--fg)); }
+.queue-card .badge[data-group="review"] { border-color:var(--accent); }
+.queue-card .source-thumb { max-height:240px; object-fit:cover; opacity:.82; filter:grayscale(.35); }
+.queue-card .reason { font-size:15px; color:var(--fg); }
+#queue-remove-all { margin-top:12px; min-height:46px; width:100%; }
+/* YouTube watcher */
+.yt-sources { display:grid; gap:10px; }
+.yt-source { border:1px solid var(--border); padding:12px 14px; }
+.yt-source .toggle-line { overflow-wrap:anywhere; }
+.yt-videos { display:grid; gap:12px; }
+.yt-video { display:grid; grid-template-columns:132px 1fr; gap:14px; border:1px solid var(--border); padding:12px; }
+.yt-video img { width:132px; aspect-ratio:16/9; object-fit:cover; background:#000; }
+.yt-video h3 { font-size:15px; margin:0 0 4px; overflow-wrap:anywhere; }
+.yt-video .actions { margin-top:8px; }
+@media(max-width:520px) { .yt-video { grid-template-columns:1fr; } .yt-video img { width:100%; } }

@@ -213,7 +213,7 @@ def check(older=False):
             disk_guard()
             result = store.enqueue(**post, automatic=True, auto_publish=s["auto_publish"],
                                    add_end_card=s["add_end_card"])
-            count += result["status"] != "duplicate skipped"
+            count += result["status"] not in ("duplicate skipped", "removed by owner")
         fields = {"history_cursor" if older else "cursor": next_cursor}
         if older:
             fields["history_done"] = not page["has_more"]

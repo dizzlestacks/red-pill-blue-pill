@@ -15,7 +15,7 @@ import lite_site
 
 FILES = [
     "server.py", "admin_store.py", "media_worker.py", "durable_state.py", "tiktok_watch.py", "watch_provider.py", "back_catalog.py",
-    "disk_storage.py", "playback.py", "media_check.py", "nas_library.py", "tiktok_links.py", "public_sync.py", "public_catalog.py", "public-backups.js", "lite_site.py", "admin.html", "admin.css", "admin.js",
+    "disk_storage.py", "playback.py", "media_check.py", "nas_library.py", "queue_actions.py", "youtube_watch.py", "tiktok_links.py", "public_sync.py", "public_catalog.py", "public-backups.js", "lite_site.py", "admin.html", "admin.css", "admin.js",
     "editor.html", "index.html", "choice.html", "videos.html", "learn.html",
     "readonly.html", "reset.html", "404.html", "videos.js", "themes.css", "backup-player.js",
     "offline.js", "service-worker.js", "videos.json",

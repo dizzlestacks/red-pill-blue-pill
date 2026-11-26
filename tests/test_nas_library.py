@@ -149,6 +149,20 @@ class LibraryTests(unittest.TestCase):
         self.assertFalse(any(self.nas.glob(lib.MOVING + "/*")))
         self.assertFalse((self.nas / "Videos/TRUTH").exists())  # Emptied category folders are tidied away.
 
+    def test_copy_removed_from_pi_moves_to_removed_from_site(self):
+        self.add("RRRRRRRRRRR", "Unwanted", ["TRUTH"])
+        self.run_pass()
+        self.videos.clear()
+        self.save()
+        with store.db() as c:  # Removed from the import list: the Pi copy and its record are gone.
+            c.execute("DELETE FROM media WHERE source_key='yt:RRRRRRRRRRR'")
+        (self.data / "objects/media/RRRRRRRRRRR.mp4").unlink()
+        self.run_pass()
+        self.assertEqual(self.files(), [])
+        self.assertTrue((self.nas / "Removed from site/Videos/TRUTH/2025-07-06 - Unwanted.mp4").is_file())
+        self.run_pass()  # Stays put; not tracked any more.
+        self.assertTrue((self.nas / "Removed from site/Videos/TRUTH/2025-07-06 - Unwanted.mp4").is_file())
+
     def test_swapped_titles_do_not_collide(self):
         self.add("JJJJJJJJJJJ", "Alpha", ["A"], content=b"one")
         self.add("KKKKKKKKKKK", "Beta", ["A"], content=b"two")

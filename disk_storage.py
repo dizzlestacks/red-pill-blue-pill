@@ -81,6 +81,10 @@ class DiskStorage:
             file.write_bytes(data)
             self.upload_from_filename(name, file)
 
+    def delete(self, name):
+        """Remove one object from the Pi's data folder (never the NAS)."""
+        self.path(name).unlink(missing_ok=True)
+
     def download_to_filename(self, name, destination):
         atomic_copy(self.path(name), destination)
 

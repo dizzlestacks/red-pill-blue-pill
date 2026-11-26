@@ -1,4 +1,6 @@
-# Current release: 2026.11.15.6
+# Current release: 2026.11.15.11
+
+Latest changes (NAS library, removable import-queue items, clearer cards, YouTube copies and watching): see [release notes](pi/RELEASE-2026.11.15.11.md).
 
 The real watched-profile adapter is connected. Existing posts are opt-in batches; automatic imports only include posts newer than the persisted watching start time. See [release notes](pi/RELEASE-2026.11.15.6.md).
 

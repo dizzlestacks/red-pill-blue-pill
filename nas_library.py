@@ -388,6 +388,19 @@ def sync(root, client, deadline=None):
             # Content no longer wanted for this video (for example replaced by a re-download): set aside.
             moves.append((leftover, {"path": f"{SET_ASIDE}/replaced/{leftover['path']}", "role": "set-aside",
                                      "sha256": leftover["sha256"], "size": leftover["size"]}, e["key"]))
+    # Saved copies removed from the Pi (for example removed from the import list before
+    # publishing): move their NAS files to "Removed from site" and stop tracking them.
+    wanted = {e["key"] for e in entries}
+    for key, have in by_key.items():
+        if key in wanted:
+            continue
+        for r in have:
+            if r["path"].startswith(REMOVED + "/"):
+                with store.db() as c:
+                    c.execute("DELETE FROM library_files WHERE path=?", (r["path"],))
+                continue
+            moves.append((r, {"path": f"{REMOVED}/{r['path']}", "role": "set-aside",
+                              "sha256": r["sha256"], "size": r["size"]}, key))
     # Two steps so swaps and chains of renames never collide.
     for r, f, key in moves:
         temp = f"{MOVING}/{uuid.uuid4().hex}.mp4"

@@ -78,10 +78,12 @@ def api(path, payload=None, idempotency=None, binary=False):
         if not r.ok or 300 <= r.status_code < 400:
             status = r.status_code
             r.close()
-            messages = {401: "Connection key expired or invalid", 403: "Connection does not permit this operation",
-                        402: "Account download allowance or plan limit reached", 409: "Upstream request outcome is uncertain or conflicts; same request retained",
-                        410: "Idempotency receipt expired; manual reconciliation required",
-                        429: "Account rate limit reached; waiting before retry"}
+            messages = {401: "you2mp3 refused the connection key. Check YOU2MP3_API_KEY on the Pi.",
+                        403: "This you2mp3 connection isn't allowed to do this.",
+                        402: "Your you2mp3 download allowance for this month is used up.",
+                        409: "you2mp3 couldn't confirm whether this download started.",
+                        410: "you2mp3 no longer remembers this request.",
+                        429: "you2mp3 asked the Pi to slow down. It will try again shortly."}
             raise UpstreamError(status, messages.get(status, f"Media service returned HTTP {status}"))
         if binary:
             return r
@@ -138,13 +140,33 @@ def verify_media(path):
     return duration
 
 
-def copy_media(job, filename):
-    if not isinstance(filename, str) or "/" in filename or "\\" in filename or len(filename) > 255:
-        raise ValueError("Media service returned an invalid filename")
+class Removed(Exception):
+    """The owner removed this item while it was downloading."""
+
+
+def file_path(file_url):
+    """you2mp3's output.fileUrl ("/api/v1/files/...") as a path under the API base."""
+    from urllib.parse import urlparse
+    parsed = urlparse(str(file_url or ""))
+    if parsed.scheme and (parsed.scheme != "https" or parsed.hostname != "you2mp3.music"):
+        raise ValueError("Media service returned a file link on another site")
+    path = parsed.path
+    if path.startswith("/api/v1/"):
+        path = path[len("/api/v1"):]
+    if not path.startswith("/files/") or ".." in path.split("/") or len(path) > 400:
+        raise ValueError("Media service returned an invalid file link")
+    return path
+
+
+def copy_media(job, filename=None, path=None):
+    if path is None:
+        if not isinstance(filename, str) or "/" in filename or "\\" in filename or len(filename) > 255:
+            raise ValueError("Media service returned an invalid filename")
+        path = "/files/" + quote(filename, safe="")
     tiktok_watch.disk_guard()
     with tempfile.TemporaryDirectory(prefix="waw-media-", dir=store.STATE) as folder:
         video = Path(folder) / "source.mp4"
-        response = api("/files/" + quote(filename, safe=""), binary=True)
+        response = api(path, binary=True)
         digest, size = hashlib.sha256(), 0
         try:
             with video.open("wb") as f:
@@ -200,7 +222,17 @@ def copy_media(job, filename):
             client.upload_from_filename(poster_key, str(poster))
         except Exception:
             poster_key = None
-        with store.db() as c:
+        with store.LOCK, store.db() as c:
+            if not c.execute("SELECT 1 FROM jobs WHERE id=?", (job["id"],)).fetchone():
+                # Removed from the queue during the download: keep nothing.
+                for key in (object_key, poster_key):
+                    if key and not c.execute("SELECT 1 FROM media WHERE object_key=? OR poster_key=? OR play_key=?",
+                                             (key, key, key)).fetchone():
+                        try:
+                            client.delete(key)
+                        except Exception:
+                            pass
+                raise Removed()
             c.execute("""INSERT OR REPLACE INTO media
                 (source_key,object_key,poster_key,size,sha256,duration,created) VALUES(?,?,?,?,?,?,?)""",
                       (job["source_key"], object_key, poster_key, size, digest.hexdigest(), duration, time.time()))
@@ -230,10 +262,11 @@ def process(job):
             store.publish(job["id"])
             return
         tiktok_watch.disk_guard()
-        capabilities = api("/capabilities")
+        youtube_import = job["kind"] == "youtube" and (not job["upstream_id"] or job.get("upstream_kind") == YT_IMPORT)
+        capabilities = {} if youtube_import else api("/capabilities")
         restriction = capabilities.get("restriction")
-        if job["kind"] == "youtube" and restriction == "tiktok-imports":
-            store.update_job(job["id"], status="blocked", reason="This connection is TikTok-only and cannot fetch YouTube. Retry after authorized access is granted.")
+        if job["kind"] == "youtube" and not youtube_import and restriction == "tiktok-imports":
+            store.update_job(job["id"], status="blocked", reason=YT_OFF)
             return
         if job["kind"] == "tiktok" and restriction not in (None, "tiktok-imports"):
             store.update_job(job["id"], status="blocked", reason="Connection restriction is not supported")
@@ -245,6 +278,10 @@ def process(job):
         if job["status"] == "problem":
             # Automatic or requested re-download: a fresh request to the media service, same settings.
             job = media_check.prepare_redownload(job)
+            youtube_import = job["kind"] == "youtube"
+        if youtube_import:
+            process_youtube(job)
+            return
         if not job["upstream_id"]:
             with store.LOCK:
                 job = store.get_job(job["id"])
@@ -281,14 +318,7 @@ def process(job):
             if not watch_provider.PROVIDER.final_ready(result):
                 store.update_job(job["id"], status="processing", reason="Waiting for the final end-card output")
                 return
-            store.update_job(job["id"], status="copying", reason="Verifying video and copying to permanent storage")
-            copy_media(job, result["outputFilename"])
-            store.update_job(job["id"], status="copying", reason="Checking picture and sound play from start to end")
-            outcome = media_check.verify(job["source_key"])
-            if not media_check.finish_import(store.get_job(job["id"]), outcome):
-                return
-            if job.get("automatic") and job.get("auto_publish") and store.get_job(job["id"])["status"] == "imported":
-                store.publish(job["id"])
+            save_copy(job, filename=result["outputFilename"])
         elif status in ("error", "cancelled"):
             # Do not leak arbitrary upstream errors (which may include credentials or internal URLs).
             raise ValueError("Media service " + status + ". Check the source's availability and connection permissions.")
@@ -298,13 +328,110 @@ def process(job):
         media_check.flag_problem(store.get_job(job["id"]), p.reason)
     except (tiktok_watch.Paused, watch_provider.Unavailable) as e:
         store.update_job(job["id"], status="blocked", reason=str(e))
+    except Removed:
+        return
     except UpstreamError as e:
+        if e.status in (409, 410):
+            uncertain(job)
+            return
         retryable = e.status in (0, 429, 502, 503, 504)
         store.update_job(job["id"], status="processing" if retryable else ("blocked" if e.status in (401, 402, 403, 409, 410) else "failed"),
                          reason=str(e))
     except Exception as e:
         reason = str(e) if isinstance(e, ValueError) else "Copy or verification failed. Check storage access and retry; no backup was published."
         store.update_job(job["id"], status="failed", reason=reason)
+
+
+YT_IMPORT = "youtube-import"
+YT_OFF = "YouTube copies are not switched on for this connection yet."
+CHECKING = "Checking with you2mp3 whether this download started."
+UNCONFIRMED = "you2mp3 couldn't confirm whether this download started. Retry starts a fresh download."
+
+
+def save_copy(job, filename=None, path=None):
+    """Copy the finished file, check picture and sound, then mark it ready (and publish if automatic)."""
+    import media_check
+    store.update_job(job["id"], status="copying", reason="Copying the video to the Pi")
+    if path is None:
+        copy_media(job, filename)
+    else:
+        copy_media(job, path=path)
+    store.update_job(job["id"], status="copying", reason="Checking picture and sound play from start to end")
+    outcome = media_check.verify(job["source_key"])
+    if not media_check.finish_import(store.get_job(job["id"]), outcome):
+        return
+    if job.get("automatic") and job.get("auto_publish") and store.get_job(job["id"])["status"] == "imported":
+        store.publish(job["id"])
+
+
+def uncertain(job):
+    """you2mp3 couldn't confirm a request: ask again a few times (the same request), then offer Retry/Remove."""
+    checks = (store.get_job(job["id"]).get("uncertain_checks") or 0) + 1
+    if checks < 4:
+        store.update_job(job["id"], status="blocked", reason=CHECKING, uncertain_checks=checks)
+    else:
+        store.update_job(job["id"], status="failed", reason=UNCONFIRMED, uncertain_checks=checks, fresh_retry=1)
+
+
+def youtube_payload(job):
+    meta = json.loads(job.get("metadata") or "null") or {}
+    if meta.get("youtube_watch") and not meta.get("manual_fallback"):
+        return {"mode": "watched", "videoId": job["source_key"][3:], "requestId": job["idempotency"], "addEndCard": False}
+    return {"mode": "manual", "url": job["url"], "requestId": job["idempotency"], "addEndCard": False}
+
+
+def process_youtube(job):
+    """Single YouTube videos through you2mp3's YouTube import API (manual links and watched sources)."""
+    import durable_state
+    if not job["upstream_id"]:
+        with store.LOCK:
+            job = store.get_job(job["id"])
+            payload = json.loads(job["payload"]) if job["payload"] else None
+            if not payload or "mode" not in payload or payload.get("requestId") != job["idempotency"]:
+                payload = youtube_payload(job)
+            tiktok_watch.admit(job)
+            store.update_job(job["id"], payload=json.dumps(payload), status="processing", reason="Asking you2mp3 for a copy")
+        durable_state.checkpoint(required=True)
+        try:
+            result = api("/youtube-watch/imports", payload, job["idempotency"])
+        except UpstreamError as e:
+            if e.status == 403 and payload["mode"] == "watched":
+                # No longer listed by a watched source: ask for it as a single video instead.
+                meta = json.loads(job.get("metadata") or "null") or {}
+                with store.db() as c:
+                    c.execute("UPDATE jobs SET metadata=?, payload=NULL WHERE id=?",
+                              (json.dumps(dict(meta, manual_fallback=True)), job["id"]))
+                store.update_job(job["id"], status="queued", reason="")
+                return
+            if e.status in (403, 404, 501):
+                store.update_job(job["id"], status="blocked", reason=YT_OFF)
+                return
+            if e.status == 400:
+                store.update_job(job["id"], status="failed", reason="you2mp3 only copies single public YouTube videos, not channels or playlists.")
+                return
+            raise
+        item = result.get("import") if isinstance(result.get("import"), dict) else {}
+        number = result.get("id", item.get("id"))
+        if type(number) is not int:
+            raise ValueError("you2mp3 didn't return an import number")
+        store.update_job(job["id"], upstream_id=number, upstream_kind=YT_IMPORT)
+        job = store.get_job(job["id"])
+    data = api(f"/youtube-watch/imports/{int(job['upstream_id'])}")
+    item = data.get("import") if isinstance(data.get("import"), dict) else data
+    status = str(item.get("status") or "")
+    why = str(item.get("reason") or item.get("error") or "")[:200]
+    if item.get("transferReady") is True:
+        save_copy(job, path=file_path((item.get("output") or {}).get("fileUrl")))
+    elif status == "rejected":
+        store.update_job(job["id"], status="failed", reason="YouTube won't allow a copy of this video" + (f" ({why})." if why else "."))
+    elif status == "error":
+        store.update_job(job["id"], status="failed", reason="you2mp3 couldn't download it" + (f" ({why})." if why else ".") + " Retry tries again.")
+    elif status in ("revoked", "cancelled"):
+        store.update_job(job["id"], status="failed", reason="The request was cancelled at you2mp3. Retry asks again.", fresh_retry=1)
+    else:
+        waiting = {"pending": "Waiting its turn at you2mp3", "admitting": "Starting at you2mp3", "admitted": "Downloading at you2mp3",
+                   "done": "Finishing at you2mp3"}.get(status, "Waiting at you2mp3")
+        store.update_job(job["id"], status="processing", reason=waiting + (f": {why}" if why and status == "pending" else ""))
 
 
 LAST_HEARTBEAT = 0
@@ -336,9 +463,12 @@ def run():
                   OR (status='problem' AND download_attempts < ? AND updated < ?)
                   OR (status='blocked' AND kind!='unsupported' AND updated < ? AND
                   (reason LIKE 'This connection is TikTok-only%' OR reason LIKE 'App Storage%' OR reason LIKE 'Storage unavailable%'
-                   OR reason LIKE 'Imports paused:%' OR reason LIKE 'Per-request end cards%'))
+                   OR reason LIKE 'Imports paused:%' OR reason LIKE 'Per-request end cards%' OR reason LIKE 'Checking with you2mp3%'))
+                  OR (status='blocked' AND reason LIKE 'YouTube copies are not switched on%' AND updated < ?)
                   ORDER BY updated LIMIT 1""", (media_check.MAX_DOWNLOADS, time.time() - media_check.RETRY_DELAY,
-                                                time.time() - 60)).fetchone()
+                                                time.time() - 60, time.time() - 1800)).fetchone()
+            import queue_actions
+            queue_actions.run_cancels()
             if job:
                 process(dict(job))
                 # Paused run jobs must not starve independent new-post work.

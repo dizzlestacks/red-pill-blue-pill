@@ -59,9 +59,25 @@ def init():
             "add_end_card": "INTEGER",
             "source_date": "TEXT",
             "metadata": "TEXT",
+            # "youtube-import" when the request went through you2mp3's YouTube import API.
+            "upstream_kind": "TEXT",
+            # Times we've asked you2mp3 about a request whose outcome it couldn't confirm.
+            "uncertain_checks": "INTEGER NOT NULL DEFAULT 0",
+            # Retry must start a brand-new request (the old one's outcome is unknown).
+            "fresh_retry": "INTEGER NOT NULL DEFAULT 0",
         }.items():
             if name not in columns:
                 c.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
+        # Posts/videos the owner removed from the queue: watchers never bring them back.
+        c.execute("""CREATE TABLE IF NOT EXISTS removed_sources (source_key TEXT PRIMARY KEY, url TEXT NOT NULL,
+                     title TEXT NOT NULL, removed REAL NOT NULL)""")
+        # you2mp3 requests to cancel; retried by the worker so removing never waits on the network.
+        c.execute("""CREATE TABLE IF NOT EXISTS pending_cancels (id TEXT PRIMARY KEY, path TEXT NOT NULL,
+                     tries INTEGER NOT NULL DEFAULT 0, next_try REAL NOT NULL, created REAL NOT NULL)""")
+        # Older releases left "outcome uncertain" items stuck: check them again automatically.
+        c.execute("""UPDATE jobs SET reason='Checking with you2mp3 whether this download started.', uncertain_checks=0
+                     WHERE status='blocked' AND (reason LIKE 'Upstream request outcome is uncertain%'
+                     OR reason LIKE 'Idempotency receipt expired%')""")
         import playback
         playback.init(c)
         import media_check
@@ -76,6 +92,8 @@ def init():
                 c.execute("UPDATE jobs SET title=? WHERE id=?", ("Untitled " + date, job["id"]))
     import tiktok_watch
     tiktok_watch.init()
+    import youtube_watch
+    youtube_watch.init()
     import back_catalog
     back_catalog.init()
 
@@ -273,6 +291,11 @@ def enqueue(url, video_id=None, title="", tags=None, *, automatic=False,
         add_end_card = False
     now = time.time()
     with LOCK, db() as c:
+        if automatic and c.execute("SELECT 1 FROM removed_sources WHERE source_key=?", (key,)).fetchone():
+            # Removed by the owner: only adding it again by hand brings it back.
+            return {"id": "", "status": "removed by owner"}
+        if not automatic:
+            c.execute("DELETE FROM removed_sources WHERE source_key=?", (key,))
         if video_id is None:
             for v in load_catalog()[0]["videos"]:
                 try:
@@ -319,7 +342,7 @@ def enqueue_unsupported(v, reason):
 
 def update_job(jid, **fields):
     allowed = {"status", "reason", "upstream_id", "payload", "title", "tags", "attempts", "add_end_card",
-               "idempotency", "download_attempts", "return_status"}
+               "idempotency", "download_attempts", "return_status", "upstream_kind", "uncertain_checks", "fresh_retry"}
     if not fields.keys() <= allowed:
         raise ValueError("Invalid job update")
     fields["updated"] = time.time()

@@ -113,9 +113,9 @@
     state.csrf=csrf; state.signedIn=true; $('login').hidden=true; $('console').hidden=false; $('logout').hidden=false; $('password').value=''; notice('');
     resetForm();
     try {$('first-guide').hidden=localStorage.getItem('admin:guide:phone-2026-11-15')==='seen';} catch {$('first-guide').hidden=false;}
-    await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks()]);
+    await Promise.allSettled([loadCatalog(),loadQueue(true),loadWatcher(true),loadOverview(),loadChecks(),loadYouTube()]);
     loadSync();
-    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();},5000);
+    clearInterval(state.poll); if(state.signedIn) state.poll=setInterval(()=>{loadQueue(true);loadSync();loadWatcher(true);loadOverview();if(!checksTimer)loadChecks();if(++state.ticks%6===0)loadYouTube();},5000);
   }
   async function session() {
     $('session-retry').hidden=true; $('login-submit').disabled=true; $('password').disabled=true; $('login-submit').textContent='Checking access…';
@@ -462,6 +462,51 @@
   watcherFields.forEach(id=>$(id).addEventListener('input',markWatcherDirty));
   $('watcher-reset').addEventListener('click',()=>{watcherEditVersion++;state.watcherDirty=false;fillWatcher();watcherControls();notice('Watcher edits discarded.');});
   $('watcher-refresh').addEventListener('click',()=>loadWatcher());
+  const YT_STATE={watching:'Watching',unsupported:'Not switched on',failed:'Problem','waiting for connection':'Needs setup',pending:'Starting'};
+  let ytBusy=false;
+  async function loadYouTube(){
+    if(!state.signedIn)return;
+    try{
+      const data=await api('/api/admin/youtube?view='+encodeURIComponent($('youtube-view').value));
+      const sig=JSON.stringify([data,ytBusy]);if(sig===state.ytSig)return;state.ytSig=sig;
+      $('youtube-badge').textContent=data.enabled?(YT_STATE[data.status]||plainStatus(data.status)):'Off';
+      $('youtube-enabled').checked=!!data.enabled;$('youtube-enabled').disabled=ytBusy;$('youtube-check').disabled=ytBusy;
+      const when=data.last_check?'Last checked '+new Date(data.last_check*1000).toLocaleString()+'.':'Not checked yet.';
+      $('youtube-help').textContent=data.error?data.error:data.enabled?`${when} New videos from your sources wait here for you to add or decline.`:'Off. Turn on to check your sources every '+data.interval_minutes+' minutes.';
+      $('youtube-help').classList.toggle('error',!!data.error);
+      const sources=$('youtube-sources');sources.replaceChildren();
+      for(const src of data.sources||[]){
+        const row=node('div',undefined,'yt-source'),label=node('label',undefined,'toggle-line'),input=node('input');
+        input.type='checkbox';input.className='switch-input';input.setAttribute('role','switch');input.id='yt-auto-'+src.id.replace(/[^A-Za-z0-9_-]/g,'');input.checked=!!src.auto_add;label.htmlFor=input.id;
+        label.append(document.createTextNode(`Add new videos from “${src.title||src.name||src.url||'source'}” automatically`),input);
+        input.addEventListener('change',async()=>{input.disabled=true;try{await api('/api/admin/youtube/source',{source_id:src.id,auto_add:input.checked});notice(input.checked?'New videos from this source will be added automatically.':'New videos from this source will wait for you.');}catch(e){input.checked=!input.checked;notice(e.message,true);}finally{input.disabled=false;}});
+        row.append(label);
+        const info=[src.kind||src.type,src.lastError?'Last check failed: '+src.lastError:src.warning||'',src.lastSuccess?'Checked '+new Date(src.lastSuccess).toLocaleString():''].filter(Boolean).join(' · ');
+        if(info)row.append(node('p',info,'help'));
+        sources.append(row);
+      }
+      if(!(data.sources||[]).length&&data.status==='watching')sources.append(node('p','No channels or playlists are being watched yet.','help'));
+      const list=$('youtube-videos');list.replaceChildren();
+      for(const v of data.videos||[]){
+        const card=node('article',undefined,'yt-video'),img=node('img'),body=node('div',undefined,'yt-video-body');
+        img.src=safeURL(v.thumbnail);img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
+        const meta=[v.channel,v.publishedAt?new Date(v.publishedAt).toLocaleDateString():'',v.unavailable?'No longer on YouTube':''].filter(Boolean).join(' · ');
+        body.append(node('h3',v.title||'Untitled video'),node('p',meta,'help'));
+        const acts=node('div',undefined,'actions');
+        const post=async(op,msg)=>{ytBusy=true;acts.querySelectorAll('button').forEach(b=>b.disabled=true);try{await api('/api/admin/youtube/'+op,{video_id:v.videoId});notice(msg);await loadQueue(true);await loadCatalog();}catch(e){notice(e.message,true);}finally{ytBusy=false;await loadYouTube();}};
+        if(v.decision==='added'||v.in_hub)acts.append(node('span','In your hub','help'));
+        else{const add=action('Add to hub',()=>post('add','Added to your hub. A copy has been requested.'));add.className='primary';acts.append(add);}
+        if(v.decision==='new'||v.decision==='baseline')acts.append(action('Decline',()=>post('decline','Declined. It won’t be suggested again.')));
+        if(v.decision==='declined')acts.append(action('Undo decline',()=>post('undecline','Back in New.')));
+        body.append(acts);card.append(img,body);list.append(card);
+      }
+      if(!(data.videos||[]).length)list.append(node('p','Nothing here.','help'));
+    }catch(error){$('youtube-help').textContent=error.message;}
+  }
+  state.ticks=0;
+  $('youtube-view').addEventListener('change',loadYouTube);
+  $('youtube-enabled').addEventListener('change',async()=>{ytBusy=true;try{await api('/api/admin/youtube',{enabled:$('youtube-enabled').checked});}catch(e){notice(e.message,true);}finally{ytBusy=false;await loadYouTube();}});
+  $('youtube-check').addEventListener('click',async()=>{ytBusy=true;try{await api('/api/admin/youtube/check',{});notice('Checking your YouTube sources. New videos appear here shortly.');}catch(e){notice(e.message,true);}finally{ytBusy=false;setTimeout(loadYouTube,4000);await loadYouTube();}});
   async function watcherRequest(operation,data,button) {
     if(state.watcherBusy)return;
     const version=watcherEditVersion;
@@ -538,30 +583,33 @@
         form.addEventListener('submit',async e=>{e.preventDefault(); if(record.item.status==='imported'&&!titleField.input.value.trim()) return; const data={title:titleField.input.value.trim(),tags:tags(tagField.input.value),needs_title:!meaningfulTitle(titleField.input.value)}; if(!requestLocked(record.item)){if(record.item.kind==='tiktok')data.add_end_card=false;else if(providerDefault.checked)data.use_provider_default=true;else data.add_end_card=endCard.checked;} await queueMutation(record,'review',data,()=>{draft.dirty=false; draft.title=titleField.input.value.trim(); draft.tags=tagField.input.value; draft.add_end_card=endCard.checked;draft.use_provider_default=providerDefault.checked; reviewStatus.textContent='Review saved.';});});
         container.append(el);
       }
-      record.item=item; record.title.textContent=displayTitle(item); record.badge.textContent=plainStatus(item.status); record.url.textContent=item.url||''; record.reason.textContent=item.reason||'';
+      record.item=item; record.title.textContent=displayTitle(item); const card=item.card||{label:plainStatus(item.status),line:item.reason||'',actions:['remove'],group:'active'};
+      record.badge.textContent=card.label; record.badge.dataset.group=card.group; record.url.textContent=item.url||''; record.reason.textContent=card.line||'';
       const locked=requestLocked(item);
       if(!record.draft.dirty && !record.busy) { record.titleInput.value=item.title||''; record.tagsInput.value=list(item.tags); record.endCard.checked=item.add_end_card??true; }
       if(locked) {record.endCard.checked=item.add_end_card===true;record.draft.add_end_card=item.add_end_card;record.providerDefault.checked=item.add_end_card==null;}
       record.providerDefault.disabled=locked||record.busy;
       record.endCard.disabled=locked||record.busy||record.providerDefault.checked;
-      record.endHelp.textContent=locked&&item.add_end_card!==false&&item.add_end_card!==0?'Previously submitted request: it may include an end card. Its request is preserved.':'No end card will be added to this TikTok import.';
+      record.endHelp.textContent=item.kind!=='tiktok'?'':locked&&item.add_end_card!==false&&item.add_end_card!==0?'Previously submitted request: it may include an end card. Its request is preserved.':'No end card will be added to this TikTok post.';
+      record.endHelp.hidden=!record.endHelp.textContent;
       renderPreview(record,item);
       const imported=item.status==='imported'; const published=item.status==='published'; record.form.hidden=published||item.status==='duplicate skipped';
       record.titleInput.required=imported;
       record.titleInput.disabled=record.busy||(!imported&&locked);record.tagsInput.disabled=record.busy||(!imported&&locked);
       record.save.disabled=record.busy||(!imported&&locked);
-      record.reviewStatus.textContent=record.draft.dirty?'You have unsaved review changes.':imported?(needsTitle(item)?'This video needs a useful title before you publish.':'Review the title and tags before publishing.'):locked?'Import in progress. You can review it when it finishes.':'You can save a title and tags while this import waits.';
-      const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty,item.can_keep_silent]);
+      record.reviewStatus.textContent=record.draft.dirty?'You have unsaved review changes.':imported?(needsTitle(item)?'This video needs a useful title before you publish.':'Review the title and tags before publishing.'):locked?(card.group==='active'?'You can edit the title and hashtags when the download finishes.':'You can edit the title and hashtags once it downloads.'):'You can save a title and hashtags while this waits.';
+      const controlsSignature=JSON.stringify([item.status,record.busy,record.draft.dirty,item.can_keep_silent,card.actions,item.remove_text]);
       if(record.controlsSignature===controlsSignature)continue;
       record.controlsSignature=controlsSignature;record.controls.replaceChildren();
-      const retry=action('Retry import',()=>queueMutation(record,'retry',{}),record.busy);
-      if(['failed','blocked','waiting for connection'].includes(item.status)) record.controls.append(retry);
+      const has=name=>card.actions.includes(name);
+      if(has('retry')) record.controls.append(action('Retry',()=>queueMutation(record,'retry',{}),record.busy));
+      if(has('addhub')) { const hub=action('Add to hub (YouTube only)',async()=>{ if(await confirmAction('Add to your hub now?','It appears in your hub straight away and plays from YouTube. Your own copy is still requested when YouTube copies are switched on.','Add to hub')) await queueMutation(record,'addhub',{}); },record.busy); hub.className='primary'; record.controls.append(hub); }
       if(item.status==='problem') {
         const again=action('Download again',()=>queueMutation(record,'redownload',{}),record.busy); again.className='primary'; record.controls.append(again);
         if(item.can_keep_silent) record.controls.append(action('Keep without sound',async()=>{ if(await confirmAction('Keep this video without sound?','Only do this if the original post really has no sound. It will be checked again and can then be published.','Keep without sound')) await queueMutation(record,'keepsilent',{}); },record.busy));
       }
       if(imported) { const publish=action('Publish to collection',async()=>{ if(await confirmAction('Publish this import?','This adds the imported video to your public catalogue with the saved review title and hashtags.','Publish video')) await queueMutation(record,'publish',{}); },record.busy||record.draft.dirty); publish.className='primary'; publish.dataset.publish='true'; record.controls.append(publish); }
-      if(published) record.controls.append(node('span','Published to collection','help'));
+      if(has('remove')) { const remove=action('Remove',async()=>{ if(await confirmAction('Remove from imports?',item.remove_text||'It is removed from the import list.','Remove')) await queueMutation(record,'remove',{}); },record.busy); remove.className='danger remove-item'; remove.setAttribute('aria-label','Remove '+displayTitle(item)+' from imports'); record.controls.append(remove); }
     }
     for(const [key,record] of state.queue) if(!present.has(key)) {record.el.remove();state.queue.delete(key);state.drafts.delete(key);}
   }
@@ -572,7 +620,12 @@
     const signature=JSON.stringify([url,st,item.preview_reason||'',item.poster_url||'',record.previewNonce||0]);
     if(signature===record.previewSignature) return;
     record.previewSignature=signature; record.preview.replaceChildren(); record.preview.className='queue-preview';
-    if(!url) return;
+    if(!url) {
+      // No saved copy yet: show the source's own thumbnail so the card is recognisable.
+      const thumb=safeURL(item.card?.thumbnail);
+      if(thumb) { const img=node('img'); img.src=thumb; img.alt='Thumbnail from the original post'; img.className='preview-poster source-thumb'; img.loading='lazy'; img.referrerPolicy='no-referrer'; img.addEventListener('error',()=>img.remove()); record.preview.append(img); }
+      return;
+    }
     const poster=safeURL(item.poster_url), status=node('p','', 'help preview-status'), retry=node('button','Retry preview','preview-retry');
     status.setAttribute('role','status'); retry.type='button'; retry.hidden=true;
     retry.addEventListener('click',()=>retryPreview(record,retry,status));
@@ -616,7 +669,7 @@
   function requestLocked(item) { return item.request_locked===true || item.payload!=null || item.upstream_id!=null; }
   async function queueMutation(record,operation,data,onSuccess) {
     if(record.busy) return; record.busy=true; record.el.querySelectorAll('button,input').forEach(b=>b.disabled=true);
-    try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='publish'?'Import published.':operation==='review'?'Review saved.':operation==='redownload'?'Downloading again. It will be checked before it can be published.':operation==='keepsilent'?'Kept without sound. Checking it plays.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
+    try { await api(`/api/admin/queue/${encodeURIComponent(record.item.id)}/${operation}`,data); if(onSuccess) onSuccess(); notice(operation==='remove'?'Removed from imports.':operation==='addhub'?'Added to your hub. It plays from YouTube.':operation==='publish'?'Import published.':operation==='review'?'Review saved.':operation==='redownload'?'Downloading again. It will be checked before it can be published.':operation==='keepsilent'?'Kept without sound. Checking it plays.':'Retry requested.'); if(operation==='publish') await loadCatalog(); }
     catch(error) { notice(error.message,true); } finally { record.busy=false;record.controlsSignature=null; await loadQueue(true); record.save.disabled=requestLocked(record.item)&&record.item.status!=='imported';record.titleInput.disabled=record.save.disabled;record.tagsInput.disabled=record.save.disabled;record.providerDefault.disabled=requestLocked(record.item);record.endCard.disabled=requestLocked(record.item)||record.providerDefault.checked; }
   }
   async function loadSync(){
@@ -642,13 +695,25 @@
     const filter=$('queue-filter').value;let visible=0;
     for(const record of state.queue.values()){
       const item=record.item;
-      record.el.hidden=filter==='review'?item.status!=='imported':filter==='failed'?!['failed','blocked','waiting for connection','problem'].includes(item.status):filter==='active'?!isActive(item):false;
+      const group=item.card?.group||(isActive(item)?'active':'done');
+      record.el.hidden=filter==='needhelp'?!['needhelp','failed'].includes(group):filter?group!==filter:false;
       if(!record.el.hidden)visible++;
     }
     let empty=$('queue-filter-empty');
     if(!empty){empty=node('div',undefined,'empty');empty.id='queue-filter-empty';empty.append(node('h3','Nothing in this view'),node('p','Choose another view to see your other imports.','help'));$('queue').after(empty);}
     empty.hidden=!state.items?.length||visible>0;
+    const bulk=$('queue-remove-all'); bulk.hidden=!['needhelp','failed'].includes(filter)||!visible;
+    bulk.textContent=`Remove all ${visible} in this list`;
   }
+  $('queue-remove-all').addEventListener('click',async()=>{
+    const group=$('queue-filter').value,button=$('queue-remove-all');
+    const count=[...state.queue.values()].filter(r=>!r.el.hidden).length;
+    if(!await confirmAction(`Remove ${count} item${count===1?'':'s'}?`,'Each is removed from the import list. Saved files that were never published are deleted from the Pi and their NAS copies move to "Removed from site". Open downloads at you2mp3 are cancelled, and watchers won\'t bring these back. Published videos stay in your hub.','Remove all'))return;
+    button.disabled=true;
+    try{const r=await api('/api/admin/queue/remove-all',{group});notice(`Removed ${r.removed} item${r.removed===1?'':'s'} from imports.`);}
+    catch(error){notice(error.message,true);}
+    finally{button.disabled=false;await loadQueue(true);}
+  });
   $('queue-filter').addEventListener('change',filterQueue);
   function goToReview(filter='') {
     openSection('add');$('queue-filter').value=filter;filterQueue();
@@ -681,7 +746,7 @@
     attentionItem(titles,'Need a title','Give these videos a name you will recognise.',()=>{openSection('videos');$('video-filter').value='title';renderEntries();});
     if(overview?.queue_needs_title)attentionItem(overview.queue_needs_title,'Imports need a title','Name these imports during review.',()=>goToReview('review'));
     attentionItem(overview?.problem_videos??null,'Videos with a problem','No sound, damaged or incomplete copies. Download them again.',()=>{openSection('videos');$('checks-panel').scrollIntoView({block:'start'});loadChecks();});
-    attentionItem(failed,'Imports need help','Check the reason and try again when ready.',()=>goToReview('failed'));
+    attentionItem(failed,'Imports need help','Check the reason and try again when ready.',()=>goToReview('needhelp'));
     attentionItem(setup,'Setup to finish','Check import connection, storage, NAS and sync.',()=>openSection('settings'));
     if(!attention.childElementCount)attention.append(node('h3','Nothing needs you right now.'),node('p','Your current imports and collection have no outstanding tasks.','help'));
     if(state.overviewError)attention.append(node('p','Some checks could not be loaded. Refresh to try again.','help'));
